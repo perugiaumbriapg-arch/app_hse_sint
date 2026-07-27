@@ -1,13 +1,4 @@
 streamlit
-pandas
-numpy
-pillow
 fpdf2
-# forziamo la build
-matplotlib
-plotly
-pypdf
-python-docx
+pandas
 openpyxl
-qrcode
-opencv-python-headless
