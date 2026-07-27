@@ -74,3 +74,4 @@ ultralytics-thop
 urllib3
 uvicorn
 websockets
+qrcode
