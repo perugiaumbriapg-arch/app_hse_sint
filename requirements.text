@@ -12,7 +12,6 @@ defusedxml
 et_xmlfile
 filelock
 fonttools
-fpdf
 fpdf2
 fsspec
 gitdb
