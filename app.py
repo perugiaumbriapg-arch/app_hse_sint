@@ -10,7 +10,15 @@ from PIL import Image
 import textwrap
 import json
 import io
-from fpdf import FPDF
+import subprocess
+import sys
+
+# Forza l'installazione automatica di fpdf2 se il server non l'ha caricata
+try:
+    from fpdf import FPDF
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "fpdf2"])
+    from fpdf import FPDF
 import matplotlib.pyplot as plt
 import base64
 import plotly.express as px
