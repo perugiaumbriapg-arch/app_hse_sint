@@ -892,12 +892,12 @@ if nav == "Conformità Legislativa":
                         file_qr_caricato = st.file_uploader("Carica un'immagine contenente un codice QR:", type=["png", "jpg", "jpeg"], key="uploader_file_qr_nativo")
                         if file_qr_caricato:
                                 risultato_priv = decodifica_qr_opencv(file_qr_caricato)
-                                    if risultato_priv:
-                                        st.success("Codice QR decodificato con successo!")
-                                        st.code(risultato_priv, language="text")
+                                if risultato_priv:
+                                    st.success("Codice QR decodificato con successo!")
+                                    st.code(risultato_priv, language="text")
                                 
-                                        if risultato_priv.startswith("http://") or risultato_priv.startswith("https://"):
-                                            st.markdown(f"[Clicca qui per aprire il link rilevato]({risultato_priv})")
+                                    if risultato_priv.startswith("http://") or risultato_priv.startswith("https://"):
+                                        st.markdown(f"[Clicca qui per aprire il link rilevato]({risultato_priv})")
                                     else:
                                         st.warning("Nessun codice QR valido rilevato all'interno dell'immagine caricata.")
 
