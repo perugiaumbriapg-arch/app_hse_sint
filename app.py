@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
-import qrcode
+import urllib.parse
 import cv2
 import numpy as np
 from PIL import Image
@@ -849,47 +849,58 @@ if nav == "Conformità Legislativa":
             with tab_admin2:
                 # Generazione QR
                 st.markdown("#### Genera QR Code")
-                opzione_qr = st.radio("Seleziona operazione QR:", ["Genera QR Code", "Leggi/Decodifica QR Code"], key="radio_opzioni_qr_pubblico")
-                img_ottenuta = None
-        
+                opzione_qr = st.radio(
+                    "Seleziona operazione QR:", 
+                    ["Genera QR Code", "Leggi/Decodifica QR Code"], 
+                    key="radio_opzioni_qr_pubblico"
+                )
+                
                 if opzione_qr == "Genera QR Code":
-                    testo_da_convertire = st.text_input("Inserisci l'URL o il testo da inserire nel QR Code:", placeholder="https://www.gazzettaufficiale.it/")
-                    if testo_da_convertire.strip():
-                        img_ottenuta = genera_qr_nativo(testo_da_convertire)
-                
-                    # Esegui la generazione e il salvataggio SOLO se il testo è presente
-                    if testo_da_convertire.strip():
-                        img_ottenuta = genera_qr_nativo(testo_da_convertire)
-        
-                    # Verifica che img_ottenuta non sia None (buona pratica)
-                        if img_ottenuta:
-                        # Salvataggio temporaneo per consentire la visualizzazione e il download
-                            percorso_temp_qr = "temp_generated_qr.png"
-                            img_ottenuta.save(percorso_temp_qr)
-                
-                            st.image(percorso_temp_qr, width=220, caption="Codice QR generato con successo!")
-                
-                            with open(percorso_temp_qr, "rb") as f_qr:
-                                st.download_button(
-                                    label="Scarica Immagine QR Code (.png)",
-                                    data=f_qr.read(),
-                                    file_name="qr_code_hse.png",
-                                    mime="image/png",
-                                    use_container_width=True
-                                )
+                    testo_da_convertire = st.text_input(
+                        "Inserisci l'URL o il testo da inserire nel QR Code:", 
+                        placeholder="https://www.gazzettaufficiale.it/", 
+                        key="input_testo_qr_gen"
+                    )
                     
-                elif opzione_qr == "Leggi/Decodifica QR Code":
-                    file_qr_caricato = st.file_uploader("Carica un'immagine contenente un codice QR:", type=["png", "jpg", "jpeg"], key="uploader_file_qr_nativo")
-                    if file_qr_caricato:
-                        risultato_priv = decodifica_qr_opencv(file_qr_caricato)
-                        if risultato_priv:
-                            st.success("Codice QR decodificato con successo!")
-                            st.code(risultato_priv, language="text")
-                    
-                            if risultato_priv.startswith("http://") or risultato_priv.startswith("https://"):
-                                st.markdown(f"[Clicca qui per aprire il link rilevato]({risultato_priv})")
-                        else:
-                            st.warning("Nessun codice QR valido rilevato all'interno dell'immagine caricata.")
+                    if testo_da_convertire.strip():
+                        # Genera l'URL dell'API pubblica per il QR Code (Zero librerie esterne richieste)
+                        qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(testo_da_convertire.strip())}"
+                        
+                        try:
+                            # Recupera l'immagine in formato binario usando la libreria standard Python
+                            with urllib.request.urlopen(qr_url) as response:
+                                qr_bytes = response.read()
+                            
+                            # Mostra l'immagine direttamente dai byte in memoria
+                            st.image(qr_bytes, width=220, caption="Codice QR generato con successo!")
+                            
+                            # Pulsante di download diretto
+                            st.download_button(
+                                label="Scarica Immagine QR Code (.png)",
+                                data=qr_bytes,
+                                file_name="qr_code_hse.png",
+                                mime="image/png",
+                                use_container_width=True,
+                                key="dl_btn_qr_code"
+                            )
+                        except Exception as e:
+                            st.error(f"Errore di connessione durante la generazione del QR Code: {e}")
+            
+                
+                else:
+                    st.info("ℹ️ La funzione di decodifica richiede librerie locali complesse non compatibili con l'ambiente cloud. Utilizza la sezione di generazione per creare e scaricare i codici QR.")
+                            elif opzione_qr == "Leggi/Decodifica QR Code":
+                                file_qr_caricato = st.file_uploader("Carica un'immagine contenente un codice QR:", type=["png", "jpg", "jpeg"], key="uploader_file_qr_nativo")
+                                if file_qr_caricato:
+                                    risultato_priv = decodifica_qr_opencv(file_qr_caricato)
+                                    if risultato_priv:
+                                        st.success("Codice QR decodificato con successo!")
+                                        st.code(risultato_priv, language="text")
+                                
+                                        if risultato_priv.startswith("http://") or risultato_priv.startswith("https://"):
+                                            st.markdown(f"[Clicca qui per aprire il link rilevato]({risultato_priv})")
+                                    else:
+                                        st.warning("Nessun codice QR valido rilevato all'interno dell'immagine caricata.")
 
                 # -----------------------------------------------------------
                 # VERIFICA AGGIORNAMENTI COGENTI CON LINK REALI
