@@ -5,7 +5,6 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 import urllib.request
-import cv2
 import numpy as np
 from PIL import Image
 import textwrap
