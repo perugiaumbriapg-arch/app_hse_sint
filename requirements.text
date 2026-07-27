@@ -74,5 +74,5 @@ ultralytics-thop>=2.0.20
 urllib3>=2.7.0
 uvicorn >=0.50.2
 websockets>=16.0
-qrcode>=7.4.2
+qrcode[pil]>=7.4.2
 pillow>=10.0.0
