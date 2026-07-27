@@ -886,10 +886,8 @@ if nav == "Conformità Legislativa":
                             )
                         except Exception as e:
                             st.error(f"Errore di connessione durante la generazione del QR Code: {e}")
-            
-                
-                else:
-                    st.info("ℹ️ La funzione di decodifica richiede librerie locali complesse non compatibili con l'ambiente cloud. Utilizza la sezione di generazione per creare e scaricare i codici QR.")
+                    else:
+                        st.info("ℹ️ La funzione di decodifica richiede librerie locali complesse non compatibili con l'ambiente cloud. Utilizza la sezione di generazione per creare e scaricare i codici QR.")
                             elif opzione_qr == "Leggi/Decodifica QR Code":
                                 file_qr_caricato = st.file_uploader("Carica un'immagine contenente un codice QR:", type=["png", "jpg", "jpeg"], key="uploader_file_qr_nativo")
                                 if file_qr_caricato:
