@@ -3,6 +3,7 @@ pandas
 numpy
 pillow
 fpdf2
+# forziamo la build
 matplotlib
 plotly
 pypdf
