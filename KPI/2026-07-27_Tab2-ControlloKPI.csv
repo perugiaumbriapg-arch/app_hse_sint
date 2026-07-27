@@ -1,0 +1,6 @@
+Stato_Colore,ID_KPI,Nome_KPI,Categoria,Unita_Misura,Cadenza,Prossima_Data,Formula,Baseline,Stato_Testo
+🟢,NM-01,Numero Totale Near Miss Segnalati,Volume,Numero,Settimanale,2026-08-03,Conteggio assoluto segnalazioni validate,Media storica di riferimento: 10,Regolare
+🟢,NM-02,Tasso di Risoluzione Near Miss,Efficacia,%,Settimanale,2026-08-03,(Parametro_1 / Parametro_2) * 100,Target minimo aziendale: 75%,Regolare
+🟢,NM-03,Tempo Medio di Presa in Carico,Reattività,Giorni,Bisettimanale,2026-08-03,Parametro_1 / Parametro_2,Target massimo accettabile: 2 giorni,Regolare
+🟢,NM-04,Addestramento-Formazione,Prevenzione,%,Annuale,2027-07-27,(Parametro_1 - Parametro_2 / Parametro_1) / Parametro_3 * 100,Nessuna baseline storica precedente.,Regolare
+🟢,NM-05,Verifica disponibilità PDI,Prevenzione,%,Settimanale,2026-08-03,(Parametro_1 / Parametro_2 ) / Parametro_3 * 100,Nessuna baseline storica precedente.,Regolare

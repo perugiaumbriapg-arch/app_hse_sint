@@ -1,0 +1,6 @@
+Data_Monitoraggio,ID_KPI,Nome_KPI,Valore_Registrato,Dettaglio_Fattori
+2026-07-20,NM-01,Numero Totale Near Miss Segnalati,12.0,Segnalazioni valide: 12
+2026-07-27,NM-01,Numero Totale Near Miss Segnalati,14.0,Segnalazioni valide: 14
+2026-07-20,NM-02,Tasso di Risoluzione Near Miss,70.0,Near Miss Chiusi: 35.0 / Near Miss Totali: 50.0
+2026-07-27,NM-02,Tasso di Risoluzione Near Miss,78.5,Near Miss Chiusi: 47.0 / Near Miss Totali: 60.0
+2026-07-27,NM-04,Addestramento-Formazione,66.67,N. totale ore Formazione Completata: 10.0 / N. totale ore Formazione : 15.0 / N. Totale lavoratori formati: 5.0

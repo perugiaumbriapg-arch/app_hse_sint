@@ -1,0 +1,4 @@
+ID_KPI,Nome_KPI,Categoria,Unita_Misura,Cadenza,Formula,Parametro_1,Parametro_2,Parametro_3,Baseline
+NM-01,Numero Totale Near Miss Segnalati,Volume,Numero,Settimanale,Conteggio assoluto segnalazioni validate,Segnalazioni valide,,,Media storica di riferimento: 10
+NM-02,Tasso di Risoluzione Near Miss,Efficacia,%,Settimanale,(Parametro_1 / Parametro_2) * 100,Near Miss Chiusi,Near Miss Totali,,Target minimo aziendale: 75%
+NM-03,Tempo Medio di Presa in Carico,Reattività,Giorni,Bisettimanale,Parametro_1 / Parametro_2,Somma giorni attesa,Numero totale pratiche,,Target massimo accettabile: 2 giorni
