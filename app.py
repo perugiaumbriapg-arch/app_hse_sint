@@ -11,7 +11,7 @@ import textwrap
 import json
 import io
 
-# Gestione sicura dell'importazione FPDF / FPDF2 per ambienti Cloud
+# Gestione sicura dell'importazione FPDF / FPDF2
 try:
     from fpdf import FPDF
 except ImportError:
@@ -20,13 +20,9 @@ except ImportError:
     except ImportError:
         FPDF = None
 
-import matplotlib
-matplotlib.use('Agg')  # Modalità non interattiva per ambienti cloud/server
-import matplotlib.pyplot as plt
 import base64
 import plotly.express as px
 import qrcode
-import cv2
 
 # Import per l'estrazione del testo dai file locali
 from pypdf import PdfReader
@@ -66,7 +62,6 @@ COLONNE_SCADENZARIO = [
     "Note"
 ]
 
-# Salva normativa di conformità legislativa - Aggiungi normativa
 def salva_normativa(chiave, titolo, url, descrizione):
     db = {}
     if os.path.exists("normative.json"):
@@ -229,7 +224,6 @@ def evidenzia_righe_scadenza(row):
         pass
     return [''] * len(row)
 
-# Funzione nativa per la generazione di QR Code (Ritorna un'immagine PIL)
 def genera_qr_nativo(data):
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
     qr.add_data(data)
@@ -238,6 +232,7 @@ def genera_qr_nativo(data):
 
 def decodifica_qr_opencv(image_file):
     try:
+        import cv2
         img = Image.open(image_file).convert('RGB')
         img_array = np.array(img)
         detector = cv2.QRCodeDetector()
@@ -968,6 +963,14 @@ elif nav == "Analisi - Fase 2":
                 st.error("Errore: la libreria 'fpdf2' non risulta ancora configurata nel sistema. Controlla il file requirements.txt.")
                 st.stop()
                 
+            try:
+                import matplotlib
+                matplotlib.use('Agg')
+                import matplotlib.pyplot as plt
+            except ImportError:
+                st.error("Errore: la libreria 'matplotlib' non risulta installata. Verifica il file requirements.txt.")
+                st.stop()
+
             temp_img = os.path.join(DIR_ANALISI, "temp_ishikawa.png")
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.axis('off')
