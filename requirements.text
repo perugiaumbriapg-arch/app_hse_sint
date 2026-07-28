@@ -1,4 +1,11 @@
 streamlit
-fpdf2
 pandas
 openpyxl
+fpdf2
+pypdf
+python-docx
+matplotlib
+plotly
+qrcode
+pillow
+opencv-python-headless
