@@ -28,9 +28,9 @@ from docx import Document
 # Puoi impostare questi valori tramite variabili d'ambiente o cambiarli qui di seguito
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_EMAIL = os.getenv("SMTP_EMAIL", "tuamail@gmail.com")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "vostra_password_app") # Password per le app di Google o SMTP
-DESTINATARIO_NOTIFICHE = os.getenv("DESTINATARIO_NOTIFICHE", "rspp_hse@azienda.com")
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "perugia.umbria.pg@gmail.com")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "Olleria2!") # Password per le app di Google o SMTP
+DESTINATARIO_NOTIFICHE = os.getenv("DESTINATARIO_NOTIFICHE", "perugia.umbria.pg@gmail.com")
 
 def invia_email_notifica(oggetto, corpo, destinatario=DESTINATARIO_NOTIFICHE):
     """
