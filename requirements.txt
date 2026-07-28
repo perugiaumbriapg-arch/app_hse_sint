@@ -9,4 +9,3 @@ plotly
 qrcode
 pillow
 opencv-python-headless
-email.message
