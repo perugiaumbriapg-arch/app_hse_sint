@@ -11,6 +11,8 @@ import textwrap
 import json
 import io
 from fpdf import FPDF
+import matplotlib
+matplotlib.use('Agg')  # Modalità non interattiva per ambienti cloud/server
 import matplotlib.pyplot as plt
 import base64
 import plotly.express as px
@@ -60,7 +62,7 @@ def salva_normativa(chiave, titolo, url, descrizione):
     db = {}
     if os.path.exists("normative.json"):
         try:
-            with open("normative.json", "r") as f:
+            with open("normative.json", "r", encoding="utf-8") as f:
                 db = json.load(f)
         except Exception:
             db = {}
@@ -71,8 +73,8 @@ def salva_normativa(chiave, titolo, url, descrizione):
         "desc": descrizione.strip()
     }
     
-    with open("normative.json", "w") as f:
-        json.dump(db, f, indent=4)
+    with open("normative.json", "w", encoding="utf-8") as f:
+        json.dump(db, f, indent=4, ensure_ascii=False)
 
 
 # ==================================================================
@@ -92,7 +94,7 @@ def estrai_testo_da_file(percorso_file):
             for p in doc.paragraphs:
                 testo += p.text + "\n"
         elif estensione in [".xlsx", ".xls", ".csv"]:
-            df = pd.read_excel(percorso_file) if "xls" in estensione else pd.read_csv(percorso_file, sep=";")
+            df = pd.read_excel(percorso_file) if "xls" in estensione else pd.read_csv(percorso_file, sep=";", encoding="utf-8")
             testo += df.to_string()
     except Exception as e:
         return f"[Errore lettura {os.path.basename(percorso_file)}: {e}]"
@@ -280,10 +282,10 @@ if nav == "Home Dashboard":
     
     colA, colB, colC = st.columns(3)
     with colA:
-        tot_nm = len(pd.read_csv(FILE_NEAR_MISS, sep=";")) if os.path.exists(FILE_NEAR_MISS) else 0
+        tot_nm = len(pd.read_csv(FILE_NEAR_MISS, sep=";", encoding="utf-8")) if os.path.exists(FILE_NEAR_MISS) else 0
         st.metric("Segnalazioni Ricevute", tot_nm)
     with colB:
-        tot_an = len(pd.read_csv(FILE_ANALISI_NM, sep=";")) if os.path.exists(FILE_ANALISI_NM) else 0
+        tot_an = len(pd.read_csv(FILE_ANALISI_NM, sep=";", encoding="utf-8")) if os.path.exists(FILE_ANALISI_NM) else 0
         st.metric("Analisi Trattate dal RSPP", tot_an)
     with colC:
         tot_scad = len(pd.read_excel(FILE_SCADENZARIO)) if os.path.exists(FILE_SCADENZARIO) else 0
@@ -432,9 +434,9 @@ elif nav == "Segnalazione Near Miss":
                 
                 df_nuovo = pd.DataFrame([nuovo_record])
                 if not os.path.isfile(FILE_NEAR_MISS):
-                    df_nuovo.to_csv(FILE_NEAR_MISS, index=False, sep=";")
+                    df_nuovo.to_csv(FILE_NEAR_MISS, index=False, sep=";", encoding="utf-8")
                 else:
-                    df_nuovo.to_csv(FILE_NEAR_MISS, mode='a', header=False, index=False, sep=";")
+                    df_nuovo.to_csv(FILE_NEAR_MISS, mode='a', header=False, index=False, sep=";", encoding="utf-8")
                 st.success("Segnalazione acquisita con successo nel file CSV locale!")
                 time.sleep(0.5)
                 st.rerun()
@@ -543,8 +545,8 @@ elif nav == "Analisi Segnalazioni Near Miss":
                 
     if st.session_state.autenticato_rspp:
         st.success("Autenticato")
-        df_segnalazioni = pd.read_csv(FILE_NEAR_MISS, sep=";") if os.path.exists(FILE_NEAR_MISS) else pd.DataFrame()
-        df_analisi = pd.read_csv(FILE_ANALISI_NM, sep=";") if os.path.exists(FILE_ANALISI_NM) else pd.DataFrame()
+        df_segnalazioni = pd.read_csv(FILE_NEAR_MISS, sep=";", encoding="utf-8") if os.path.exists(FILE_NEAR_MISS) else pd.DataFrame()
+        df_analisi = pd.read_csv(FILE_ANALISI_NM, sep=";", encoding="utf-8") if os.path.exists(FILE_ANALISI_NM) else pd.DataFrame()
         
         if "sub_sezione_rspp" not in st.session_state:
             st.session_state.sub_sezione_rspp = "compilazione"
@@ -634,9 +636,9 @@ elif nav == "Analisi Segnalazioni Near Miss":
                         }
                         df_n = pd.DataFrame([nuova_an])
                         if not os.path.isfile(FILE_ANALISI_NM):
-                            df_n.to_csv(FILE_ANALISI_NM, index=False, sep=";")
+                            df_n.to_csv(FILE_ANALISI_NM, index=False, sep=";", encoding="utf-8")
                         else:
-                            df_n.to_csv(FILE_ANALISI_NM, mode='a', header=False, index=False, sep=";")
+                            df_n.to_csv(FILE_ANALISI_NM, mode='a', header=False, index=False, sep=";", encoding="utf-8")
                         st.success("Analisi e relativi allegati salvati correttamente nel database locale!")
                         time.sleep(0.5)
                         st.rerun()
@@ -666,7 +668,7 @@ elif nav == "Analisi Segnalazioni Near Miss":
                     else:
                         df_analisi.at[idx_sel, "Commento RSPP"] = comm_in.strip()
                         df_analisi.at[idx_sel, "Firma RSPP (Stato)"] = f"Firmato ({file_f.name})" if file_f else "Testo Convalidato"
-                        df_analisi.to_csv(FILE_ANALISI_NM, index=False, sep=";")
+                        df_analisi.to_csv(FILE_ANALISI_NM, index=False, sep=";", encoding="utf-8")
                         st.success("Record aggiornato in linea!")
                         time.sleep(0.5)
                         st.rerun()
@@ -811,7 +813,7 @@ elif nav == "Conformità Legislativa":
                     if "cached_df_checklist" in st.session_state:
                         df_visualizza = st.session_state["cached_df_checklist"]
                         st.dataframe(df_visualizza, use_container_width=True, hide_index=True)
-                        csv_buffer = df_visualizza.to_csv(index=False, sep=";").encode('utf-8')
+                        csv_buffer = df_visualizza.to_csv(index=False, sep=";", encoding='utf-8').encode('utf-8')
                         st.download_button(
                             label="Scarica Check-list in formato CSV",
                             data=csv_buffer,
@@ -877,7 +879,7 @@ elif nav == "Conformità Legislativa":
                 if st.button("Avvia Analisi di Conformità", use_container_width=True, key="btn_avvia_conf"):
                     db = {}
                     if os.path.exists("normative.json"):
-                        with open("normative.json", "r") as f:
+                        with open("normative.json", "r", encoding="utf-8") as f:
                             try: db = json.load(f)
                             except: db = {}
                 
@@ -927,11 +929,11 @@ elif nav == "Analisi - Fase 2":
     if st.session_state.autenticato_fase2:
         opzioni = ["Nessuna (Nuova analisi)"]
         if os.path.exists(FILE_NEAR_MISS):
-            df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
+            df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";", encoding="utf-8")
             for idx, r in df_nm.iterrows():
                 opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
         if os.path.exists(FILE_ANALISI_NM):
-            df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
+            df_an = pd.read_csv(FILE_ANALISI_NM, sep=";", encoding="utf-8")
             for idx, r in df_an.iterrows():
                 opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
             
@@ -970,7 +972,7 @@ elif nav == "Analisi - Fase 2":
                 ax.text(end[0], end[1], label, fontsize=9, ha='center', va='center', bbox=dict(facecolor='white', alpha=0.8))
                 
             plt.savefig(temp_img, bbox_inches='tight', dpi=300)
-            plt.close()
+            plt.close(fig)
             st.pyplot(fig)
             
             with open(temp_img, "rb") as img_file:
@@ -1077,7 +1079,7 @@ elif nav == "KPI":
             if "t1_kpi_definitions" not in st.session_state:
                 if os.path.exists(path_master_pers):
                     try:
-                        st.session_state.t1_kpi_definitions = pd.read_csv(path_master_pers).fillna("")
+                        st.session_state.t1_kpi_definitions = pd.read_csv(path_master_pers, encoding="utf-8").fillna("")
                     except Exception:
                         st.session_state.t1_kpi_definitions = pd.DataFrame()
                 else:
@@ -1112,7 +1114,7 @@ elif nav == "KPI":
             if "t2_storico_misure" not in st.session_state:
                 if os.path.exists(path_storico_pers):
                     try:
-                        df_loaded = pd.read_csv(path_storico_pers)
+                        df_loaded = pd.read_csv(path_storico_pers, encoding="utf-8")
                         df_loaded["Data_Monitoraggio"] = pd.to_datetime(df_loaded["Data_Monitoraggio"]).dt.date
                         st.session_state.t2_storico_misure = df_loaded.fillna("")
                     except Exception:
@@ -1157,7 +1159,7 @@ elif nav == "KPI":
                 st.markdown("---")
                 nome_file_t1 = f"{data_str}_Tab1-MasterKPI.csv"
                 path_t1 = os.path.join("KPI", nome_file_t1)
-                csv_t1 = st.session_state.t1_kpi_definitions.to_csv(index=False).encode('utf-8')
+                csv_t1 = st.session_state.t1_kpi_definitions.to_csv(index=False, encoding='utf-8').encode('utf-8')
 
                 col_exp_1, col_exp_2 = st.columns(2)
                 with col_exp_1:
