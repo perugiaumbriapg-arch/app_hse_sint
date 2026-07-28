@@ -21,7 +21,14 @@ except ImportError:
         FPDF = None
 
 import base64
-import plotly.express as px
+# Import sicuro di Plotly Express
+try:
+    import plotly.express as px
+except ModuleNotFoundError:
+    st.error(
+        "Il modulo 'plotly' non è installato. Assicurati che sia presente nel file requirements.txt."
+    )
+    st.stop()
 import qrcode
 
 # Import per l'estrazione del testo dai file locali
