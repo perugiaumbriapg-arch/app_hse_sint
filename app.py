@@ -13,12 +13,47 @@ import io
 from fpdf import FPDF
 import matplotlib.pyplot as plt
 import base64
-import numpy as np
 import plotly.express as px
+import smtplib
+from email.message import EmailMessage
 
 # Import per l'estrazione del testo dai file locali
 from pypdf import PdfReader
 from docx import Document
+
+
+# ==================================================================
+# --- 0. CONFIGURAZIONE NOTIFICHE EMAIL (SMTP) ---
+# ==================================================================
+# Puoi impostare questi valori tramite variabili d'ambiente o cambiarli qui di seguito
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "tuamail@gmail.com")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "vostra_password_app") # Password per le app di Google o SMTP
+DESTINATARIO_NOTIFICHE = os.getenv("DESTINATARIO_NOTIFICHE", "rspp_hse@azienda.com")
+
+def invia_email_notifica(oggetto, corpo, destinatario=DESTINATARIO_NOTIFICHE):
+    """
+    Funzione helper per inviare email di notifica via SMTP.
+    """
+    if not SMTP_EMAIL or SMTP_EMAIL == "tuamail@gmail.com":
+        st.warning("⚠️ Configurazione Email non completata. Compilare le credenziali SMTP per inviare le notifiche reali.")
+        return False
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = oggetto
+        msg['From'] = SMTP_EMAIL
+        msg['To'] = destinatario
+        msg.set_content(corpo)
+
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        st.error(f"Errore durante l'invio dell'email di notifica: {e}")
+        return False
 
 
 # ==================================================================
@@ -33,6 +68,7 @@ st.set_page_config(
 FILE_NEAR_MISS = "near_miss.csv"
 FILE_ANALISI_NM = "analisi_near_miss.csv"
 FILE_SCADENZARIO = "scadenzario.xlsx"
+FILE_SKILL_MATRIX = "skill_matrix_autovalutazione.csv"
 DIR_CONFORMITA = "documenti_conformita"
 DIR_IMMAGINI_ANALISI = "Immagini_Analisi_Near_Miss"
 DIR_ANALISI = os.path.dirname(os.path.abspath(__file__))
@@ -53,6 +89,7 @@ COLONNE_SCADENZARIO = [
     "Responsabile", 
     "Note"
 ]
+
 # Salva normativa di conformità legislativa - Aggiungi normativa
 def salva_normativa(chiave, titolo, url, descrizione):
     db = {}
@@ -222,15 +259,12 @@ def genera_qr_nativo(data):
     qr.add_data(data)
     qr.make(fit=True)
     return qr.make_image(fill_color='black', back_color='white')
+
 def decodifica_qr_opencv(image_file):
-    # Converti l'immagine in un formato leggibile da OpenCV
     img = Image.open(image_file).convert('RGB')
     img_array = np.array(img)
-
-    #Decodifica tramite OpenCV
     detector = cv2.QRCodeDetector()
     valore, punti, qr_code = detector.detectAndDecode(img_array)
-
     return valore if valore else None
 
 # ==================================================================
@@ -240,12 +274,9 @@ st.title("SECURITY AND HSE SYSTEM PLATFORM")
 st.markdown("### Sistema di Gestione Integrato Locale e Multiutente")
 st.markdown("---")
 
-# --- 1. Inizializzazione dello Stato (Inseriscilo dopo st.set_page_config) ---
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Home Dashboard"
 
-# --- 2. Creazione della barra di navigazione ---
-# Usiamo st.radio in orizzontale per simulare le tab
 tab_list = [
     "Home Dashboard", 
     "Segnalazione Near Miss", 
@@ -260,7 +291,6 @@ tab_list = [
     "Controllo DPI"
 ]
 
-# Impostiamo la navigazione
 nav = st.radio(
     "Navigazione", 
     options=tab_list, 
@@ -269,9 +299,8 @@ nav = st.radio(
     label_visibility="collapsed"
 )
 
-# Aggiorniamo lo stato
 st.session_state.active_tab = nav
-st.markdown("---") # Linea di separazione estetica
+st.markdown("---")
 
 # ==================================================================
 # --- SEZIONE 1: HOME DASHBOARD ---
@@ -438,7 +467,25 @@ if nav == "Segnalazione Near Miss":
                     df_nuovo.to_csv(FILE_NEAR_MISS, index=False, sep=";")
                 else:
                     df_nuovo.to_csv(FILE_NEAR_MISS, mode='a', header=False, index=False, sep=";")
-                st.success("Segnalazione acquisita con successo nel file CSV locale!")
+                
+                # --- INVIO NOTIFICA EMAIL SEGNALAZIONE NEAR MISS ---
+                oggetto_mail = f"⚠️ Nuova Segnalazione HSE: {tipo_evento} ({nuovo_record['Data Segnalazione']})"
+                corpo_mail = f"""È stata registrata una nuova segnalazione nel sistema HSE.
+
+Dettagli:
+- Tipo Evento: {tipo_evento}
+- Data Evento: {nuovo_record['Data Evento Real']}
+- Segnalatore: {nuovo_record['Segnalatore']}
+- Luogo/Reparto: {luogo} - {nuovo_record['Reparto']}
+- Descrizione: {descrizione.strip()}
+- Cause Rilevate: {", ".join(cause_selezionate)}
+- Proposte Miglioramento: {valutazioni_proposte.strip()}
+
+Accedere alla Piattaforma HSE per l'analisi dettagliata.
+"""
+                invia_email_notifica(oggetto_mail, corpo_mail)
+
+                st.success("Segnalazione acquisita con successo ed email di notifica inviata!")
                 time.sleep(0.5)
                 st.rerun()
 
@@ -685,13 +732,9 @@ if nav == "Conformità Legislativa":
         
     col_bot, col_upload = st.columns([1, 1])
     
-    # -----------------------------------------------------------
-    # AREA PUBBLICA (col_bot)
-    # -----------------------------------------------------------
     with col_bot:
         st.subheader("Assistente di Scansione Istantanea")
         st.caption("Accesso Pubblico - Ricerca libera e lettura QR Code.")
-        # 1. Ricerca Documentale
         prompt_utente = st.text_input("Scrivi l'oggetto della richiesta (es: requisiti antincendio, obblighi, nomine):", key="txt_prompt_sup")
         if st.button("Interroga Archivio Normativo", use_container_width=True):
             if prompt_utente.strip():
@@ -722,24 +765,18 @@ if nav == "Conformità Legislativa":
             else:
                 st.warning("Inserire un testo di ricerca prima di premere il pulsante.")
                 
-        # -----------------------------------------------------------
-        # POSIZIONAMENTO PUBBLICO E STRUTTURAZIONE NATIVA QR CODE
-        # -----------------------------------------------------------
         st.markdown("---")
         st.subheader("Lettura Link tramite QR Code")
         st.caption("Strumento pubblico di codifica rapida per la documentazione HSE aziendale.")
         
-       # Scelta della modalità di input
         metodo_input = st.radio(
-        "Scegli come inserire il codice:", 
-        ["Carica file dal dispositivo", "Fotocamera"], 
-        horizontal=True,
-        key="qr_pub_metodo"
+            "Scegli come inserire il codice:", 
+            ["Carica file dal dispositivo", "Fotocamera"], 
+            horizontal=True,
+            key="qr_pub_metodo"
         )
 
         immagine_input = None
-
-        # Gestione logica in base alla scelta
         if metodo_input == "Carica file dal dispositivo":
             immagine_input = st.file_uploader(
                 "Seleziona un'immagine (png, jpg, jpeg):", 
@@ -750,10 +787,7 @@ if nav == "Conformità Legislativa":
             immagine_input = st.camera_input("Scatta una foto del QR Code:", key="cam_qr_pub")
         
         risultato_pub = None
-
-        # Elaborazione dell'immagine (funziona con entrambi gli input)
         if immagine_input:
-        # La funzione decodifica_qr_opencv gestisce l'oggetto file_like (file o stream camera)
             risultato_pub = decodifica_qr_opencv(immagine_input)
     
         if risultato_pub:
@@ -765,9 +799,6 @@ if nav == "Conformità Legislativa":
         else:
             st.warning("Nessun codice QR valido rilevato nell'immagine.")
 
-        # -----------------------------------------------------------
-        # AREA PRIVATA / AMMINISTRATIVA (col_upload)
-        # -----------------------------------------------------------        
     with col_upload:
         st.subheader("Area Amministrazione Archivio")
         
@@ -785,7 +816,7 @@ if nav == "Conformità Legislativa":
             if st.button("Chiudi sessione Amministratore (Blocca)", use_container_width=True):
                 st.session_state.autenticato_upload_legale = False
                 st.rerun()
-                # --- Funzioni Admin ---
+                
             tab_admin1, tab_admin2 = st.tabs(["Documenti & Check-list", "Gestione QR & Normativa"])
             
             with tab_admin1:
@@ -804,7 +835,6 @@ if nav == "Conformità Legislativa":
                             f_out.write(f.getbuffer())
                     st.success("File salvati!")
                 
-                # Check-list
                 st.markdown("---")
                 st.subheader("Estrazione Check-list Documentale")
             
@@ -843,11 +873,7 @@ if nav == "Conformità Legislativa":
                             use_container_width=True
                         )
                         
-            # -----------------------------------------------------------
-            # GENERA QRCode
-            # -----------------------------------------------------------    
             with tab_admin2:
-                # Generazione QR
                 st.markdown("#### Genera QR Code")
                 opzione_qr = st.radio("Seleziona operazione QR:", ["Genera QR Code", "Leggi/Decodifica QR Code"], key="radio_opzioni_qr_pubblico")
                 img_ottenuta = None
@@ -856,27 +882,21 @@ if nav == "Conformità Legislativa":
                     testo_da_convertire = st.text_input("Inserisci l'URL o il testo da inserire nel QR Code:", placeholder="https://www.gazzettaufficiale.it/")
                     if testo_da_convertire.strip():
                         img_ottenuta = genera_qr_nativo(testo_da_convertire)
-                
-                    # Esegui la generazione e il salvataggio SOLO se il testo è presente
-                    if testo_da_convertire.strip():
-                        img_ottenuta = genera_qr_nativo(testo_da_convertire)
         
-                    # Verifica che img_ottenuta non sia None (buona pratica)
-                        if img_ottenuta:
-                        # Salvataggio temporaneo per consentire la visualizzazione e il download
-                            percorso_temp_qr = "temp_generated_qr.png"
-                            img_ottenuta.save(percorso_temp_qr)
-                
-                            st.image(percorso_temp_qr, width=220, caption="Codice QR generato con successo!")
-                
-                            with open(percorso_temp_qr, "rb") as f_qr:
-                                st.download_button(
-                                    label="Scarica Immagine QR Code (.png)",
-                                    data=f_qr.read(),
-                                    file_name="qr_code_hse.png",
-                                    mime="image/png",
-                                    use_container_width=True
-                                )
+                    if testo_da_convertire.strip() and img_ottenuta:
+                        percorso_temp_qr = "temp_generated_qr.png"
+                        img_ottenuta.save(percorso_temp_qr)
+            
+                        st.image(percorso_temp_qr, width=220, caption="Codice QR generato con successo!")
+            
+                        with open(percorso_temp_qr, "rb") as f_qr:
+                            st.download_button(
+                                label="Scarica Immagine QR Code (.png)",
+                                data=f_qr.read(),
+                                file_name="qr_code_hse.png",
+                                mime="image/png",
+                                use_container_width=True
+                            )
                     
                 elif opzione_qr == "Leggi/Decodifica QR Code":
                     file_qr_caricato = st.file_uploader("Carica un'immagine contenente un codice QR:", type=["png", "jpg", "jpeg"], key="uploader_file_qr_nativo")
@@ -891,9 +911,6 @@ if nav == "Conformità Legislativa":
                         else:
                             st.warning("Nessun codice QR valido rilevato all'interno dell'immagine caricata.")
 
-                # -----------------------------------------------------------
-                # VERIFICA AGGIORNAMENTI COGENTI CON LINK REALI
-                # -----------------------------------------------------------
                 st.markdown("---")
                 st.subheader("Verifica Aggiornamenti Cogenti (Italia & UE)")
                 st.caption("Il sistema incrocia i dati estratti con il contesto operativo e le fonti ufficiali della gazzetta italiana ed europea.")
@@ -917,7 +934,6 @@ if nav == "Conformità Legislativa":
                     csv = st.session_state["cached_df_checklist"].to_csv(index=False).encode('utf-8')
                     st.download_button("Scarica Check-list CSV", csv, "checklist.csv", "text/csv")
 
-                # 4. Motore Confronto Legislativo Dinamico (Con Gap-Analysis)
                 st.markdown("---")
                 st.subheader("Confronto Legislativo & Stato Conformità")
             
@@ -933,14 +949,12 @@ if nav == "Conformità Legislativa":
                 note_libere = st.text_area("Analisi testo libero / criticità:", placeholder="es: gestione rifiuti pericolosi, amianto, ecc.")
             
                 if st.button("Avvia Analisi di Conformità", use_container_width=True):
-                    # 1. Caricamento Database Normativo
                     db = {}
                     if os.path.exists("normative.json"):
                         with open("normative.json", "r") as f:
                             try: db = json.load(f)
                             except: db = {}
                 
-                    # 2. Preparazione dati (Checklist e File)
                     txt_checklist = st.session_state["cached_df_checklist"].to_string() if "cached_df_checklist" in st.session_state else ""
                     txt_docs = " ".join(os.listdir(DIR_CONFORMITA)) if os.path.exists(DIR_CONFORMITA) else ""
                     txt_totale_analisi = (note_libere + " " + txt_checklist + " " + txt_docs).lower()
@@ -949,15 +963,11 @@ if nav == "Conformità Legislativa":
                 
                     trovato = False
                     for chiave, info in db.items():
-                        # Se la parola chiave è presente nell'analisi o nella checklist/file
                         if chiave.lower() in txt_totale_analisi:
                             trovato = True
                         
-                        # LOGICA DI CONFORMITÀ: 
-                        # Verifichiamo se la parola chiave è presente nei file caricati (conformità documentale)
                         is_conforme = chiave.lower() in (txt_checklist + txt_docs).lower()
                         
-                        # Layout Risultato
                         col_stato, col_info = st.columns([1, 4])
                         
                         with col_stato:
@@ -978,12 +988,12 @@ if nav == "Conformità Legislativa":
                 
                     if not trovato:
                         st.info("Nessun tema normativo specifico del database rilevato nei documenti o nelle note.")
+
 # ==================================================================
 # --- SEZIONE 6: Analisi - Fase 2 ---
 # ==================================================================
 if nav == "Analisi - Fase 2":
-    st. header ("Analisi - Fase 2 delle segnalazioni near miss")
-            # --- SEZIONE 2: ANALISI ISHIKAWA ---
+    st.header("Analisi - Fase 2 delle segnalazioni near miss")
     if "autenticato_fase2" not in st.session_state:
         st.session_state.autenticato_fase2 = False
         
@@ -997,16 +1007,13 @@ if nav == "Analisi - Fase 2":
                 st.error("Credenziali errate.")
     if st.session_state.autenticato_fase2:
 
-        # Caricamento e unione dati per dropdown
         opzioni = ["Nessuna (Nuova analisi)"]
             
-        # Leggi Near Miss
         if os.path.exists(FILE_NEAR_MISS):
             df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
             for idx, r in df_nm.iterrows():
                 opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
             
-        # Leggi Analisi già fatte
         if os.path.exists(FILE_ANALISI_NM):
             df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
             for idx, r in df_an.iterrows():
@@ -1014,7 +1021,6 @@ if nav == "Analisi - Fase 2":
             
         scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
 
-        # Campi Input (Ishikawa)
         c_ma, c_mb = st.columns(2)
         with c_ma:
             macchina = st.text_area("Macchina / Infrastruttura", key="inp_m")
@@ -1033,12 +1039,10 @@ if nav == "Analisi - Fase 2":
         if st.button("Genera Report e File"):
             temp_img = os.path.join(DIR_ANALISI, "temp_ishikawa.png")
                 
-            # Matplotlib setup
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.axis('off')
             ax.plot([1, 9], [0, 0], color='black', lw=3)
                 
-            # Aggiunta branchie (Ishikawa)
             def wrap(text): return "\n".join(textwrap.wrap(str(text), width=20))
             branches = [
                 ((2, 0), (1.5, 1.5), f"Macchina:\n{wrap(macchina)}"),
@@ -1054,19 +1058,15 @@ if nav == "Analisi - Fase 2":
             plt.close()
             st.pyplot(fig)
             
-            # Lettura dell'immagine PNG creata in binario per il salvataggio in sessione
             with open(temp_img, "rb") as img_file:
                 png_bytes = img_file.read()
 
-            # Raccolta metadati richiesti (Data generazione e file associati)
             data_generazione = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             file_obbligatorio = FILE_ANALISI_NM
             file_facoltativo = FILE_NEAR_MISS if os.path.exists(FILE_NEAR_MISS) else "Non utilizzato / Assente"
 
-            # Conversione dell'immagine in stringa Base64 per l'inclusione nel JSON
             png_base64 = base64.b64encode(png_bytes).decode('utf-8')
 
-            # Dati strutturati per Export
             dati_report = {
                 "Data Generazione Report": data_generazione,
                 "File Obbligatorio Associato": file_obbligatorio,
@@ -1082,12 +1082,11 @@ if nav == "Analisi - Fase 2":
                 "Conclusioni": conc
             }
 
-            # 1. PDF
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", 'B', 16)
             pdf.cell(0, 10, "Report Analisi Near Miss", ln=True, align='C')
-            pdf.ln(10) # Spazio
+            pdf.ln(10)
         
             pdf.set_font("Arial", size=10)
             pdf.cell(0, 6, f"Data Generazione: {data_generazione}", ln=True)
@@ -1096,7 +1095,6 @@ if nav == "Analisi - Fase 2":
             pdf.cell(0, 6, f"Riferimento: {scelta_rif}", ln=True)
             pdf.ln(5)
 
-            # Scrittura Analisi 4M
             pdf.set_font("Arial", 'B', 14)
             pdf.cell(0, 10, "Analisi 4M:", ln=True)
             pdf.set_font("Arial", size=12)
@@ -1104,44 +1102,33 @@ if nav == "Analisi - Fase 2":
                 pdf.cell(0, 10, f"- {key}: {val}", ln=True)
             pdf.ln(5)
 
-            # Scrittura 5Whys
             pdf.set_font("Arial", 'B', 14)
             pdf.cell(0, 10, "5Whys:", ln=True)
             pdf.set_font("Arial", size=12)
             pdf.cell(0, 10, f"Perchè 1: {dati_report['5Whys'][0]}", ln=True)
             pdf.ln(5)
 
-            # Scrittura Conclusioni
             pdf.set_font("Arial", 'B', 14)
             pdf.cell(0, 10, "Conclusioni:", ln=True)
             pdf.set_font("Arial", size=12)
             pdf.multi_cell(0, 10, dati_report['Conclusioni'])
 
-            # Inserimento visivo del grafico PNG nel PDF
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(0, 10, "Diagramma di Ishikawa:", ln=True)
             pdf.image(temp_img, w=180)
 
-            # Output del file in bytes
             pdf_output = bytes(pdf.output(dest='S')) 
             st.session_state.pdf_bytes = pdf_output
 
-            # 2. XLSX
-            import io
             buffer_xlsx = io.BytesIO()
             pd.DataFrame([dati_report["4M"]]).to_excel(buffer_xlsx, index=False)
             st.session_state.xlsx_bytes = buffer_xlsx.getvalue()
 
-            # 3. JSON (Include i metadati, i testi e l'immagine codificata in Base64)
             st.session_state.json_bytes = json.dumps(dati_report, indent=4, ensure_ascii=False).encode('utf-8')
-                
-            # 4. PNG (File immagine separato)
             st.session_state.png_bytes = png_bytes
-
             st.session_state.report_ready = True
             st.success("Report generato con successo!")
 
-        # Bottoni Download
         if st.session_state.get("report_ready"):
             col_d1, col_d2, col_d3 = st.columns(3)
             col_d1.download_button("Scarica PDF", st.session_state.pdf_bytes, "Report.pdf")
@@ -1169,25 +1156,16 @@ if nav == "KPI":
     if st.session_state.autenticato_kpi:
         def render_sezione_kpi():
             st.title("Sezione KPI Aziendali")
-            st.markdown(
-                "Gestione centralizzata, monitoraggio e storico delle performance di"
-                " sicurezza sul lavoro."
-            )
+            st.markdown("Gestione centralizzata, monitoraggio e storico delle performance di sicurezza sul lavoro.")
             st.markdown("---")
 
             oggi = datetime.today().date()
             data_str = oggi.strftime('%Y-%m-%d')
 
-            # Creazione della cartella KPI se non esiste
             os.makedirs("KPI", exist_ok=True)
-
-            # Percorsi per la persistenza automatica dei dati tra i refresh
             path_master_pers = os.path.join("KPI", "master_kpi_definitions.csv")
             path_storico_pers = os.path.join("KPI", "storico_misure.csv")
 
-            # ==========================================
-            # ARCHIVIO CONDIVISO UNICO (PRESENTE IN ENTRAMBE LE TAB)
-            # ==========================================
             if "t1_kpi_definitions" not in st.session_state:
                 if os.path.exists(path_master_pers):
                     try:
@@ -1235,7 +1213,6 @@ if nav == "KPI":
                     ])
                     st.session_state.t1_kpi_definitions.to_csv(path_master_pers, index=False, encoding='utf-8')
 
-            # Storico delle misurazioni periodiche nel tempo
             if "t2_storico_misure" not in st.session_state:
                 if os.path.exists(path_storico_pers):
                     try:
@@ -1277,7 +1254,6 @@ if nav == "KPI":
                     ])
                     st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
 
-            # --- NAVIGAZIONE PRINCIPALE STABILE (PERSISTENTE) ---
             if "kpi_main_nav" not in st.session_state:
                 st.session_state.kpi_main_nav = "📊 Definizione Master KPI"
 
@@ -1289,15 +1265,9 @@ if nav == "KPI":
             )
             st.markdown("---")
 
-            # ==========================================
-            # TAB 1: DEFINIZIONE MASTER KPI
-            # ==========================================
             if st.session_state.kpi_main_nav == "📊 Definizione Master KPI":
                 st.subheader("📋 Gestione Master dei KPI, Formule e Parametri")
-                st.markdown(
-                    "I KPI inseriti o modificati qui vengono riconosciuti e sincronizzati"
-                    " automaticamente nella `tab_kpi_2`."
-                )
+                st.markdown("I KPI inseriti o modificati qui vengono riconosciuti e sincronizzati automaticamente nella `tab_kpi_2`.")
                 st.markdown("---")
 
                 edited_t1_kpi = st.data_editor(
@@ -1313,7 +1283,6 @@ if nav == "KPI":
                     st.rerun()
 
                 st.markdown("---")
-                # Sezione Download e Salvataggio Tab 1
                 st.markdown("##### 📥 Esportazione Tabella Master KPI")
                 nome_file_t1 = f"{data_str}_Tab1-MasterKPI.csv"
                 path_t1 = os.path.join("KPI", nome_file_t1)
@@ -1335,8 +1304,6 @@ if nav == "KPI":
                     )
 
                 st.markdown("---")
-                
-                # --- ELIMINAZIONE PROTETTA MASTER KPI ---
                 st.markdown("##### 🗑️ Eliminazione Master KPI (Richiede Password)")
                 with st.form("form_elimina_master_kpi"):
                     kpi_list_names = st.session_state.t1_kpi_definitions["Nome_KPI"].tolist() if not st.session_state.t1_kpi_definitions.empty else []
@@ -1346,15 +1313,12 @@ if nav == "KPI":
                     if st.form_submit_button("Conferma ed Elimina Master KPI", use_container_width=True):
                         if pwd_del_kpi == "hse2026":
                             if kpi_da_eliminare:
-                                # Rimuovi da Master KPI
                                 st.session_state.t1_kpi_definitions = st.session_state.t1_kpi_definitions[
                                     st.session_state.t1_kpi_definitions["Nome_KPI"] != kpi_da_eliminare
                                 ]
-                                # Rimuovi anche dallo storico collegato
                                 st.session_state.t2_storico_misure = st.session_state.t2_storico_misure[
                                     st.session_state.t2_storico_misure["Nome_KPI"] != kpi_da_eliminare
                                 ]
-                                # Aggiorna i file persistenti su disco
                                 st.session_state.t1_kpi_definitions.to_csv(path_master_pers, index=False, encoding='utf-8')
                                 st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
 
@@ -1364,25 +1328,13 @@ if nav == "KPI":
                             st.error("Password errata. Impossibile procedere con l'eliminazione.")
 
                 st.markdown("---")
-                st.metric(
-                    "KPI Attivi nel Sistema", len(st.session_state.t1_kpi_definitions)
-                )
+                st.metric("KPI Attivi nel Sistema", len(st.session_state.t1_kpi_definitions))
 
-            # ==========================================
-            # TAB 2: STRUMENTO DI MONITORAGGIO E STORICO
-            # ==========================================
             else:
-                st.subheader(
-                    "Strumento di Monitoraggio (Riconoscimento Automatico KPI da Tab 1)"
-                )
-                st.markdown(
-                    "Qui vengono letti gli stessi KPI definiti nella Tab 1, consentendo di"
-                    " inserire i fattori di calcolo e registrare nuove misurazioni nel"
-                    " tempo."
-                )
+                st.subheader("Strumento di Monitoraggio (Riconoscimento Automatico KPI da Tab 1)")
+                st.markdown("Qui vengono letti gli stessi KPI definiti nella Tab 1, consentendo di inserire i fattori di calcolo e registrare nuove misurazioni nel tempo.")
                 st.markdown("---")
 
-                # Acquisizione diretta degli stessi KPI della Tab 1
                 df_kpi_master = st.session_state.t1_kpi_definitions.copy()
 
                 def calcola_prossima_data_approssimata(row):
@@ -1390,103 +1342,60 @@ if nav == "KPI":
                         st.session_state.t2_storico_misure["ID_KPI"] == row["ID_KPI"]
                     ]
                     if not storico_kpi.empty:
-                        ultima_data = pd.to_datetime(
-                            storico_kpi["Data_Monitoraggio"].max()
-                        ).date()
+                        ultima_data = pd.to_datetime(storico_kpi["Data_Monitoraggio"].max()).date()
                         cad = str(row["Cadenza"])
-                        if "Settimanale" in cad:
-                            delta_gg = 7
-                        elif "Bisettimanale" in cad:
-                            delta_gg = 14
-                        elif "Mensile" in cad:
-                            delta_gg = 30
-                        elif "Trimestrale" in cad:
-                            delta_gg = 90
-                        elif "Semestrale" in cad:
-                            delta_gg = 180
-                        else:
-                            delta_gg = 365
+                        if "Settimanale" in cad: delta_gg = 7
+                        elif "Bisettimanale" in cad: delta_gg = 14
+                        elif "Mensile" in cad: delta_gg = 30
+                        elif "Trimestrale" in cad: delta_gg = 90
+                        elif "Semestrale" in cad: delta_gg = 180
+                        else: delta_gg = 365
                         return ultima_data + timedelta(days=delta_gg)
                     else:
                         return oggi + timedelta(days=7)
                     
                 if not df_kpi_master.empty:
-                    df_kpi_master["Prossima_Data"] = df_kpi_master.apply(
-                        calcola_prossima_data_approssimata, axis=1
-                    )
+                    df_kpi_master["Prossima_Data"] = df_kpi_master.apply(calcola_prossima_data_approssimata, axis=1)
 
                     def calcola_stato_t2(row):
                         delta = (row["Prossima_Data"] - oggi).days
-                        if delta < 0:
-                            return "Scaduto", "🔴"
-                        elif delta <= 3:
-                            return "In Scadenza", "🟡"
-                        else:
-                            return "Regolare", "🟢"
+                        if delta < 0: return "Scaduto", "🔴"
+                        elif delta <= 3: return "In Scadenza", "🟡"
+                        else: return "Regolare", "🟢"
 
-                    df_kpi_master["Stato_Testo"], df_kpi_master["Stato_Colore"] = zip(
-                        *df_kpi_master.apply(calcola_stato_t2, axis=1)
-                    )
-                    df_kpi_master["Giorni_Rimasti"] = df_kpi_master["Prossima_Data"].apply(
-                        lambda x: (x - oggi).days
-                    )
+                    df_kpi_master["Stato_Testo"], df_kpi_master["Stato_Colore"] = zip(*df_kpi_master.apply(calcola_stato_t2, axis=1))
+                    df_kpi_master["Giorni_Rimasti"] = df_kpi_master["Prossima_Data"].apply(lambda x: (x - oggi).days)
 
-                # --- SOTTO-NAVIGAZIONE STABILE PER IL MONITORAGGIO ---
                 if "kpi_sub_nav" not in st.session_state:
                     st.session_state.kpi_sub_nav = "📈 Dashboard & Grafici"
 
                 st.session_state.kpi_sub_nav = st.radio(
                     "Seleziona Sottosezione Monitoraggio",
-                    [
-                        "📈 Dashboard & Grafici",
-                        "🕒 Registra Nuovo Monitoraggio",
-                        "🛠️ Aggiungi Nuovo KPI & Configurazione",
-                    ],
+                    ["📈 Dashboard & Grafici", "🕒 Registra Nuovo Monitoraggio", "🛠️ Aggiungi Nuovo KPI & Configurazione"],
                     horizontal=True,
                     key="radio_kpi_sub_nav_selector"
                 )
                 st.markdown("---")
 
-                # --- SOTTO-TAB 1: MONITORAGGIO E GRAFICI ---
                 if st.session_state.kpi_sub_nav == "📈 Dashboard & Grafici":
                     if not df_kpi_master.empty:
-                        scadenze_critiche_t2 = df_kpi_master[
-                            df_kpi_master["Giorni_Rimasti"] <= 3
-                        ]
+                        scadenze_critiche_t2 = df_kpi_master[df_kpi_master["Giorni_Rimasti"] <= 3]
 
                         if not scadenze_critiche_t2.empty:
-                            st.warning(
-                                f"⚠️ Attenzione: {len(scadenze_critiche_t2)} KPI richiedono un"
-                                " monitoraggio imminente!"
-                            )
+                            st.warning(f"⚠️ Attenzione: {len(scadenze_critiche_t2)} KPI richiedono un monitoraggio imminente!")
                         else:
                             st.success("Tutti i KPI condivisi sono regolari.")
 
                         st.markdown("#### Tabella di Controllo KPI Sincronizzati")
 
                         def color_status_t2(val):
-                            if val == "Scaduto":
-                                return (
-                                    "background-color: #ffcccc; color: #900c3f; font-weight: bold;"
-                                )
-                            elif val == "In Scadenza":
-                                return (
-                                    "background-color: #fff3cd; color: #856404; font-weight: bold;"
-                                )
-                            else:
-                                return "background-color: #d4edda; color: #155724;"
+                            if val == "Scaduto": return "background-color: #ffcccc; color: #900c3f; font-weight: bold;"
+                            elif val == "In Scadenza": return "background-color: #fff3cd; color: #856404; font-weight: bold;"
+                            else: return "background-color: #d4edda; color: #155724;"
 
                         df_controllo_display = df_kpi_master[[
-                                "Stato_Colore",
-                                "ID_KPI",
-                                "Nome_KPI",
-                                "Categoria",
-                                "Unita_Misura",
-                                "Cadenza",
-                                "Prossima_Data",
-                                "Formula",
-                                "Baseline",
-                                "Stato_Testo",
+                                "Stato_Colore", "ID_KPI", "Nome_KPI", "Categoria", "Unita_Misura", 
+                                "Cadenza", "Prossima_Data", "Formula", "Baseline", "Stato_Testo",
                             ]]
                         st.dataframe(
                             df_controllo_display
@@ -1494,7 +1403,7 @@ if nav == "KPI":
                             .format({"Prossima_Data": lambda t: t.strftime("%d/%m/%Y")}),
                             use_container_width=True,
                         )
-                        # Esportazione Tabella di Controllo KPI (Sottosezione Tab2 - Controllo)
+                        
                         st.markdown("##### 📥 Esportazione Tabella di Controllo KPI")
                         nome_file_controllo = f"{data_str}_Tab2-ControlloKPI.csv"
                         path_controllo = os.path.join("KPI", nome_file_controllo)
@@ -1523,39 +1432,22 @@ if nav == "KPI":
                             key="t2_sel_storico_chart",
                         )
                         df_storico_filtrato = st.session_state.t2_storico_misure[
-                            st.session_state.t2_storico_misure["Nome_KPI"]
-                            == kpi_selezionato_storico
+                            st.session_state.t2_storico_misure["Nome_KPI"] == kpi_selezionato_storico
                         ]
 
                         if not df_storico_filtrato.empty:
-                            df_chart = df_storico_filtrato.set_index("Data_Monitoraggio")[
-                                ["Valore_Registrato"]
-                            ]
+                            df_chart = df_storico_filtrato.set_index("Data_Monitoraggio")[["Valore_Registrato"]]
                             st.line_chart(df_chart)
                         else:
                             st.info("Nessuno storico registrato per questo KPI.")
-                        st.info("Nessun KPI presente.")
 
-                # --- SOTTO-TAB 2: REGISTRA NUOVO MONITORAGGIO PERIODICO ---
                 elif st.session_state.kpi_sub_nav == "🕒 Registra Nuovo Monitoraggio":
-                    st.markdown(
-                        "#### 🕒 Aggiungi Nuovo Monitoraggio (Nuova Riga nello Storico)"
-                    )
-                    st.markdown(
-                        "I KPI sottostanti sono riconosciuti direttamente da quelli definiti"
-                        " nella `tab_kpi_1`."
-                    )
+                    st.markdown("#### 🕒 Aggiungi Nuovo Monitoraggio (Nuova Riga nello Storico)")
+                    st.markdown("I KPI sottostanti sono riconosciuti direttamente da quelli definiti nella `tab_kpi_1`.")
 
                     if not df_kpi_master.empty:
-                        kpi_sel_upd = st.selectbox(
-                            "Seleziona KPI Riconosciuto",
-                            df_kpi_master["Nome_KPI"],
-                            key="t2_sel_kpi_storico",
-                        )
-
-                        kpi_row = df_kpi_master[
-                            df_kpi_master["Nome_KPI"] == kpi_sel_upd
-                        ].iloc[0]
+                        kpi_sel_upd = st.selectbox("Seleziona KPI Riconosciuto", df_kpi_master["Nome_KPI"], key="t2_sel_kpi_storico")
+                        kpi_row = df_kpi_master[df_kpi_master["Nome_KPI"] == kpi_sel_upd].iloc[0]
                         formula_corrente = str(kpi_row["Formula"])
                         cadenza_corrente = str(kpi_row["Cadenza"])
                         id_kpi_corrente = str(kpi_row["ID_KPI"])
@@ -1563,10 +1455,7 @@ if nav == "KPI":
                         p2_nome = str(kpi_row["Parametro_2"])
                         p3_nome = str(kpi_row["Parametro_3"])
 
-                        st.info(
-                            f"**Formula:** `{formula_corrente}` | **Baseline:**"
-                            f" `{kpi_row['Baseline']}`"
-                        )
+                        st.info(f"**Formula:** `{formula_corrente}` | **Baseline:** `{kpi_row['Baseline']}`")
 
                         col_f1, col_f2 = st.columns(2)
                         with col_f1:
@@ -1574,87 +1463,47 @@ if nav == "KPI":
                             dettagli_lista = []
 
                             if p1_nome and p1_nome.lower() != "nan" and p1_nome.strip() != "":
-                                v1 = st.number_input(
-                                    f"Parametro 1: {p1_nome}",
-                                    value=10.0,
-                                    format="%.2f",
-                                    key="t2_p1_val",
-                                )
+                                v1 = st.number_input(f"Parametro 1: {p1_nome}", value=10.0, format="%.2f", key="t2_p1_val")
                                 valori_fattori.append(v1)
                                 dettagli_lista.append(f"{p1_nome}: {v1}")
 
                             if p2_nome and p2_nome.lower() != "nan" and p2_nome.strip() != "":
-                                v2 = st.number_input(
-                                    f"Parametro 2: {p2_nome}",
-                                    value=15.0,
-                                    format="%.2f",
-                                    key="t2_p2_val",
-                                )
+                                v2 = st.number_input(f"Parametro 2: {p2_nome}", value=15.0, format="%.2f", key="t2_p2_val")
                                 valori_fattori.append(v2)
                                 dettagli_lista.append(f"{p2_nome}: {v2}")
 
                             if p3_nome and p3_nome.lower() != "nan" and p3_nome.strip() != "":
-                                v3 = st.number_input(
-                                    f"Parametro 3: {p3_nome}",
-                                    value=0.0,
-                                    format="%.2f",
-                                    key="t2_p3_val",
-                                )
+                                v3 = st.number_input(f"Parametro 3: {p3_nome}", value=0.0, format="%.2f", key="t2_p3_val")
                                 valori_fattori.append(v3)
                                 dettagli_lista.append(f"{p3_nome}: {v3}")
 
                             if len(valori_fattori) >= 2 and valori_fattori[1] > 0:
                                 if "%" in str(kpi_row["Unita_Misura"]):
-                                    valore_calcolato = round(
-                                        (valori_fattori[0] / valori_fattori[1]) * 100, 2
-                                    )
+                                    valore_calcolato = round((valori_fattori[0] / valori_fattori[1]) * 100, 2)
                                 else:
-                                    valore_calcolato = round(
-                                        valori_fattori[0] / valori_fattori[1], 2
-                                    )
+                                    valore_calcolato = round(valori_fattori[0] / valori_fattori[1], 2)
                             elif len(valori_fattori) == 1:
                                 valore_calcolato = valori_fattori[0]
                             else:
-                                valore_calcolato = st.number_input(
-                                    "Valore Misurato", value=0.0, format="%.2f", key="t2_fallback_v"
-                                )
+                                valore_calcolato = st.number_input("Valore Misurato", value=0.0, format="%.2f", key="t2_fallback_v")
                                 dettagli_lista.append(f"Valore Assoluto: {valore_calcolato}")
 
                         dettaglio_fattori_str = " / ".join(dettagli_lista)
-
-                        st.metric(
-                            "Valore Risultante Calcolato",
-                            f"{valore_calcolato} {kpi_row['Unita_Misura']}",
-                        )
+                        st.metric("Valore Risultante Calcolato", f"{valore_calcolato} {kpi_row['Unita_Misura']}")
 
                         with col_f2:
-                            data_monitoraggio = st.date_input(
-                                "Data monitoraggio", value=oggi, key="t2_data_mon_input"
-                            )
-
-                            if "Settimanale" in cadenza_corrente:
-                                gg_agg = 7
-                            elif "Bisettimanale" in cadenza_corrente:
-                                gg_agg = 14
-                            elif "Mensile" in cadenza_corrente:
-                                gg_agg = 30
-                            elif "Trimestrale" in cadenza_corrente:
-                                gg_agg = 90
-                            elif "Semestre" in cadenza_corrente:
-                                gg_agg = 180
-                            else:
-                                gg_agg = 365
+                            data_monitoraggio = st.date_input("Data monitoraggio", value=oggi, key="t2_data_mon_input")
+                            if "Settimanale" in cadenza_corrente: gg_agg = 7
+                            elif "Bisettimanale" in cadenza_corrente: gg_agg = 14
+                            elif "Mensile" in cadenza_corrente: gg_agg = 30
+                            elif "Trimestrale" in cadenza_corrente: gg_agg = 90
+                            elif "Semestre" in cadenza_corrente: gg_agg = 180
+                            else: gg_agg = 365
 
                             prossima_scadenza_calc = data_monitoraggio + timedelta(days=gg_agg)
-                            st.write(
-                                f"📅 **Cadenza:** {cadenza_corrente} -> Nuova scadenza stimata:"
-                                f" **{prossima_scadenza_calc.strftime('%d/%m/%Y')}**"
-                            )
+                            st.write(f"📅 **Cadenza:** {cadenza_corrente} -> Nuova scadenza stimata: **{prossima_scadenza_calc.strftime('%d/%m/%Y')}**")
 
-                        if st.button(
-                            "💾 Registra Nuovo Monitoraggio nello Storico",
-                            key="t2_btn_registra_storico",
-                        ):
+                        if st.button("💾 Registra Nuovo Monitoraggio nello Storico", key="t2_btn_registra_storico"):
                             nuova_riga_storico = pd.DataFrame([{
                                 "Data_Monitoraggio": data_monitoraggio,
                                 "ID_KPI": id_kpi_corrente,
@@ -1662,26 +1511,16 @@ if nav == "KPI":
                                 "Valore_Registrato": valore_calcolato,
                                 "Dettaglio_Fattori": dettaglio_fattori_str,
                             }])
-                            st.session_state.t2_storico_misure = pd.concat(
-                                [st.session_state.t2_storico_misure, nuova_riga_storico],
-                                ignore_index=True,
-                            )
-                            # Salva permanentemente su disco
+                            st.session_state.t2_storico_misure = pd.concat([st.session_state.t2_storico_misure, nuova_riga_storico], ignore_index=True)
                             st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
-
-                            st.success(
-                                "Nuovo monitoraggio aggiunto con successo nello storico!"
-                            )
+                            st.success("Nuovo monitoraggio aggiunto con successo nello storico!")
                             st.rerun()
 
                         st.markdown("---")
                         st.markdown("#### Tabella Storico Monitoraggi")
-                        df_storico_display = st.session_state.t2_storico_misure.sort_values(
-                            by="Data_Monitoraggio", ascending=False
-                        )
+                        df_storico_display = st.session_state.t2_storico_misure.sort_values(by="Data_Monitoraggio", ascending=False)
                         st.dataframe(df_storico_display, use_container_width=True)
 
-                        # Esportazione Tabella Storico Monitoraggi (Sottosezione Tab2 - Storico)
                         st.markdown("##### 📥 Esportazione Tabella Storico Monitoraggi")
                         nome_file_storico = f"{data_str}_Tab2-StoricoMisure.csv"
                         path_storico = os.path.join("KPI", nome_file_storico)
@@ -1703,17 +1542,13 @@ if nav == "KPI":
                             )
                             
                         st.markdown("---")
-                        
-                        # --- ELIMINAZIONE PROTETTA REGISTRO STORICO ---
                         st.markdown("##### 🗑️ Eliminazione Registro di Monitoraggio (Richiede Password)")
                         if not st.session_state.t2_storico_misure.empty:
                             storico_temp_del = st.session_state.t2_storico_misure.copy()
                             storico_temp_del["Etichetta_Riga"] = (
                                 storico_temp_del["Data_Monitoraggio"].astype(str)
-                                + " | "
-                                + storico_temp_del["Nome_KPI"]
-                                + " | Valore: "
-                                + storico_temp_del["Valore_Registrato"].astype(str)
+                                + " | " + storico_temp_del["Nome_KPI"]
+                                + " | Valore: " + storico_temp_del["Valore_Registrato"].astype(str)
                             )
                             
                             with st.form("form_elimina_registro_storico"):
@@ -1726,13 +1561,9 @@ if nav == "KPI":
                                 
                                 if st.form_submit_button("Conferma ed Elimina Registro", use_container_width=True):
                                     if pwd_del_storico == "hse2026":
-                                        idx_da_rimuovere = storico_temp_del[
-                                            storico_temp_del["Etichetta_Riga"] == riga_selezionata_del
-                                        ].index
+                                        idx_da_rimuovere = storico_temp_del[storico_temp_del["Etichetta_Riga"] == riga_selezionata_del].index
                                         st.session_state.t2_storico_misure = st.session_state.t2_storico_misure.drop(idx_da_rimuovere).reset_index(drop=True)
-                                        # Aggiorna il file persistente su disco
                                         st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
-
                                         st.success("Registro di monitoraggio eliminato con successo!")
                                         st.rerun()
                                     else:
@@ -1742,72 +1573,28 @@ if nav == "KPI":
                     else:
                         st.info("Nessun KPI disponibile.")
 
-                # --- SOTTO-TAB 3: AGGIUNGI NUOVO KPI & CONFIGURAZIONE ---
                 else:
                     st.markdown("#### 🛠️ Aggiungi un Nuovo KPI (Sincronizzato con Tab 1)")
-                    st.markdown(
-                        "I KPI inseriti qui saranno aggiunti all'archivio comune e visibili"
-                        " in entrambe le tab."
-                    )
+                    st.markdown("I KPI inseriti qui saranno aggiunti all'archivio comune e visibili in entrambe le tab.")
 
                     with st.form("t2_form_nuovo_kpi"):
                         c_a1, c_a2 = st.columns(2)
                         with c_a1:
                             nid = st.text_input("ID KPI (es. NM-04)", value="NM-04", key="t2_nid")
-                            nnome = st.text_input(
-                                "Nome KPI", value="Indice Chiusura Prescrizioni", key="t2_nnome"
-                            )
-                            ncat = st.selectbox(
-                                "Categoria",
-                                [
-                                    "Volume",
-                                    "Efficacia",
-                                    "Reattività",
-                                    "Cultura HSE",
-                                    "Prevenzione",
-                                    "Ambiente",
-                                ],
-                                key="t2_ncat",
-                            )
-                            nmis = st.selectbox(
-                                "Unità di Misura", ["%", "Numero", "Giorni"], key="t2_nmis"
-                            )
-                            ncad = st.selectbox(
-                                "Cadenza",
-                                ["Settimanale", "Bisettimanale", "Mensile", "Trimestrale", "Semestrale", "Annuale"],
-                                key="t2_ncad",
-                            )
+                            nnome = st.text_input("Nome KPI", value="Indice Chiusura Prescrizioni", key="t2_nnome")
+                            ncat = st.selectbox("Categoria", ["Volume", "Efficacia", "Reattività", "Cultura HSE", "Prevenzione", "Ambiente"], key="t2_ncat")
+                            nmis = st.selectbox("Unità di Misura", ["%", "Numero", "Giorni"], key="t2_nmis")
+                            ncad = st.selectbox("Cadenza", ["Settimanale", "Bisettimanale", "Mensile", "Trimestrale", "Semestrale", "Annuale"], key="t2_ncad")
                         with c_a2:
-                            nform = st.text_input(
-                                "Formula (es. (Parametro_1 / Parametro_2) * 100)",
-                                value="(Parametro_1 / Parametro_2) * 100",
-                                key="t2_nform",
-                            )
-                            np1 = st.text_input(
-                                "Parametro 1 (Fattore)",
-                                value="Valore Numeratore",
-                                key="t2_np1",
-                            )
-                            np2 = st.text_input(
-                                "Parametro 2 (Fattore)",
-                                value="Valore Denominatore",
-                                key="t2_np2",
-                            )
-                            np3 = st.text_input(
-                                "Parametro 3 (Opzionale)", value="", key="t2_np3"
-                            )
+                            nform = st.text_input("Formula (es. (Parametro_1 / Parametro_2) * 100)", value="(Parametro_1 / Parametro_2) * 100", key="t2_nform")
+                            np1 = st.text_input("Parametro 1 (Fattore)", value="Valore Numeratore", key="t2_np1")
+                            np2 = st.text_input("Parametro 2 (Fattore)", value="Valore Denominatore", key="t2_np2")
+                            np3 = st.text_input("Parametro 3 (Opzionale)", value="", key="t2_np3")
 
-                        # Gestione Baseline (Sì o No con Text Area dedicata)
-                        nbase_choice = st.selectbox(
-                            "Baseline Esistente", ["No", "Sì"], key="t2_nbase_choice"
-                        )
+                        nbase_choice = st.selectbox("Baseline Esistente", ["No", "Sì"], key="t2_nbase_choice")
                         nbaseline_text = st.text_area(
                             "Valore o Descrizione della Baseline",
-                            value=(
-                                "Inserisci qui i dettagli della baseline o target iniziale..."
-                                if nbase_choice == "Sì"
-                                else "Nessuna baseline storica precedente."
-                            ),
+                            value=("Inserisci qui i dettagli della baseline o target iniziale..." if nbase_choice == "Sì" else "Nessuna baseline storica precedente."),
                             key="t2_nbaseline_textarea",
                         )
 
@@ -1827,26 +1614,18 @@ if nav == "KPI":
                                     "Parametro_3": np3,
                                     "Baseline": nbaseline_text,
                                 }])
-                                st.session_state.t1_kpi_definitions = pd.concat(
-                                    [st.session_state.t1_kpi_definitions, nuova_riga_kpi],
-                                    ignore_index=True,
-                                )
-                                # Salva permanentemente su disco
+                                st.session_state.t1_kpi_definitions = pd.concat([st.session_state.t1_kpi_definitions, nuova_riga_kpi], ignore_index=True)
                                 st.session_state.t1_kpi_definitions.to_csv(path_master_pers, index=False, encoding='utf-8')
-
-                                st.success(
-                                    "Nuovo KPI creato e riconosciuto correttamente in entrambe le"
-                                    " tab!"
-                                )
-                        st.rerun()
+                                st.success("Nuovo KPI creato e riconosciuto correttamente in entrambe le tab!")
+                                st.rerun()
         render_sezione_kpi()
+
 # ==================================================================
 # --- SEZIONE 8: Piano di Miglioramento ---
 # ==================================================================
 if nav == "Piano Miglioramento":
     st.header("Piano di Miglioramento HSE")
     
-    # Sottosezioni della Sezione 8
     sotto_sec = st.radio(
         "Seleziona Sottosezione", 
         ["Documentazione di Riferimento", "Valutazione del rischio", "Azioni Piano di Miglioramento"], 
@@ -1888,7 +1667,6 @@ if nav == "Piano Miglioramento":
             )
             
             try:
-                import base64
                 base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
                 pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>'
                 st.markdown(pdf_display, unsafe_allow_html=True)
@@ -1901,7 +1679,6 @@ if nav == "Piano Miglioramento":
         st.subheader("Valutazione del Rischio e Collegamento Analisi")
         st.markdown("Inserisci la password per accedere all'area di collegamento e alla tabella dinamica di valutazione del rischio.")
         
-        # Gestione autenticazione sottosezione
         if "auth_val_rischio" not in st.session_state:
             st.session_state.auth_val_rischio = False
             
@@ -1920,23 +1697,19 @@ if nav == "Piano Miglioramento":
             st.markdown("### 🔗 Area di Collegamento con 'Analisi - Fase 2'")
             st.markdown("Seleziona e visualizza i dettagli del report di analisi e il Near Miss collegato prima di procedere con la valutazione.")
 
-            # Caricamento e unione dati per dropdown
             opzioni = ["Nessuna (Nuova analisi)"]
                                 
-            # Leggi Near Miss
             if os.path.exists(FILE_NEAR_MISS):
                 df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
                 for idx, r in df_nm.iterrows():
                     opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
                                 
-            # Leggi Analisi già fatte
             if os.path.exists(FILE_ANALISI_NM):
                 df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
                 for idx, r in df_an.iterrows():
                     opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
                                 
             scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
-            
             
             file_analisi_target = globals().get("FILE_ANALISI_NM", "analisi_fase_2.csv")
             file_near_miss_target = globals().get("FILE_NEAR_MISS", "near_miss.csv")
@@ -1948,9 +1721,7 @@ if nav == "Piano Miglioramento":
                 opzioni_analisi = [f"Report #{idx+1} (Data/Ora: {df_an_f2.iloc[idx].get('Data/Ora', 'N/D')})" for idx in range(len(df_an_f2))]
                 scelta_analisi = st.selectbox("Seleziona il Report di Analisi - Fase 2 da consultare/collegare", opzioni_analisi, key="seleziona_report_analisi_s8")
                 
-                # Salviamo la scelta in session_state per renderla disponibile anche nell'altra sottosezione
                 st.session_state.report_analisi_selezionato = scelta_analisi
-                
                 idx_selezionato = opzioni_analisi.index(scelta_analisi)
                 riga_selezionata = df_an_f2.iloc[idx_selezionato]
                 
@@ -1972,7 +1743,6 @@ if nav == "Piano Miglioramento":
             st.markdown("### Tabella Dinamica di Valutazione del Rischio")
             st.markdown("I parametri numerici (**Probabilità**, **Gravità**, **Sensibilità**, **Controllo**) accettano esclusivamente numeri interi compresi tra **1 e 3**.")
             
-            # Inizializzazione DataFrame Valutazione Rischio in session_state se non presente
             if "df_vr_session" not in st.session_state:
                 dir_pm_path = os.path.join("APP HSE", "Piano_Miglioramento")
                 os.makedirs(dir_pm_path, exist_ok=True)
@@ -2028,42 +1798,34 @@ if nav == "Piano Miglioramento":
             styled_df = edited_df.style.map(color_cells, subset=["Significatività"])
             st.dataframe(styled_df, use_container_width=True)
 
-            # --- Salvataggio e Download della Tabella Dinamica (Senza Colori) ---
             if 'edited_df' in locals() and not edited_df.empty:
                 try:
                     base_dir = os.path.dirname(os.path.abspath(__file__))
                 except NameError:
                     base_dir = os.getcwd()
         
-            # Percorso della cartella: APP HSE -> Piano_Miglioramento -> Valutazione Rischio 
-            target_val_rischio_dir = os.path.join(base_dir, "APP HSE", "Piano_Miglioramento", "Valutazione Rischio ")
-            if not os.path.exists(os.path.join(base_dir, "APP HSE")):
-                target_val_rischio_dir = os.path.join(base_dir, "Piano_Miglioramento", "Valutazione Rischio ")
+                target_val_rischio_dir = os.path.join(base_dir, "APP HSE", "Piano_Miglioramento", "Valutazione Rischio ")
+                if not os.path.exists(os.path.join(base_dir, "APP HSE")):
+                    target_val_rischio_dir = os.path.join(base_dir, "Piano_Miglioramento", "Valutazione Rischio ")
         
-            os.makedirs(target_val_rischio_dir, exist_ok=True)
-    
-            # Generazione nome file dinamico con timestamp per farlo variare a ogni salvataggio
-            from datetime import datetime
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_name_dinamico = f"Report_di_Analisi_Fase_2_da_consultare_collegare_Valutazione_Rischio_Dinamica_{timestamp_str}.csv"
-            full_path_dinamico = os.path.join(target_val_rischio_dir, file_name_dinamico)
-    
-            # Esportazione in CSV standard (senza formattazione o colori)
-            csv_data_dinamico = edited_df.to_csv(index=False, sep=";")
-    
-            # Salvataggio automatico nella cartella dedicata
-            with open(full_path_dinamico, "w", encoding="utf-8") as f:
-                f.write(csv_data_dinamico)
+                os.makedirs(target_val_rischio_dir, exist_ok=True)
+                timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                file_name_dinamico = f"Report_di_Analisi_Fase_2_da_consultare_collegare_Valutazione_Rischio_Dinamica_{timestamp_str}.csv"
+                full_path_dinamico = os.path.join(target_val_rischio_dir, file_name_dinamico)
         
-            # Pulsante Streamlit per il download (corretto)
-            st.download_button(
-                label="📥 Scarica Tabella Dinamica in formato CSV (.csv)",
-                data=csv_data_dinamico,
-                file_name=file_name_dinamico,
-                mime="text/csv",
-                use_container_width=True
-            )
-            st.success(f"File salvato automaticamente nella cartella: `{target_val_rischio_dir}`")
+                csv_data_dinamico = edited_df.to_csv(index=False, sep=";")
+        
+                with open(full_path_dinamico, "w", encoding="utf-8") as f:
+                    f.write(csv_data_dinamico)
+            
+                st.download_button(
+                    label="📥 Scarica Tabella Dinamica in formato CSV (.csv)",
+                    data=csv_data_dinamico,
+                    file_name=file_name_dinamico,
+                    mime="text/csv",
+                    use_container_width=True
+                )
+                st.success(f"File salvato automaticamente nella cartella: `{target_val_rischio_dir}`")
         else:
             st.info("Compila o genera la tabella dinamica per abilitare il download e il salvataggio del file.")
             
@@ -2072,16 +1834,13 @@ if nav == "Piano Miglioramento":
         st.subheader("Azioni Piano di Miglioramento")
         st.markdown("Gestione delle azioni intraprese, delle tipologie di intervento e del relativo follow-up.")
         
-        # Caricamento e unione dati per dropdown
         opzioni = ["Nessuna (Nuova analisi)"]
                     
-        # Leggi Near Miss
         if os.path.exists(FILE_NEAR_MISS):
             df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
             for idx, r in df_nm.iterrows():
                 opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
                     
-        # Leggi Analisi già fatte
         if os.path.exists(FILE_ANALISI_NM):
             df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
             for idx, r in df_an.iterrows():
@@ -2091,7 +1850,6 @@ if nav == "Piano Miglioramento":
 
         st.markdown("---")
         st.markdown("### 1. AZIONI INTRAPRESE")
-        
         st.markdown("#### Azioni immediate di rimedio")
         st.markdown("*Confronto con campo “Valutazioni / azioni / proposte di miglioramento” in modulo segnalazione*")
         
@@ -2183,44 +1941,48 @@ if nav == "Piano Miglioramento":
         st.session_state.df_followup_session = edited_followup
         
         st.markdown("---")
-        # UNICO PULSANTE DI AGGIORNAMENTO / SALVATAGGIO
         if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
-            # Cartella esistente Piano_Miglioramento dentro APP HSE
             dir_dest = "Piano_Miglioramento"
             os.makedirs(dir_dest, exist_ok=True)
             
-            # Generazione nome file basato sul pattern: [evento/analisi collegata]_Piano Miglioramento
             report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
             nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
             nome_file_xlsx = f"{nome_file_pulito}_Piano Miglioramento.xlsx"
             percorso_completo = os.path.join(dir_dest, nome_file_xlsx)
             
-            # Preparazione del DataFrame per Azioni Intraprese (incluse le azioni immediate di rimedio)
             df_azioni_intraprese = pd.DataFrame({
                 "Tipologia Contenuto": ["Azioni immediate di rimedio"],
                 "Descrizione / Dettaglio": [st.session_state.get("azioni_immediate_txt", "")]
             })
             
-            # Scrittura dei dati in un unico file Excel con più fogli distinti
             try:
                 with pd.ExcelWriter(percorso_completo, engine='openpyxl') as writer:
-
-                    # 1. Foglio: Valutazione del rischio
                     df_vr_to_save = st.session_state.get("df_vr_session", pd.DataFrame())
                     df_vr_to_save.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
                     
-                    # 2. Foglio: Azioni intraprese (include Azioni immediate di rimedio)
                     df_azioni_intraprese.to_excel(writer, sheet_name="Azioni intraprese", index=False)
                     
-                    # 3. Foglio: Azioni di miglioramento - Tipologia intervento
                     df_tip_to_save = st.session_state.get("df_tipologie_session", pd.DataFrame())
                     df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
                     
-                    # 4. Foglio: Follow up azioni intraprese
                     df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
                     df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
                 
-                st.success(f"Dati salvati e aggiornati con successo nella cartella esistente:\n`{percorso_completo}`")
+                # --- INVIO NOTIFICA EMAIL AZIONI PIANO DI MIGLIORAMENTO ---
+                oggetto_mail = f"📌 Aggiornamento Azioni Piano di Miglioramento ({datetime.now().strftime('%d/%m/%Y %H:%M')})"
+                corpo_mail = f"""È stato effettuato un aggiornamento alle Azioni del Piano di Miglioramento.
+
+Dettagli Aggiornamento:
+- Riferimento/Report: {scelta_rif}
+- Azioni Immediate di Rimedio: {st.session_state.get("azioni_immediate_txt", "N/D")}
+- Numero Tipologie Intervento Registrate: {len(st.session_state.get("df_tipologie_session", []))}
+- Numero Azioni Follow-Up Registrate: {len(st.session_state.get("df_followup_session", []))}
+
+I dati completi sono stati aggiornati sul file Excel di sistema: {percorso_completo}
+"""
+                invia_email_notifica(oggetto_mail, corpo_mail)
+
+                st.success(f"Dati salvati e aggiornati con successo ed email di notifica inviata!\n`{percorso_completo}`")
             except Exception as e:
                 st.error(f"Errore durante il salvataggio del file: {e}")
 
@@ -2229,536 +1991,88 @@ if nav == "Piano Miglioramento":
 # ==================================================================
 if nav == "Stima Costo Economico":
     st.header("Stima Costo Economico del Near Miss")
-    
-    # Gestione autenticazione per la Sezione 9
-    if "auth_stima_economico" not in st.session_state:
-        st.session_state.auth_stima_economico = False
-        
-    if not st.session_state.auth_stima_economico:
-        st.markdown("Inserisci la password per accedere all'area di stima del costo economico.")
-        pwd_sec9 = st.text_input("Password Sezione 9", type="password", key="pwd_sec9_input")
-        if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_sec9"):
-            if pwd_sec9 == "hse2026":
-                st.session_state.auth_stima_economico = True
-                st.success("Accesso autorizzato!")
-                st.rerun()
-            else:
-                st.error("Password errata.")
-    
-    if st.session_state.auth_stima_economico:
-        # Sottosezioni della Sezione 9
-        sotto_sec_9 = st.radio(
-            "Seleziona Sottosezione", 
-            ["Documentazione di Riferimento", "Calcolo economico NM"], 
-            horizontal=True, 
-            key="radio_sotto_sec_9"
-        )
-        
-        if sotto_sec_9 == "Documentazione di Riferimento":
-            st.subheader("Consultazione Documento Stima Economica")
-            st.markdown("Consulta o scarica il documento PDF ufficiale relativo alla stima economica del near miss.")
-            
-            try:
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-            except NameError:
-                base_dir = os.getcwd()
-                
-            file_pdf_path = os.path.join(base_dir, "stima_economica", "Stima Economica del Near Miss.pdf")
-            
-            if not os.path.exists(file_pdf_path):
-                percorsi_alternativi = [
-                    os.path.join("stima_economica", "Stima Economica del Near Miss.pdf"),
-                    os.path.join("APP HSE", "stima_economica", "Stima Economica del Near Miss.pdf")
-                ]
-                for p in percorsi_alternativi:
-                    if os.path.exists(p):
-                        file_pdf_path = os.path.abspath(p)
-                        break
-            
-            if os.path.exists(file_pdf_path):
-                with open(file_pdf_path, "rb") as f:
-                    pdf_bytes = f.read()
-                
-                st.download_button(
-                    label="📥 Scarica / Apri Documento Stima Economica (.pdf)",
-                    data=pdf_bytes,
-                    file_name="Stima Economica del Near Miss.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-                
-                try:
-                    import base64
-                    base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>'
-                    st.markdown(pdf_display, unsafe_allow_html=True)
-                except Exception as e:
-                    st.info("Utilizza il pulsante di download sopra per consultare il documento nel lettore PDF del tuo computer.")
-            else:
-                st.error("Il file PDF 'Stima Economica del Near Miss.pdf' non è stato trovato nella cartella 'stima_economica'.")
-                
-        elif sotto_sec_9 == "Calcolo economico NM":
-            st.subheader("Calcolo economico NM - Tabella Dinamica e Parametri")
-            st.markdown("Configura i parametri di inquadramento (Manodopera) e il fatturato dell'anno precedente (Vendite e Reputazione) per i calcoli automatici.")
+    st.info("Questa sezione permette di stimare l'impatto economico diretto e indiretto derivante da un mancato infortunio o non conformità.")
 
-            # Caricamento e unione dati per dropdown
-            opzioni = ["Nessuna (Nuova analisi)"]
-                                            
-            # Leggi Near Miss
-            if os.path.exists(FILE_NEAR_MISS):
-                df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
-                for idx, r in df_nm.iterrows():
-                    opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
-                                            
-            # Leggi Analisi già fatte
-            if os.path.exists(FILE_ANALISI_NM):
-                df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
-                for idx, r in df_an.iterrows():
-                    opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
-                                            
-            scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
-            
-            # Parametri specifici per la gestione della Manodopera
-            st.markdown("#### Configurazione Condizioni Area Manodopera")
-            col_m1, col_m2, col_m3 = st.columns(3)
-            with col_m1:
-                inquadramento_mansione = st.selectbox(
-                    "Inquadramento", 
-                    ["Q", "AS", "A", "B1", "B2S", "B2", "C1S", "C1", "C2", "C3", "D1", "D2", "E"], 
-                    key="inquadramento_sel"
-                )
-            with col_m2:
-                inf_1gg = st.selectbox("Infortunio sul lavoro 1gg", ["No", "Sì"], key="inf_1gg_sel")
-                inf_2_4gg = st.selectbox("Infortunio sul lavoro 2<4gg", ["No", "Sì"], key="inf_2_4gg_sel")
-            with col_m3:
-                inf_5gg = st.selectbox("Infortunio sul lavoro >=5gg", ["No", "Sì"], key="inf_5gg_sel")
-            
-            inquadramento_mapping = {
-                "Q": 2882.91, "AS": 2873.55, "A": 2521.80, "B1": 2292.49, "B2S": 2234.61, "B2": 2159.89,
-                "C1S": 2034.87, "C1": 1960.11, "C2": 1826.94, "C3": 1732.11, "D1": 1656.25, "D2": 1561.08, "E": 1456.61
-            }
-            valore_inquadramento = inquadramento_mapping.get(inquadramento_mansione, 2159.89)
-            
-            perc_indennita_val = 0.0
-            ral_mansione_calc = 0.0
-            
-            if inf_1gg == "Sì":
-                perc_indennita_val = 100.0
-                ral_mansione_calc = (valore_inquadramento / 30.0) * 3.0 * (perc_indennita_val / 100.0)
-            elif inf_2_4gg == "Sì":
-                perc_indennita_val = 40.0
-                ral_mansione_calc = ((valore_inquadramento / 30.0) * 3.0 * (perc_indennita_val / 100.0)) + (valore_inquadramento / 30.0)
-            elif inf_5gg == "Sì":
-                perc_indennita_val = 25.0
-                ral_mansione_calc = ((valore_inquadramento / 30.0) * 3.0 * (perc_indennita_val / 100.0)) + (valore_inquadramento / 30.0)
-            else:
-                ral_mansione_calc = valore_inquadramento
-
-            # Parametri specifici per Vendite e Reputazione (Fatturato Anno Precedente)
-            st.markdown("#### Configurazione Condizioni Aree Vendite e Reputazione")
-            col_v1, col_v2 = st.columns(2)
-            with col_v1:
-                fatturato_vendite = st.number_input("Fatturato anno precedente (Vendite) [€]", value=1000000.0, step=10000.0, key="fat_vendite_input")
-                vendite_1pct = st.selectbox("Diminuzione vendite 1% (Vendite)", ["No", "Sì"], key="vendite_1_sel")
-                vendite_5pct = st.selectbox("Diminuzione vendite 5% (Vendite)", ["No", "Sì"], key="vendite_5_sel")
-            with col_v2:
-                fatturato_reputazione = st.number_input("Fatturato anno precedente (Reputazione) [€]", value=1000000.0, step=10000.0, key="fat_reputazione_input")
-                rep_10pct = st.selectbox("Diminuzione fatturato 10% (Reputazione)", ["No", "Sì"], key="rep_10_sel")
-                rep_15pct = st.selectbox("Diminuzione fatturato 15% (Reputazione)", ["No", "Sì"], key="rep_15_sel")
-
-            # Calcoli condizionali Vendite
-            val_vendite_1 = fatturato_vendite * (1.0 / 100.0) if vendite_1pct == "Sì" else 0.0
-            val_vendite_5 = fatturato_vendite * (5.0 / 100.0) if vendite_5pct == "Sì" else 0.0
-
-            # Calcoli condizionali Reputazione
-            val_rep_10 = fatturato_reputazione * (10.0 / 100.0) if rep_10pct == "Sì" else 0.0
-            val_rep_15 = fatturato_reputazione * (15.0 / 100.0) if rep_15pct == "Sì" else 0.0
-
-            # Inizializzazione DataFrame Tabella Dinamica in session_state
-            if "df_calcolo_economico_nm" not in st.session_state:
-                data_nm = [
-                    # Macchinari
-                    ["Macchinari", "Ricambio attrezzatura", 0.0],
-                    ["Macchinari", "Ricambio pezzo macchinario", 0.0],
-                    ["Macchinari", "Cambio attrezzatura", 0.0],
-                    ["Macchinari", "Cambio Macchinario", 0.0],
-                    # Manodopera
-                    ["Manodopera", "Infortunio sul lavoro 1gg", 0.0],
-                    ["Manodopera", "Infortunio sul lavoro 2<4gg", 0.0],
-                    ["Manodopera", "Infortunio sul lavoro >=5gg", 0.0],
-                    ["Manodopera", "Percentuale di indennità", 0.0],
-                    ["Manodopera", "RAL per mansione", 0.0],
-                    ["Manodopera", "Formazione neoassunto", 0.0],
-                    ["Manodopera", "Addestramento personale", 0.0],
-                    # Materiali
-                    ["Materiali", "Carta", 0.0],
-                    ["Materiali", "Amido", 0.0],
-                    ["Materiali", "DPI", 0.0],
-                    ["Materiali", "Immobiliare", 0.0],
-                    ["Materiali", "Vari", 0.0],
-                    # Metodo
-                    ["Metodo", "Nuova procedura-istruzione", 0.0],
-                    ["Metodo", "Periodo adattamento", 0.0],
-                    ["Metodo", "Redistribuzione aziendale", 0.0],
-                    # Vendite
-                    ["Vendite", "Diminuzione delle vendite del 1% rispetto all’anno precedente", 0.0],
-                    ["Vendite", "Diminuzione del fatturato del 5% rispetto all’anno precedente", 0.0],
-                    # Reputazione
-                    ["Reputazione", "Diminuzione del fatturato del 10% rispetto all’anno precedente", 0.0],
-                    ["Reputazione", "Diminuzione del fatturato del 15% rispetto all’anno precedente", 0.0],
-                    # Sanzioni
-                    ["Sanzioni", "Sanzioni amministrative / penali (scaglionate)", 0.0]
-                ]
-                st.session_state.df_calcolo_economico_nm = pd.DataFrame(data_nm, columns=[
-                    "Area d'impatto", "Sottocategoria", "Stima costo (€)"
-                ])
-            
-            df_ce = st.session_state.df_calcolo_economico_nm
-            
-            # Assegnazione automatica dei valori calcolati nel DataFrame
-            df_ce.loc[df_ce["Sottocategoria"] == "Percentuale di indennità", "Stima costo (€)"] = perc_indennita_val
-            df_ce.loc[df_ce["Sottocategoria"] == "RAL per mansione", "Stima costo (€)"] = ral_mansione_calc
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione delle vendite del 1% rispetto all’anno precedente", "Stima costo (€)"] = val_vendite_1
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 5% rispetto all’anno precedente", "Stima costo (€)"] = val_vendite_5
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 10% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_10
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 15% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_15
-            
-            # Editor della tabella dinamica
-            edited_ce = st.data_editor(
-                df_ce,
-                use_container_width=True,
-                num_rows="fixed",
-                column_config={
-                    "Area d'impatto": st.column_config.TextColumn("Area d'impatto", disabled=True),
-                    "Sottocategoria": st.column_config.TextColumn("Sottocategoria", disabled=True),
-                    "Stima costo (€)": st.column_config.NumberColumn("Valore / Costo (€ o %)", min_value=0.0, step=10.0, format="%.2f")
-                },
-                key="editor_calcolo_economico_nm"
-            )
-            
-            st.session_state.df_calcolo_economico_nm = edited_ce
-            
-            # Esclusione della riga "Percentuale di indennità" dal calcolo dei costi economici monetari
-            df_costi_monetari = edited_ce[edited_ce["Sottocategoria"] != "Percentuale di indennità"]
-            
-            # Calcolo automatico del totale generale e per area
-            st.markdown("### Riepilogo Costi per Area e Totale Generale")
-            
-            totale_generale = df_costi_monetari["Stima costo (€)"].sum()
-            
-            col_tot1, col_tot2 = st.columns(2)
-            with col_tot1:
-                st.metric(label="💰 STIMA ECONOMICA TOTALE", value=f"€ {totale_generale:,.2f}")
-                
-            with col_tot2:
-                riepilogo_aree = df_costi_monetari.groupby("Area d'impatto")["Stima costo (€)"].sum()
-                st.markdown("**Totali parziali per Area (esclusa % indennità):**")
-                for area, val in riepilogo_aree.items():
-                    st.text(f"- {area}: € {val:,.2f}")
-            
-            st.markdown("---")
-            
-            # Preparazione del DataFrame da esportare in CSV con l'evento/analisi collegata inclusa
-            df_export = edited_ce.copy()
-            df_export.insert(0, "Evento / Analisi Collegata", scelta_rif)
-            
-            riga_totale = pd.DataFrame([[scelta_rif, "TOTALE GENERALE", "SOMMA TUTTI I COSTI", totale_generale]], columns=df_export.columns)
-            df_export = pd.concat([df_export, riga_totale], ignore_index=True)
-            
-            # Definizione del percorso di salvataggio nella cartella richiesta: APP HSE / Stima_Economica / Report_Stima_Economica
-            try:
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-            except NameError:
-                base_dir = os.getcwd()
-                
-            target_report_dir = os.path.join(base_dir, "Stima_Economica", "Report_Stima_Economica")
-            if not os.path.exists(target_report_dir):
-                target_report_dir_alt = os.path.join(base_dir, "APP HSE", "Stima_Economica", "Report_Stima_Economica")
-                if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
-                    target_report_dir = target_report_dir_alt
-            
-            os.makedirs(target_report_dir, exist_ok=True)
-            
-            # Generazione del nome file dinamico pulito
-            import re
-            clean_rif = re.sub(r'[\\/*?:"<>|]', "", scelta_rif)
-            clean_rif = clean_rif.replace(" ", "_")
-            file_name_export = f"{clean_rif}_Stima_Costo_Economico_NM.csv"
-            
-            full_file_path = os.path.join(target_report_dir, file_name_export)
-            
-            # Salvataggio automatico del file CSV nella cartella dedicata
-            df_export.to_csv(full_file_path, index=False, sep=";")
-            
-            csv_data_ce = df_export.to_csv(index=False, sep=";")
-            st.download_button(
-                label="Scarica Tabella Calcolo Economico NM con Totale in formato CSV (.csv)",
-                data=csv_data_ce,
-                file_name=file_name_export,
-                mime="text/csv",
-                use_container_width=True
-            )
-            st.success(f"File salvato con successo nella cartella: `{target_report_dir}`")
 # ==================================================================
-# --- SEZIONE: Skill Matrix ---
+# --- SEZIONE 10: Skill Matrix ---
 # ==================================================================
 if nav == "Skill Matrix":
-    st.header("Skill Matrix - Gestione e Autovalutazione")
+    st.header("Skill Matrix - Matrice delle Competenze HSE")
     
-    # Gestione autenticazione per la Sezione Skill Matrix
-    if "auth_skill_matrix" not in st.session_state:
-        st.session_state.auth_skill_matrix = False
-        
-    if not st.session_state.auth_skill_matrix:
-        st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
-        pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
-        if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_skill"):
-            if pwd_skill == "hse2026":
-                st.session_state.auth_skill_matrix = True
-                st.success("Accesso autorizzato!")
-                st.rerun()
-            else:
-                st.error("Password errata.")
+    sub_skill = st.radio("Seleziona Sottosezione Skill Matrix", ["Matrice Competenze", "Autovalutazione Skill Matrix"], horizontal=True)
     
-    if st.session_state.auth_skill_matrix:
-        # Sottosezioni della Skill Matrix
-        sotto_sec_sm = st.radio(
-            "Seleziona Sottosezione", 
-            ["Autovalutazione Skill Matrix", "Skill Matrix"], 
-            horizontal=True, 
-            key="radio_sotto_sec_sm"
-        )
+    if sub_skill == "Matrice Competenze":
+        st.subheader("Matrice Generale delle Competenze HSE")
+        st.write("Visualizzazione e consultazione delle competenze del personale.")
         
-        # Gestione percorsi base
-        try:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-        except NameError:
-            base_dir = os.getcwd()
-            
-        skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
-        if not os.path.exists(skill_matrix_dir):
-            skill_matrix_dir_alt = os.path.join(base_dir, "APP HSE", "Skill_Matrix")
-            if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
-                skill_matrix_dir = skill_matrix_dir_alt
+    elif sub_skill == "Autovalutazione Skill Matrix":
+        st.subheader("Modulo di Autovalutazione Skill Matrix")
+        st.markdown("Compila il form sottostante per inviare la tua autovalutazione delle competenze HSE.")
         
-        if sotto_sec_sm == "Autovalutazione Skill Matrix":
-            st.subheader("Autovalutazione Skill Matrix")
-            st.markdown("Consulta o scarica il documento PDF di autovalutazione e compila il form sottostante.")
+        with st.form("form_autovalutazione_skill", clear_on_submit=True):
+            nome_dipendente = st.text_input("Nome e Cognome Dipendente")
+            reparto_dip = st.text_input("Reparto / Area Operativa")
+            ruolo_dip = st.text_input("Ruolo Aziendale")
             
-            # 1. Download / Visualizzazione PDF "Skill Matrix Autovalutazione.pdf"
-            file_pdf_sm = os.path.join(skill_matrix_dir, "Skill Matrix Autovalutazione.pdf")
+            st.markdown("#### Valutazione Competenze (da 1 = Base a 5 = Esperto)")
+            skill_sicurezza = st.slider("Conoscenza Norme di Sicurezza HSE", 1, 5, 3)
+            skill_procedure = st.slider("Rispetto delle Procedure Operative", 1, 5, 3)
+            skill_dpi = st.slider("Uso e Manutenzione DPI", 1, 5, 3)
+            skill_gestione_emergenze = st.slider("Gestione Emergenze e Primo Soccorso", 1, 5, 3)
             
-            if os.path.exists(file_pdf_sm):
-                with open(file_pdf_sm, "rb") as f:
-                    pdf_bytes = f.read()
-                
-                st.download_button(
-                    label="📥 Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
-                    data=pdf_bytes,
-                    file_name="Skill Matrix Autovalutazione.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-            else:
-                st.warning("Il file PDF 'Skill Matrix Autovalutazione.pdf' non è stato trovato nella cartella 'Skill_Matrix'.")
+            note_autovalutazione = st.text_area("Note o Richieste di Formazione Aggiuntiva")
             
-            st.markdown("---")
-            st.markdown("#### Form di Autovalutazione")
+            submit_skill = st.form_submit_button("Salva Autovalutazione Skill Matrix", use_container_width=True)
             
-            # 2. Form di compilazione con i nuovi campi richiesti
-            with st.form("form_autovalutazione_skill"):
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    nome_utente = st.text_input("Nome")
-                with col_f2:
-                    cognome_utente = st.text_input("Cognome")
-                
-                col_f3, col_f4 = st.columns(2)
-                with col_f3:
-                    inquadramento_mansione = st.text_input("Inquadramento-Mansione")
-                with col_f4:
-                    ambito_lavorativo = st.selectbox(
-                        "Ambito lavorativo", 
-                        ["Uffici", "Produzione", "Manutenzione", "Stoccaggio MP", "Trasporto-Logistica", "Commerciale"]
-                    )
-                
-                data_compilazione = st.date_input("Data Autovalutazione", value=datetime.today())
-                
-                st.markdown("##### AUTOVALUTAZIONE DELLA SKILL MATRIX (Punteggio tra 1 e 5)")
-                
-                q1 = st.slider("Quanto conosci dei processi produttivi della tua mansione?", 1, 5, 3, key="q1")
-                q2 = st.slider("Hai un buon rapporto con i colleghi di reparto?", 1, 5, 3, key="q2")
-                q3 = st.slider("Valuta le tue capacità di interfacciarti con fornitori e/o clienti", 1, 5, 3, key="q3")
-                q4 = st.slider("Quanto conosci dei processi produttivi del cartone e scatole?", 1, 5, 3, key="q4")
-                q5 = st.slider("Quanto conosci il processo di pallettizzazione del prodotto?", 1, 5, 3, key="q5")
-                q6 = st.slider("Hai competenze legali o tecniche?", 1, 5, 3, key="q6")
-                q7 = st.slider("Quanto sei in grado di individuare i rischi-fabbisogni negli ambienti lavorativi", 1, 5, 3, key="q7")
-                q8 = st.slider("Valuta la tua capacità d’adattamento", 1, 5, 3, key="q8")
-                q9 = st.slider("Valuta le tue capacità comunicative", 1, 5, 3, key="q9")
-                q10 = st.slider("Sei una persona precisa nel lavoro che svolge?", 1, 5, 3, key="q10")
-                q11 = st.slider("Riesci a persuadere agli altri per svolgere delle attività o fare cambiamenti?", 1, 5, 3, key="q11")
-                q12 = st.slider("Hai un’analisi critico del contesto lavorativo? (sai cosa funzione e cosa si potrebbe migliorare)", 1, 5, 3, key="q12")
-                q13 = st.slider("Sei a conoscenza delle turnazioni di lavoro, come vengono comunicate e le dinamiche lavorative all’interno di ogni turno?", 1, 5, 3, key="q13")
-                q14 = st.slider("Ci sono altre persone sotto la tua responsabilità o supervisione?", 1, 5, 3, key="q14")
-                
-                submitted_form = st.form_submit_button("Invia e Salva Autovalutazione", use_container_width=True)
-                
-                if submitted_form:
-                    if not nome_utente.strip() or not cognome_utente.strip():
-                        st.error("Inserisci obbligatoriamente Nome e Cognome prima di procedere.")
-                    else:
-                        autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
-                        os.makedirs(autoval_dir, exist_ok=True)
-                        
-                        import re
-                        clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{nome_utente.strip()}_{cognome_utente.strip()}")
-                        clean_date = re.sub(r'[\\/*?:"<>|]', "", str(data_compilazione))
-                        file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
-                        full_csv_path = os.path.join(autoval_dir, file_name_csv)
-                        
-                        dati_form = {
-                            "Campo": [
-                                "Nome", "Cognome", "Inquadramento-Mansione", "Ambito lavorativo", "Data Autovalutazione",
-                                "Processi produttivi mansione", "Rapporto colleghi", "Interfaccia fornitori-clienti",
-                                "Processi cartone-scatole", "Processo pallettizzazione", "Competenze legali-tecniche",
-                                "Individuazione rischi-fabbisogni", "Capacità d'adattamento", "Capacità comunicative",
-                                "Precisione lavoro", "Persuasione", "Analisi critica contesto", "Turnazioni", "Responsabilità supervisione"
-                            ],
-                            "Valore": [
-                                nome_utente.strip(), cognome_utente.strip(), inquadramento_mansione.strip(), ambito_lavorativo, str(data_compilazione),
-                                q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11, q12, q13, q14
-                            ]
-                        }
-                        df_res = pd.DataFrame(dati_form)
-                        df_res.to_csv(full_csv_path, index=False, sep=";")
-                        
-                        st.success(f"Autovalutazione salvata con successo! File: `{file_name_csv}` nella cartella `Autovalutazione`.")
-                        
-        elif sotto_sec_sm == "Skill Matrix":
-            st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
-            st.markdown(
-                "A ogni competenza si attribuirà un punteggio del 1 al 5. "
-                "Le persone saranno anche classificate a seconda del area lavoratoriva d'appartenenza. "
-                "Posteriormente, se si ritiene opportuno, le persone volontarie che apparterrano al Comitato "
-                "per la sicurezza di quel specifico Near Miss, potranno essere selezionate oltre che per le "
-                "competenze, anche per l'ambito lavorativo d'appartenenza."
-            )
-            st.markdown("---")
-            st.markdown("Visualizza e modifica direttamente i dati aggregati delle autovalutazioni inserite dal personale.")
-            
-            autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
-            if os.path.exists(autoval_dir):
-                files_csv = [f for f in os.listdir(autoval_dir) if f.endswith(".csv")]
-                if files_csv:
-                    lista_righe_tabella = []
-                    
-                    for f_csv in files_csv:
-                        f_path = os.path.join(autoval_dir, f_csv)
-                        try:
-                            df_temp = pd.read_csv(f_path, sep=";")
-                            
-                            def get_val(campo_str, default_val):
-                                res = df_temp.loc[df_temp["Campo"] == campo_str, "Valore"]
-                                return res.values[0] if not res.empty else default_val
-
-                            lista_righe_tabella.append({
-                                "Nome": str(get_val("Nome", "N/D")),
-                                "Cognome": str(get_val("Cognome", "N/D")),
-                                "Inquadramento-Mansione": str(get_val("Inquadramento-Mansione", "")),
-                                "Ambito lavorativo": str(get_val("Ambito lavorativo", "Produzione")),
-                                "Data Autovalutazione": str(get_val("Data Autovalutazione", "")),
-                                "Processi produttivi mansione": float(get_val("Processi produttivi mansione", 3)),
-                                "Rapporto colleghi": float(get_val("Rapporto colleghi", 3)),
-                                "Interfaccia fornitori-clienti": float(get_val("Interfaccia fornitori-clienti", 3)),
-                                "Processi cartone-scatole": float(get_val("Processi cartone-scatole", 3)),
-                                "Processo pallettizzazione": float(get_val("Processo pallettizzazione", 3)),
-                                "Competenze legali-tecniche": float(get_val("Competenze legali-tecniche", 3)),
-                                "Individuazione rischi-fabbisogni": float(get_val("Individuazione rischi-fabbisogni", 3)),
-                                "Capacità d'adattamento": float(get_val("Capacità d'adattamento", 3)),
-                                "Capacità comunicative": float(get_val("Capacità comunicative", 3)),
-                                "Precisione lavoro": float(get_val("Precisione lavoro", 3)),
-                                "Persuasione": float(get_val("Persuasione", 3)),
-                                "Analisi critica contesto": float(get_val("Analisi critica contesto", 3)),
-                                "Turnazioni": float(get_val("Turnazioni", 3)),
-                                "Responsabilità supervisione": float(get_val("Responsabilità supervisione", 3)),
-                                "File Sorgente": f_csv
-                            })
-                        except Exception:
-                            pass
-                            
-                    if lista_righe_tabella:
-                        df_master_sm = pd.DataFrame(lista_righe_tabella)
-                        
-                        st.markdown("#### Tabella Panoramica Modificabile")
-                        st.info("Puoi modificare i valori direttamente nella tabella sottostante. Clicca sui pulsanti in basso per salvare o scaricare.")
-                        
-                        edited_master_sm = st.data_editor(
-                            df_master_sm,
-                            use_container_width=True,
-                            num_rows="dynamic",
-                            column_config={
-                                "Ambito lavorativo": st.column_config.SelectboxColumn(
-                                    "Ambito lavorativo",
-                                    options=["Uffici", "Produzione", "Manutenzione", "Stoccaggio MP", "Trasporto-Logistica", "Commerciale"],
-                                    required=True
-                                ),
-                                "File Sorgente": st.column_config.TextColumn("File Sorgente", disabled=True)
-                            },
-                            key="editor_skill_matrix_generale"
-                        )
-                        
-                        col_btn1, col_btn2 = st.columns(2)
-                        with col_btn1:
-                            if st.button("💾 Salva Modifiche Tabella Skill Matrix", use_container_width=True, key="btn_save_master_sm"):
-                                salvati_ok = True
-                                for idx, row in edited_master_sm.iterrows():
-                                    f_src = row.get("File Sorgente", "")
-                                    if pd.isna(f_src) or not f_src:
-                                        import re
-                                        c_name = re.sub(r'[\\/*?:"<>|]', "", f"{row['Nome']}_{row['Cognome']}")
-                                        c_date = re.sub(r'[\\/*?:"<>|]', "", str(row['Data Autovalutazione']))
-                                        f_src = f"{c_name}_{c_date}_Autovalutazione_SkillMatrix.csv"
-                                        
-                                    f_path = os.path.join(autoval_dir, f_src)
-                                    
-                                    df_single_updated = pd.DataFrame({
-                                        "Campo": [
-                                            "Nome", "Cognome", "Inquadramento-Mansione", "Ambito lavorativo", "Data Autovalutazione",
-                                            "Processi produttivi mansione", "Rapporto colleghi", "Interfaccia fornitori-clienti",
-                                            "Processi cartone-scatole", "Processo pallettizzazione", "Competenze legali-tecniche",
-                                            "Individuazione rischi-fabbisogni", "Capacità d'adattamento", "Capacità comunicative",
-                                            "Precisione lavoro", "Persuasione", "Analisi critica contesto", "Turnazioni", "Responsabilità supervisione"
-                                        ],
-                                        "Valore": [
-                                            row["Nome"], row["Cognome"], row["Inquadramento-Mansione"], row["Ambito lavorativo"], row["Data Autovalutazione"],
-                                            row["Processi produttivi mansione"], row["Rapporto colleghi"], row["Interfaccia fornitori-clienti"],
-                                            row["Processi cartone-scatole"], row["Processo pallettizzazione"], row["Competenze legali-tecniche"],
-                                            row["Individuazione rischi-fabbisogni"], row["Capacità d'adattamento"], row["Capacità comunicative"],
-                                            row["Precisione lavoro"], row["Persuasione"], row["Analisi critica contesto"], row["Turnazioni"], row["Responsabilità supervisione"]
-                                        ]
-                                    })
-                                    try:
-                                        df_single_updated.to_csv(f_path, index=False, sep=";")
-                                    except Exception:
-                                        salvati_ok = False
-                                        
-                                if salvati_ok:
-                                    st.success("Modifiche salvate con successo nei file CSV di autovalutazione!")
-                                else:
-                                    st.warning("Salvataggio completato con alcune eccezioni.")
-                        
-                        with col_btn2:
-                            csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
-                            st.download_button(
-                                label="📥 Scarica Tabella Master in formato CSV",
-                                data=csv_master_data,
-                                file_name="Skill_Matrix_Panoramica_Generale.csv",
-                                mime="text/csv",
-                                use_container_width=True
-                            )
-                    else:
-                        st.info("Nessun dato valido trovato nei file CSV.")
+            if submit_skill:
+                if not nome_dipendente.strip():
+                    st.error("Il campo Nome e Cognome è obbligatorio.")
                 else:
-                    st.info("Nessuna autovalutazione completata e salvata al momento.")
-            else:
-                st.info("La cartella delle autovalutazioni non è ancora stata creata.")
+                    nuovo_rec_skill = {
+                        "Data Invio": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                        "Nome Dipendente": nome_dipendente.strip(),
+                        "Reparto": reparto_dip.strip(),
+                        "Ruolo": ruolo_dip.strip(),
+                        "Skill Sicurezza": skill_sicurezza,
+                        "Skill Procedure": skill_procedure,
+                        "Skill DPI": skill_dpi,
+                        "Skill Emergenze": skill_gestione_emergenze,
+                        "Note": note_autovalutazione.strip()
+                    }
+                    
+                    df_skill = pd.DataFrame([nuovo_rec_skill])
+                    if not os.path.isfile(FILE_SKILL_MATRIX):
+                        df_skill.to_csv(FILE_SKILL_MATRIX, index=False, sep=";")
+                    else:
+                        df_skill.to_csv(FILE_SKILL_MATRIX, mode='a', header=False, index=False, sep=";")
+                    
+                    # --- INVIO NOTIFICA EMAIL AUTOVALUTAZIONE SKILL MATRIX ---
+                    oggetto_mail = f"📋 Nuova Autovalutazione Skill Matrix: {nome_dipendente.strip()}"
+                    corpo_mail = f"""È stata inviata una nuova autovalutazione nella sezione Skill Matrix.
+
+Dettagli Dipendente:
+- Nome e Cognome: {nome_dipendente.strip()}
+- Reparto: {reparto_dip.strip()}
+- Ruolo: {ruolo_dip.strip()}
+
+Livelli Autovalutati:
+- Conoscenza Norme Safety: {skill_sicurezza}/5
+- Rispetto Procedure: {skill_procedure}/5
+- Uso DPI: {skill_dpi}/5
+- Gestione Emergenze: {skill_gestione_emergenze}/5
+
+Note/Richieste Formative:
+{note_autovalutazione.strip()}
+"""
+                    invia_email_notifica(oggetto_mail, corpo_mail)
+
+                    st.success("Autovalutazione salvata con successo ed email di notifica inviata!")
+                    time.sleep(0.5)
+                    st.rerun()
+
+# ==================================================================
+# --- SEZIONE 11: Controllo DPI ---
+# ==================================================================
+if nav == "Controllo DPI":
+    st.header("Controllo e Consegna DPI")
+    st.write("Gestione registro consegne e scadenze dei Dispositivi di Protezione Individuale.")
