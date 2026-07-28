@@ -10,7 +10,16 @@ from PIL import Image
 import textwrap
 import json
 import io
-from fpdf import FPDF
+
+# Gestione sicura dell'importazione FPDF / FPDF2 per ambienti Cloud
+try:
+    from fpdf import FPDF
+except ImportError:
+    try:
+        from fpdf2 import FPDF
+    except ImportError:
+        FPDF = None
+
 import matplotlib
 matplotlib.use('Agg')  # Modalità non interattiva per ambienti cloud/server
 import matplotlib.pyplot as plt
@@ -955,6 +964,10 @@ elif nav == "Analisi - Fase 2":
         conc = st.text_area("Conclusioni:", key="conc")
 
         if st.button("Genera Report e File"):
+            if FPDF is None:
+                st.error("Errore: la libreria 'fpdf2' non risulta ancora configurata nel sistema. Controlla il file requirements.txt.")
+                st.stop()
+                
             temp_img = os.path.join(DIR_ANALISI, "temp_ishikawa.png")
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.axis('off')
