@@ -2335,6 +2335,9 @@ if nav == "Piano Miglioramento":
         # ---------------------------------------------------------
         # DISPOSIZIONE DEI PULSANTI IN DUE COLONNE
         # ---------------------------------------------------------
+        # Conversione in byte UTF-8 con BOM per Excel
+        csv_bytes = df_completo_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
+        
         col_btn_salva, col_btn_down = st.columns(2)
 
         with col_btn_salva:
