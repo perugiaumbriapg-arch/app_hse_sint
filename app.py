@@ -2622,7 +2622,9 @@ if nav == "Skill Matrix":
                     df_res.to_csv(full_csv_path, index=False, sep=";")
                         
                     st.success(f"Autovalutazione salvata con successo! File: `{file_name_csv}` nella cartella `Autovalutazione`.")
-                        
+        # =========================================================
+        # SOTTOSEZIONE RISERVATA - SKILL MATRIX (Richiede Password)
+        # =========================================================                 
         else:
             if not st.session_state.auth_skill_matrix:
                 st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
