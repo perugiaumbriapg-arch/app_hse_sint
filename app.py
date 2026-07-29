@@ -2518,16 +2518,16 @@ if nav == "Skill Matrix":
     )
         
         # Gestione percorsi base
-        try:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-        except NameError:
-            base_dir = os.getcwd()
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        base_dir = os.getcwd()
             
-        skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
-        if not os.path.exists(skill_matrix_dir):
-            skill_matrix_dir_alt = os.path.join(base_dir, "APP HSE", "Skill_Matrix")
-            if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
-                skill_matrix_dir = skill_matrix_dir_alt
+    skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
+    if not os.path.exists(skill_matrix_dir):
+        skill_matrix_dir_alt = os.path.join(base_dir, "APP HSE", "Skill_Matrix")
+        if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
+            skill_matrix_dir = skill_matrix_dir_alt
                 
         #SOTTOSEZIONE PUBBLICA- AUTOVALUTAZIONE SKILL MATRIX
         if sotto_sec_sm == "Autovalutazione Skill Matrix":
