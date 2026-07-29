@@ -2332,6 +2332,50 @@ if nav == "Piano Miglioramento":
         )
         st.session_state.df_followup_session = edited_followup
 
+        1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
+        # ---------------------------------------------------------
+        # Estrazione Azioni Immediate
+        df_export_azioni_rimedio = pd.DataFrame([{
+            "Sezione": "Azioni Immediate di Rimedio",
+            "Tipologia / Azione": "Descrizione",
+            "Dettaglio / Responsabile": st.session_state.get("azioni_immediate_txt", ""),
+            "Scadenza": "",
+            "Stato / Verifica": ""
+        }])
+
+        # Estrazione Tipologie Intervento
+        df_export_tipologie = st.session_state.get("df_tipologie_session", pd.DataFrame()).copy()
+        if not df_export_tipologie.empty:
+            df_export_tipologie["Sezione"] = "Tipologia Intervento"
+            df_export_tipologie = df_export_tipologie.rename(columns={
+                "Tipologia di Intervento": "Tipologia / Azione",
+                "Descrizione": "Dettaglio / Responsabile"
+            })
+            df_export_tipologie["Scadenza"] = ""
+            df_export_tipologie["Stato / Verifica"] = ""
+
+        # Estrazione Follow-up
+        df_export_followup = st.session_state.get("df_followup_session", pd.DataFrame()).copy()
+        if not df_export_followup.empty:
+            df_export_followup["Sezione"] = "Follow-up Azioni"
+            df_export_followup = df_export_followup.rename(columns={
+                "Azione / Descrizione": "Tipologia / Azione",
+                "Responsabile attuazione": "Dettaglio / Responsabile",
+                "Entro il": "Scadenza",
+                "Verifica attuazione": "Stato / Verifica"
+            })
+
+        # Unione di tutti i DataFrame creati
+        cols_export = ["Sezione", "Tipologia / Azione", "Dettaglio / Responsabile", "Scadenza", "Stato / Verifica"]
+        
+        list_dfs = [df_export_azioni_rimedio[cols_export]]
+        if not df_export_tipologie.empty:
+            list_dfs.append(df_export_tipologie[cols_export])
+        if not df_export_followup.empty:
+            list_dfs.append(df_export_followup[cols_export])
+
+        df_completo_csv = pd.concat(list_dfs, ignore_index=True)
+        
         # ---------------------------------------------------------
         # DISPOSIZIONE DEI PULSANTI IN DUE COLONNE
         # ---------------------------------------------------------
