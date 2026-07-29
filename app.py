@@ -2254,7 +2254,7 @@ if nav == "Piano Miglioramento":
             scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
 
             st.markdown("---")
-             st.markdown("### 1. AZIONI INTRAPRESE")
+            st.markdown("### 1. AZIONI INTRAPRESE")
         
             st.markdown("#### Azioni immediate di rimedio")
             st.markdown("*Confronto con campo “Valutazioni / azioni / proposte di miglioramento” in modulo segnalazione*")
