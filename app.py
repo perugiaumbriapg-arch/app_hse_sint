@@ -2828,7 +2828,7 @@ if nav == "Skill Matrix":
 # SEZIONE 12: RICONOSCIMENTO SEGNALANTI NEAR MISS
 #------------------------------------------------------------------------------------------------------------------
 if nav == "Riconoscimento":
-    st.header("🏆 Sezione Riconoscimento")
+    st.header("Sezione Riconoscimento")
     st.markdown("Gestione delle classifiche e assegnazione dei punteggi di riconoscimento.")
     
     # ---------------------------------------------------------
@@ -2838,7 +2838,7 @@ if nav == "Riconoscimento":
         st.session_state.auth_riconoscimento = False
 
     if not st.session_state.auth_riconoscimento:
-        st.markdown("🔒 **Area Riservata:** Inserisci la password per accedere.")
+        st.markdown("**Area Riservata:** Inserisci la password per accedere.")
         pwd_riconoscimento = st.text_input("Password Riconoscimento", type="password", key="pwd_riconoscimento_input")
         if st.button("Accedi", use_container_width=True, key="btn_auth_riconoscimento"):
             if pwd_riconoscimento == "hse2026":  # Sostituisci o mantieni la password desiderata
@@ -2977,7 +2977,7 @@ if nav == "Riconoscimento":
         # 1. SOTTOSEZIONE - CLASSIFICAZIONE
         # =========================================================
         if sotto_sec_ric == "Classificazione":
-            st.subheader("🥇 Classifica Generale Riconoscimenti")
+            st.subheader("Classifica Generale Riconoscimenti")
             st.markdown("Visualizzazione della classifica complessiva aggiornata in base ai punteggi assegnati.")
 
             # Podio o metriche sui primi 3 (opzionale e visivo)
@@ -3003,7 +3003,7 @@ if nav == "Riconoscimento":
         # 2. SOTTOSEZIONE - ASSEGNAZIONE RICONOSCIMENTO
         # =========================================================
         elif sotto_sec_ric == "Assegnazione Riconoscimento":
-            st.subheader("⚙️ Assegnazione Manuale Punteggi e Modifica Tabella")
+            st.subheader("Assegnazione Manuale Punteggi e Modifica Tabella")
             st.info(
                 "In questa sezione puoi assegnare manualmente i punti:\n"
                 "- **+50 Punti** per le attività di segnalazione Near Miss.\n"
