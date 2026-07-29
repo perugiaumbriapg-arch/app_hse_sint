@@ -2824,3 +2824,38 @@ if nav == "Skill Matrix":
                     st.info("Nessuna autovalutazione completata e salvata al momento.")
             else:
                 st.info("La cartella delle autovalutazioni non è ancora stata creata.")
+#------------------------------------------------------------------------------------------------------------------
+# SEZIONE 12: RICONOSCIMENTO SEGNALANTI NEAR MISS
+#------------------------------------------------------------------------------------------------------------------
+if nav ==  "Riconoscimento":
+    st.header("Riconoscimento ai segnalanti Near Miss")
+     if not st.session_state.riconoscimento:
+            st.markdown("Inserisci la password per accedere alla sezione Riconoscimento.")
+            pwd_skill = st.text_input("Password Riconoscimento", type="password", key="pwd_ricon_input")
+            if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_ricon"):
+                if pwd_skill == "hse2026":
+                    st.session_state.auth_riconoscimento = True
+                    st.success("Accesso autorizzato!")
+                    st.rerun()
+                else:
+                    st.error("Password errata.")
+    riconoscimento = st.radio(
+        "Seleziona Sottosezione",
+        ["Classificazione", "Assegnazione Riconoscimento"],
+        horizontal=True,
+        key="radio_riconoscimento"
+    )
+        
+    # Gestione percorsi base
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        base_dir = os.getcwd()
+            
+    riconoscimento_dir = os.path.join(base_dir, "Riconoscimento")
+    if not os.path.exists(skill_matrix_dir):
+        riconoscimento_dir_alt = os.path.join(base_dir, "APP HSE", "Riconoscimento")
+        if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
+            riconoscimento_dir = riconoscimento_dir_alt
+
+    
