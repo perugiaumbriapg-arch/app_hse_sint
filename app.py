@@ -2637,7 +2637,8 @@ if nav == "Skill Matrix":
                     else:
                         st.error("Password errata.")
     
-            else sotto_sec_sm == "Skill Matrix":
+            else: 
+                sotto_sec_sm == "Skill Matrix":
                 st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
                 st.markdown(
                     "A ogni competenza si attribuirà un punteggio del 1 al 5. "
