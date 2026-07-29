@@ -257,7 +257,8 @@ tab_list = [
     "Piano Miglioramento",
     "Stima Costo Economico",
     "Skill Matrix",
-    "Controllo DPI"
+    "Controllo DPI",
+    "Riconoscimento"
 ]
 
 # Impostiamo la navigazione
