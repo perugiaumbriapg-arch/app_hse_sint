@@ -2240,7 +2240,7 @@ if nav == "Piano Miglioramento":
             opzioni = ["Nessuna (Nuova analisi)"]
                     
             # Leggi Near Miss
-            if os.path.exists(FILE_NEAR_MISS):
+            else os.path.exists(FILE_NEAR_MISS):
                 df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
                 for idx, r in df_nm.iterrows():
                     opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
