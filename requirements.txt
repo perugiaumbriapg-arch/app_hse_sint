@@ -9,3 +9,4 @@ plotly
 qrcode
 pillow
 opencv-python-headless
+ultralytics
