@@ -249,7 +249,6 @@ if "active_tab" not in st.session_state:
 tab_list = [
     "Home Dashboard", 
     "Segnalazione Near Miss", 
-    "Scadenzario Adempimenti",
     "Consultazione",
     "Analisi Segnalazioni Near Miss", 
     "Analisi - Fase 2",
@@ -258,6 +257,7 @@ tab_list = [
     "Skill Matrix",
     "Riconoscimento",
     "KPI",
+    "Scadenzario Adempimenti",
     "Controllo DPI"
 ]
 
@@ -828,7 +828,7 @@ if nav == "Analisi Segnalazioni Near Miss":
 # --- SEZIONE 5: Consultazione CONFORMITÀ LEGISLATIVA (RIFERIMENTI REALI) ---
 # ==================================================================
 if nav == "Consultazione":
-    st.header("Consultazione Documenti e procedure")
+    st.header("Consultazione Documenti e Procedure")
     
     if "autenticato_upload_legale" not in st.session_state:
         st.session_state.autenticato_upload_legale = False
