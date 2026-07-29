@@ -236,8 +236,8 @@ def decodifica_qr_opencv(image_file):
 # ==================================================================
 # --- 3. INTESTAZIONE DELLA PIATTAFORMA ---
 # ==================================================================
-st.title("SECURITY AND HSE SYSTEM PLATFORM")
-st.markdown("### Sistema di Gestione Integrato Locale e Multiutente")
+st.title("Piattaforma HSE - Near Miss")
+st.markdown("### Sistema di Gestione dei Near Miss e Monitoraggio Salute e Sicurezza sul Lavoro")
 st.markdown("---")
 
 # --- 1. Inizializzazione dello Stato (Inseriscilo dopo st.set_page_config) ---
@@ -247,7 +247,7 @@ if "active_tab" not in st.session_state:
 # --- 2. Creazione della barra di navigazione ---
 # Usiamo st.radio in orizzontale per simulare le tab
 tab_list = [
-    "Home Dashboard", 
+    "Home", 
     "Segnalazione Near Miss", 
     "Consultazione",
     "Analisi Segnalazioni Near Miss",
@@ -275,9 +275,9 @@ st.session_state.active_tab = nav
 st.markdown("---") # Linea di separazione estetica
 
 # ==================================================================
-# --- SEZIONE 1: HOME DASHBOARD ---
+# --- SEZIONE 1: HOME ---
 # ==================================================================
-if nav == "Home Dashboard":
+if nav == "Home":
     st.header("Quadro Generale di Controllo HSE")
     st.markdown("Benvenuto nel menu principale. Qui trovi i dati riassuntivi estratti in tempo reale dai database locali.")
     st.markdown(" ")
