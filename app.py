@@ -247,7 +247,7 @@ if "active_tab" not in st.session_state:
 # --- 2. Creazione della barra di navigazione ---
 # Usiamo st.radio in orizzontale per simulare le tab
 tab_list = [
-    "Home", 
+    "Home Dashboard", 
     "Segnalazione Near Miss", 
     "Consultazione",
     "Analisi Segnalazioni Near Miss",
@@ -277,7 +277,7 @@ st.markdown("---") # Linea di separazione estetica
 # ==================================================================
 # --- SEZIONE 1: HOME ---
 # ==================================================================
-if nav == "Home":
+if nav == "Home Dashboard":
     st.header("Quadro Generale di Controllo HSE")
     st.markdown("Benvenuto nel menu principale. Qui trovi i dati riassuntivi estratti in tempo reale dai database locali.")
     st.markdown(" ")
