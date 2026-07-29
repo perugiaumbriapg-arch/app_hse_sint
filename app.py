@@ -336,10 +336,10 @@ if nav == "Home Dashboard":
     colA, colB, colC, colD = st.columns(4)
     with colA:
         tot_nm = len(pd.read_csv(FILE_NEAR_MISS, sep=";")) if os.path.exists(FILE_NEAR_MISS) else 0
-        st.metric("Segnalazioni Ricevute", tot_nm)
+        st.metric("Segnalazioni Near Miss Ricevute", tot_nm)
     with colB:
         tot_an = len(pd.read_csv(FILE_ANALISI_NM, sep=";")) if os.path.exists(FILE_ANALISI_NM) else 0
-        st.metric("Analisi Trattate dal RSPP", tot_an)
+        st.metric("Analisi di Segnalazioni Near Miss Trattate", tot_an)
     with colC:
         tot_scad = len(pd.read_excel(FILE_SCADENZARIO)) if os.path.exists(FILE_SCADENZARIO) else 0
         st.metric("Adempimenti in Registro Scadenze", tot_scad)
