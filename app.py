@@ -281,7 +281,7 @@ if nav == "Home Dashboard":
     st.markdown("Benvenuto nel menu principale. Qui trovi i dati riassuntivi estratti in tempo reale dai database locali.")
     st.markdown(" ")
     
-    colA, colB, colC = st.columns(3)
+    colA, colB, colC, colD = st.columns(4)
     with colA:
         tot_nm = len(pd.read_csv(FILE_NEAR_MISS, sep=";")) if os.path.exists(FILE_NEAR_MISS) else 0
         st.metric("Segnalazioni Ricevute", tot_nm)
@@ -291,6 +291,8 @@ if nav == "Home Dashboard":
     with colC:
         tot_scad = len(pd.read_excel(FILE_SCADENZARIO)) if os.path.exists(FILE_SCADENZARIO) else 0
         st.metric("Adempimenti in Registro Scadenze", tot_scad)
+    with colD:
+        tot_cost = len
 
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
@@ -2509,25 +2511,7 @@ if nav == "Skill Matrix":
     if "auth_skill_matrix" not in st.session_state:
         st.session_state.auth_skill_matrix = False
         
-    if not st.session_state.auth_skill_matrix:
-        st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
-        pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
-        if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_skill"):
-            if pwd_skill == "hse2026":
-                st.session_state.auth_skill_matrix = True
-                st.success("Accesso autorizzato!")
-                st.rerun()
-            else:
-                st.error("Password errata.")
-    
-    if st.session_state.auth_skill_matrix:
-        # Sottosezioni della Skill Matrix
-        sotto_sec_sm = st.radio(
-            "Seleziona Sottosezione", 
-            ["Autovalutazione Skill Matrix", "Skill Matrix"], 
-            horizontal=True, 
-            key="radio_sotto_sec_sm"
-        )
+
         
         # Gestione percorsi base
         try:
@@ -2540,7 +2524,8 @@ if nav == "Skill Matrix":
             skill_matrix_dir_alt = os.path.join(base_dir, "APP HSE", "Skill_Matrix")
             if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
                 skill_matrix_dir = skill_matrix_dir_alt
-        
+                
+        #SOTTOSEZIONE PUBBLICA- AUTOVALUTAZIONE SKILL MATRIX
         if sotto_sec_sm == "Autovalutazione Skill Matrix":
             st.subheader("Autovalutazione Skill Matrix")
             st.markdown("Consulta o scarica il documento PDF di autovalutazione e compila il form sottostante.")
@@ -2634,7 +2619,19 @@ if nav == "Skill Matrix":
                         
                         st.success(f"Autovalutazione salvata con successo! File: `{file_name_csv}` nella cartella `Autovalutazione`.")
                         
-        elif sotto_sec_sm == "Skill Matrix":
+        else:
+            if not st.session_state.auth_skill_matrix:
+        st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
+        pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
+        if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_skill"):
+            if pwd_skill == "hse2026":
+                st.session_state.auth_skill_matrix = True
+                st.success("Accesso autorizzato!")
+                st.rerun()
+            else:
+                st.error("Password errata.")
+    
+        if sotto_sec_sm == "Skill Matrix":
             st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
             st.markdown(
                 "A ogni competenza si attribuirà un punteggio del 1 al 5. "
