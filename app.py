@@ -395,6 +395,29 @@ if nav == "Home Dashboard":
         )
     else:
         st.info("Nessuna classifica ancora salvata. Per generare la prima classifica, accedi ed esegui un salvataggio nella sezione 'Riconoscimento'.")
+        
+    # ---------------------------------------------------------
+    # 4. Visualizzazione Flowchart Segnalazione Near Miss
+    # ---------------------------------------------------------
+    st.markdown("---")
+    st.subheader("📄 Flowchart Segnalazione Near Miss")
+    
+    file_pdf_flowchart = os.path.join(base_dir, "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
+    
+    if os.path.exists(file_pdf_flowchart):
+        with open(file_pdf_flowchart, "rb") as f:
+            pdf_bytes = f.read()
+        
+        # Pulsante di download / apertura del PDF
+        st.download_button(
+            label="📥 Scarica / Apri PDF Flowchart Segnalazione Near Miss",
+            data=pdf_bytes,
+            file_name="FLOWCHART SEGNALAZIONE NEAR MISS.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    else:
+        st.warning("Il file 'FLOWCHART SEGNALAZIONE NEAR MISS.pdf' non è stato trovato nella cartella principale.")
 
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
