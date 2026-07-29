@@ -2510,6 +2510,8 @@ if nav == "Skill Matrix":
     # Gestione autenticazione per la Sezione Skill Matrix
     if "auth_skill_matrix" not in st.session_state:
         st.session_state.auth_skill_matrix = False
+
+    # Scelta della sottosezione (visibile a tutti)
     sotto_sec_sm = st.radio(
         "Seleziona Sottosezione",
         ["Autovalutazione Skill Matrix", "Skill Matrix"],
@@ -2517,7 +2519,7 @@ if nav == "Skill Matrix":
         key="radio_sotto_sec_sm"
     )
         
-        # Gestione percorsi base
+    # Gestione percorsi base
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
     except NameError:
@@ -2528,19 +2530,21 @@ if nav == "Skill Matrix":
         skill_matrix_dir_alt = os.path.join(base_dir, "APP HSE", "Skill_Matrix")
         if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
             skill_matrix_dir = skill_matrix_dir_alt
-                
-    #SOTTOSEZIONE PUBBLICA- AUTOVALUTAZIONE SKILL MATRIX
+
+    # =========================================================
+    # 1. SOTTOSEZIONE PUBBLICA - AUTOVALUTAZIONE SKILL MATRIX
+    # =========================================================
     if sotto_sec_sm == "Autovalutazione Skill Matrix":
         st.subheader("Autovalutazione Skill Matrix")
         st.markdown("Consulta o scarica il documento PDF di autovalutazione e compila il form sottostante.")
-            
-        # 1. Download / Visualizzazione PDF "Skill Matrix Autovalutazione.pdf"
+        
+        # Download / Visualizzazione PDF "Skill Matrix Autovalutazione.pdf"
         file_pdf_sm = os.path.join(skill_matrix_dir, "Skill Matrix Autovalutazione.pdf")
-            
+        
         if os.path.exists(file_pdf_sm):
             with open(file_pdf_sm, "rb") as f:
                 pdf_bytes = f.read()
-                
+            
             st.download_button(
                 label="📥 Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
                 data=pdf_bytes,
@@ -2550,18 +2554,18 @@ if nav == "Skill Matrix":
             )
         else:
             st.warning("Il file PDF 'Skill Matrix Autovalutazione.pdf' non è stato trovato nella cartella 'Skill_Matrix'.")
-            
+        
         st.markdown("---")
         st.markdown("#### Form di Autovalutazione")
-            
-        # 2. Form di compilazione con i nuovi campi richiesti
+        
+        # Form di compilazione
         with st.form("form_autovalutazione_skill"):
             col_f1, col_f2 = st.columns(2)
             with col_f1:
                 nome_utente = st.text_input("Nome")
             with col_f2:
                 cognome_utente = st.text_input("Cognome")
-                
+            
             col_f3, col_f4 = st.columns(2)
             with col_f3:
                 inquadramento_mansione = st.text_input("Inquadramento-Mansione")
@@ -2570,11 +2574,11 @@ if nav == "Skill Matrix":
                     "Ambito lavorativo", 
                     ["Uffici", "Produzione", "Manutenzione", "Stoccaggio MP", "Trasporto-Logistica", "Commerciale"]
                 )
-                
+            
             data_compilazione = st.date_input("Data Autovalutazione", value=datetime.today())
-                
+            
             st.markdown("##### AUTOVALUTAZIONE DELLA SKILL MATRIX (Punteggio tra 1 e 5)")
-                
+            
             q1 = st.slider("Quanto conosci dei processi produttivi della tua mansione?", 1, 5, 3, key="q1")
             q2 = st.slider("Hai un buon rapporto con i colleghi di reparto?", 1, 5, 3, key="q2")
             q3 = st.slider("Valuta le tue capacità di interfacciarti con fornitori e/o clienti", 1, 5, 3, key="q3")
@@ -2589,22 +2593,22 @@ if nav == "Skill Matrix":
             q12 = st.slider("Hai un’analisi critico del contesto lavorativo? (sai cosa funzione e cosa si potrebbe migliorare)", 1, 5, 3, key="q12")
             q13 = st.slider("Sei a conoscenza delle turnazioni di lavoro, come vengono comunicate e le dinamiche lavorative all’interno di ogni turno?", 1, 5, 3, key="q13")
             q14 = st.slider("Ci sono altre persone sotto la tua responsabilità o supervisione?", 1, 5, 3, key="q14")
-                
+            
             submitted_form = st.form_submit_button("Invia e Salva Autovalutazione", use_container_width=True)
-                
+            
             if submitted_form:
-                 if not nome_utente.strip() or not cognome_utente.strip():
+                if not nome_utente.strip() or not cognome_utente.strip():
                     st.error("Inserisci obbligatoriamente Nome e Cognome prima di procedere.")
-                 else:
+                else:
                     autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
                     os.makedirs(autoval_dir, exist_ok=True)
-                        
+                    
                     import re
                     clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{nome_utente.strip()}_{cognome_utente.strip()}")
                     clean_date = re.sub(r'[\\/*?:"<>|]', "", str(data_compilazione))
                     file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
                     full_csv_path = os.path.join(autoval_dir, file_name_csv)
-                        
+                    
                     dati_form = {
                         "Campo": [
                             "Nome", "Cognome", "Inquadramento-Mansione", "Ambito lavorativo", "Data Autovalutazione",
@@ -2620,26 +2624,25 @@ if nav == "Skill Matrix":
                     }
                     df_res = pd.DataFrame(dati_form)
                     df_res.to_csv(full_csv_path, index=False, sep=";")
-                        
+                    
                     st.success(f"Autovalutazione salvata con successo! File: `{file_name_csv}` nella cartella `Autovalutazione`.")
-        # =========================================================
-        # SOTTOSEZIONE RISERVATA - SKILL MATRIX (Richiede Password)
-        # =========================================================                 
-        elif sotto_sec_sm == "Skill Matrix":
-            if not st.session_state.auth_skill_matrix:
-                st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
-                pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
-                if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_skill"):
-                    if pwd_skill == "hse2026":
-                        st.session_state.auth_skill_matrix = True
-                        st.success("Accesso autorizzato!")
-                        st.rerun()
-                    else:
-                        st.error("Password errata.")
-    
-            else: 
-                sotto_sec_sm == "Skill Matrix":
-                st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
+
+    # =========================================================
+    # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX (Richiede Password)
+    # =========================================================
+    elif sotto_sec_sm == "Skill Matrix":
+        if not st.session_state.auth_skill_matrix:
+            st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
+            pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
+            if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_skill"):
+                if pwd_skill == "hse2026":
+                    st.session_state.auth_skill_matrix = True
+                    st.success("Accesso autorizzato!")
+                    st.rerun()
+                else:
+                    st.error("Password errata.")
+        else:
+            st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
                 st.markdown(
                     "A ogni competenza si attribuirà un punteggio del 1 al 5. "
                     "Le persone saranno anche classificate a seconda del area lavoratoriva d'appartenenza. "
