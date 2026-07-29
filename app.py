@@ -399,25 +399,50 @@ if nav == "Home Dashboard":
     # ---------------------------------------------------------
     # 4. Visualizzazione Flowchart Segnalazione Near Miss
     # ---------------------------------------------------------
-    st.markdown("---")
-    st.subheader("📄 Flowchart Segnalazione Near Miss")
-    
-    file_pdf_flowchart = os.path.join(base_dir, "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
-    
-    if os.path.exists(file_pdf_flowchart):
-        with open(file_pdf_flowchart, "rb") as f:
-            pdf_bytes = f.read()
+    st.subheader("Flowchart Segnalazione Near Miss")
+        st.markdown("Consulta o scarica il Flowchart ufficiale relativo alla Segnalazione Near Miss.")
         
-        # Pulsante di download / apertura del PDF
-        st.download_button(
-            label="📥 Scarica / Apri PDF Flowchart Segnalazione Near Miss",
-            data=pdf_bytes,
-            file_name="FLOWCHART SEGNALAZIONE NEAR MISS.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-    else:
-        st.warning("Il file 'FLOWCHART SEGNALAZIONE NEAR MISS.pdf' non è stato trovato nella cartella principale.")
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        except NameError:
+            base_dir = os.getcwd()
+            
+        file_pdf_path = os.path.join(base_dir, "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
+        
+        if not os.path.exists(file_pdf_path):
+            percorsi_alternativi = [
+                os.path.join("FLOWCHART SEGNALAZIONE NEAR MISS.pdf"),
+                os.path.join("APP HSE", "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
+            ]
+            for p in percorsi_alternativi:
+                if os.path.exists(p):
+                    file_pdf_path = os.path.abspath(p)
+                    break
+        
+        if os.path.exists(file_pdf_path):
+            with open(file_pdf_path, "rb") as f:
+                pdf_bytes = f.read()
+            
+            st.download_button(
+                label="📥 Scarica / Apri Flowchart Segnalazione Near Miss",
+                data=pdf_bytes,
+                file_name="FLOWCHART SEGNALAZIONE NEAR MISS.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+            
+            try:
+                import base64
+                base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>'
+                st.markdown(pdf_display, unsafe_allow_html=True)
+            except Exception as e:
+                st.info("Utilizza il pulsante di download sopra per consultare il documento nel lettore PDF del tuo computer.")
+        else:
+            st.error("Il file PDF 'FLOWCHART SEGNALAZIONE NEAR MISS.pdf' non è stato trovato.")
+
+    
+    
 
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
