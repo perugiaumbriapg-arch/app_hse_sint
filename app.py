@@ -348,6 +348,53 @@ if nav == "Home Dashboard":
             label="Totale Stima Economica", 
             value=f"€ {tot_stima_economica:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         ) 
+    
+    # ---------------------------------------------------------
+    # 3. Classifica Sezione "Riconoscimento"
+    # ---------------------------------------------------------
+    st.markdown("---")
+    st.subheader("🏆 Classifica Riconoscimenti HSE")
+    st.markdown("Panoramica dei punteggi totali accumulati dai segnalatori e dal personale censito nella Skill Matrix.")
+
+    file_riconoscimenti_csv = os.path.join(base_dir, "riconoscimenti_punteggi.csv")
+    df_classifica = pd.DataFrame()
+
+    # Tentativo di caricare il file salvato della sezione Riconoscimento
+    if os.path.exists(file_riconoscimenti_csv):
+        try:
+            df_classifica = pd.read_csv(file_riconoscimenti_csv, sep=";")
+        except Exception:
+            pass
+
+    if not df_classifica.empty:
+        # Assicura conversioni numeriche e calcolo totale
+        df_classifica["Punti Segnalazione (+50)"] = pd.to_numeric(df_classifica["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
+        df_classifica["Punti Skill Matrix (+25)"] = pd.to_numeric(df_classifica["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
+        df_classifica["Punteggio Totale"] = df_classifica["Punti Segnalazione (+50)"] + df_classifica["Punti Skill Matrix (+25)"]
+        
+        # Ordina dal punteggio più alto a quello più basso
+        df_classifica = df_classifica.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
+
+        # Mostra il podio con le metriche se ci sono punti assegnati
+        if len(df_classifica) > 0 and df_classifica.iloc[0]["Punteggio Totale"] > 0:
+            pod1, pod2, pod3 = st.columns(3)
+            with pod1:
+                st.metric("🥇 1° Posto", f"{df_classifica.iloc[0]['Nominativo']}", f"{df_classifica.iloc[0]['Punteggio Totale']} Pts")
+            with pod2:
+                if len(df_classifica) > 1:
+                    st.metric("🥈 2° Posto", f"{df_classifica.iloc[1]['Nominativo']}", f"{df_classifica.iloc[1]['Punteggio Totale']} Pts")
+            with pod3:
+                if len(df_classifica) > 2:
+                    st.metric("🥉 3° Posto", f"{df_classifica.iloc[2]['Nominativo']}", f"{df_classifica.iloc[2]['Punteggio Totale']} Pts")
+
+        # Visualizzazione Tabella Classifica
+        st.dataframe(
+            df_classifica[["Nominativo", "Fonte", "Punti Segnalazione (+50)", "Punti Skill Matrix (+25)", "Punteggio Totale"]],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("Nessuna classifica ancora salvata. Per generare la prima classifica, accedi ed esegui un salvataggio nella sezione 'Riconoscimento'.")
 
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
