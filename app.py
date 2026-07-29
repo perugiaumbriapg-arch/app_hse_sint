@@ -2625,7 +2625,7 @@ if nav == "Skill Matrix":
         # =========================================================
         # SOTTOSEZIONE RISERVATA - SKILL MATRIX (Richiede Password)
         # =========================================================                 
-        else:
+        elif:
             if not st.session_state.auth_skill_matrix:
                 st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
                 pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
