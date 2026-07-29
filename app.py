@@ -281,6 +281,57 @@ if nav == "Home Dashboard":
     st.header("Quadro Generale di Controllo HSE")
     st.markdown("Benvenuto nel menu principale. Qui trovi i dati riassuntivi estratti in tempo reale dai database locali.")
     st.markdown(" ")
+
+    tot_stima_economica = 0.0
+    
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        base_dir = os.getcwd()
+        
+    dir_report_stima = os.path.join(base_dir, "Stima_Economica", "Report_Stima_Economica")
+    
+    if os.path.exists(dir_report_stima):
+        # Elenca tutti i file nella cartella report
+        files_stima = [f for f in os.listdir(dir_report_stima) if f.endswith(('.csv', '.xlsx', '.xls'))]
+        
+        for file_stima in files_stima:
+            path_file = os.path.join(dir_report_stima, file_stima)
+            try:
+                # Lettura file in base all'estensione
+                if file_stima.endswith('.csv'):
+                    df_stima = pd.read_csv(path_file, sep=";")
+                    # Se non trova colonne con il separatore ';' prova con la virgola ','
+                    if df_stima.shape[1] <= 1:
+                        df_stima = pd.read_csv(path_file, sep=",")
+                else:
+                    df_stima = pd.read_excel(path_file)
+                
+                # Cerca colonne che contengono "costo", "importo", "totale", "somma" o "valore" (case insensitive)
+                colonne_candidate = [
+                    col for col in df_stima.columns 
+                    if any(kw in str(col).lower() for kw in ["costo", "importo", "totale", "somma", "valore", "stima", "prezzo"])
+                ]
+                
+                # Se non trova nomi specifici, valuta tutte le colonne numeriche o convertibili
+                target_cols = colonne_candidate if colonne_candidate else df_stima.columns
+                
+                for col in target_cols:
+                    # Converte la colonna in stringa, pulisce eventuali valute/spazi/virgole e trasforma in float
+                    s_clean = (
+                        df_stima[col]
+                        .astype(str)
+                        .str.replace("€", "", regex=False)
+                        .str.replace(" ", "", regex=False)
+                        .str.replace(".", "", regex=False)  # rimuove separatore migliaia italiano
+                        .str.replace(",", ".", regex=False) # converte virgola decimale in punto
+                    )
+                    valori_num = pd.to_numeric(s_clean, errors='coerce')
+                    if valori_num.notna().any():
+                        tot_stima_economica += valori_num.sum()
+                        
+            except Exception:
+                pass
     
     colA, colB, colC, colD = st.columns(4)
     with colA:
@@ -293,7 +344,10 @@ if nav == "Home Dashboard":
         tot_scad = len(pd.read_excel(FILE_SCADENZARIO)) if os.path.exists(FILE_SCADENZARIO) else 0
         st.metric("Adempimenti in Registro Scadenze", tot_scad)
     with colD:
-        tot_cost = len
+        st.metric(
+            label="Totale Stima Economica", 
+            value=f"€ {tot_stima_economica:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        ) 
 
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
