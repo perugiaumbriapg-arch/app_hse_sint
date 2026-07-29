@@ -2221,6 +2221,20 @@ if nav == "Piano Miglioramento":
     elif sotto_sec == "Azioni Piano di Miglioramento":
         st.subheader("Azioni Piano di Miglioramento")
         st.markdown("Gestione delle azioni intraprese, delle tipologie di intervento e del relativo follow-up.")
+
+        # Gestione autenticazione sottosezione
+        if "auth_piano_m" not in st.session_state:
+            st.session_state.auth_piano_m = False
+            
+        if not st.session_state.auth_piano_m:
+            pwd_pm = st.text_input("Inserisci la password per il Piano di Miglioramento", type="password", key="pwd_pm_input")
+            if st.button("Verifica Password", use_container_width=True):
+                if pwd_pm == "hse2026":
+                    st.session_state.auth_piano_m = True
+                    st.success("Accesso autorizzato!")
+                    st.rerun()
+                else:
+                    st.error("Password errata.")
         
         # Caricamento e unione dati per dropdown
         opzioni = ["Nessuna (Nuova analisi)"]
