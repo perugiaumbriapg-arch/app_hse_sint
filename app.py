@@ -2332,7 +2332,8 @@ if nav == "Piano Miglioramento":
         )
         st.session_state.df_followup_session = edited_followup
 
-        1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
+        # ---------------------------------------------------------
+        #1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
         # ---------------------------------------------------------
         # Estrazione Azioni Immediate
         df_export_azioni_rimedio = pd.DataFrame([{
