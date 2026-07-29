@@ -2331,48 +2331,68 @@ if nav == "Piano Miglioramento":
             key="editor_follow_up_azioni"
         )
         st.session_state.df_followup_session = edited_followup
-        
-        st.markdown("---")
-        # UNICO PULSANTE DI AGGIORNAMENTO / SALVATAGGIO
-        if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
-            # Cartella esistente Piano_Miglioramento dentro APP HSE
-            dir_dest = "Piano_Miglioramento"
-            os.makedirs(dir_dest, exist_ok=True)
-            
-            # Generazione nome file basato sul pattern: [evento/analisi collegata]_Piano Miglioramento
-            report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-            nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
-            nome_file_xlsx = f"{nome_file_pulito}_Piano Miglioramento.xlsx"
-            percorso_completo = os.path.join(dir_dest, nome_file_xlsx)
-            
-            # Preparazione del DataFrame per Azioni Intraprese (incluse le azioni immediate di rimedio)
-            df_azioni_intraprese = pd.DataFrame({
-                "Tipologia Contenuto": ["Azioni immediate di rimedio"],
-                "Descrizione / Dettaglio": [st.session_state.get("azioni_immediate_txt", "")]
-            })
-            
-            # Scrittura dei dati in un unico file Excel con più fogli distinti
-            try:
-                with pd.ExcelWriter(percorso_completo, engine='openpyxl') as writer:
 
-                    # 1. Foglio: Valutazione del rischio
-                    df_vr_to_save = st.session_state.get("df_vr_session", pd.DataFrame())
-                    df_vr_to_save.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
-                    
-                    # 2. Foglio: Azioni intraprese (include Azioni immediate di rimedio)
-                    df_azioni_intraprese.to_excel(writer, sheet_name="Azioni intraprese", index=False)
-                    
-                    # 3. Foglio: Azioni di miglioramento - Tipologia intervento
-                    df_tip_to_save = st.session_state.get("df_tipologie_session", pd.DataFrame())
-                    df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
-                    
-                    # 4. Foglio: Follow up azioni intraprese
-                    df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
-                    df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
+        # ---------------------------------------------------------
+        # DISPOSIZIONE DEI PULSANTI IN DUE COLONNE
+        # ---------------------------------------------------------
+        col_btn_salva, col_btn_down = st.columns(2)
+
+        with col_btn_salva:
+            # PULSANTE 1: SALVATAGGIO LOCALE EXCEL
+            st.markdown("---")
+            # UNICO PULSANTE DI AGGIORNAMENTO / SALVATAGGIO
+            if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
+                # Cartella esistente Piano_Miglioramento dentro APP HSE
+                dir_dest = "Piano_Miglioramento"
+                os.makedirs(dir_dest, exist_ok=True)
                 
-                st.success(f"Dati salvati e aggiornati con successo nella cartella esistente:\n`{percorso_completo}`")
-            except Exception as e:
-                st.error(f"Errore durante il salvataggio del file: {e}")
+                # Generazione nome file basato sul pattern: [evento/analisi collegata]_Piano Miglioramento
+                report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
+                nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
+                nome_file_xlsx = f"{nome_file_pulito}_Piano Miglioramento.xlsx"
+                percorso_completo = os.path.join(dir_dest, nome_file_xlsx)
+                
+                # Preparazione del DataFrame per Azioni Intraprese (incluse le azioni immediate di rimedio)
+                df_azioni_intraprese = pd.DataFrame({
+                    "Tipologia Contenuto": ["Azioni immediate di rimedio"],
+                    "Descrizione / Dettaglio": [st.session_state.get("azioni_immediate_txt", "")]
+                })
+                
+                # Scrittura dei dati in un unico file Excel con più fogli distinti
+                try:
+                    with pd.ExcelWriter(percorso_completo, engine='openpyxl') as writer:
+    
+                        # 1. Foglio: Valutazione del rischio
+                        df_vr_to_save = st.session_state.get("df_vr_session", pd.DataFrame())
+                        df_vr_to_save.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
+                        
+                        # 2. Foglio: Azioni intraprese (include Azioni immediate di rimedio)
+                        df_azioni_intraprese.to_excel(writer, sheet_name="Azioni intraprese", index=False)
+                        
+                        # 3. Foglio: Azioni di miglioramento - Tipologia intervento
+                        df_tip_to_save = st.session_state.get("df_tipologie_session", pd.DataFrame())
+                        df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
+                        
+                        # 4. Foglio: Follow up azioni intraprese
+                        df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
+                        df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
+                    
+                    st.success(f"Dati salvati e aggiornati con successo nella cartella esistente:\n`{percorso_completo}`")
+                except Exception as e:
+                    st.error(f"Errore durante il salvataggio del file: {e}")
+            with col_btn_down:
+                # Pulsante 2 Scaricare in .csv
+                report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
+                nome_file_csv_down = f"{''.join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()}_Azioni_Piano_Miglioramento.csv"
+            
+            st.download_button(
+                label="📥 Scarica Azioni in CSV",
+                data=csv_bytes,
+                file_name=nome_file_csv_down,
+                mime="text/csv",
+                use_container_width=True,
+                key="btn_download_azioni_csv_miglioramento"
+            )
 
 # ==================================================================
 # --- SEZIONE 9: Stima Costo Economico ---
