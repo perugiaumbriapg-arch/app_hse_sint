@@ -2510,6 +2510,12 @@ if nav == "Skill Matrix":
     # Gestione autenticazione per la Sezione Skill Matrix
     if "auth_skill_matrix" not in st.session_state:
         st.session_state.auth_skill_matrix = False
+    sotto_sec_sm = st.radio(
+        "Seleziona Sottosezione
+        ["Autovalutazione Skill Matrix", "Skill Matrix"],
+        horizontal=True,
+        key="radio_sotto_sec_sm"
+    )
         
         # Gestione percorsi base
         try:
