@@ -2667,7 +2667,7 @@ if nav == "Skill Matrix":
                             def get_val(campo_str, default_val):
                                 res = df_temp.loc[df_temp["Campo"] == campo_str, "Valore"]
                                 return res.values[0] if not res.empty else default_val
-    
+
                             lista_righe_tabella.append({
                                 "Nome": str(get_val("Nome", "N/D")),
                                 "Cognome": str(get_val("Cognome", "N/D")),
@@ -2765,7 +2765,7 @@ if nav == "Skill Matrix":
                             )
                     else:
                         st.info("Nessun dato valido trovato nei file CSV.")
+                else:
+                    st.info("Nessuna autovalutazione completata e salvata al momento.")
             else:
-                st.info("Nessuna autovalutazione completata e salvata al momento.")
-        else:
-            st.info("La cartella delle autovalutazioni non è ancora stata creata.")
+                st.info("La cartella delle autovalutazioni non è ancora stata creata.")
