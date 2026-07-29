@@ -15,11 +15,32 @@ import matplotlib.pyplot as plt
 import base64
 import numpy as np
 import plotly.express as px
+from ultralytics import YOLO
 
 # Import per l'estrazione del testo dai file locali
 from pypdf import PdfReader
 from docx import Document
 
+# ==================================================================
+# --- 0. CARICARE MODELLO ADDESTRAMENTO CONTROLLO DPI---
+# ==================================================================
+
+@st.cache_resource
+def carica_modello():
+  # Carica i pesi del modello personalizzato salvati durante il training
+  return YOLO("models/best.pt")
+
+
+model = carica_modello()
+
+# ==========================================
+# 0.1. DEFINIZIONE DELLE MANSIONI E DEI DPI
+# ==========================================
+MANSIONI_DPI = {
+    "Addetto inchiostri": ["otoprotector", "googles", "gloves", "boots"],
+    "Addetto cliché e fustelle": ["boots", "gloves", "otoprotector", "googles"],
+    "Addetto carrellisti magazzino bobine": ["boots", "gloves", "googles", "no-vest", "vest"],
+}
 
 # ==================================================================
 # --- 1. CONFIGURAZIONI INIZIALI E DATABASE LOCALI ---
@@ -3237,3 +3258,52 @@ if nav == "Riconoscimento":
                     mime="text/csv",
                     use_container_width=True
                 )
+#------------------------------------------------------------------------------------------------------------------
+# SEZIONE 13: Controllo DPI
+#------------------------------------------------------------------------------------------------------------------
+if nav == "Controllo DPI":
+    st.header("Controllo Automatico DPI con Intelligenza Artificiale (YOLO)")
+    st.markdown("Seleziona la mansione del lavoratore e carica una foto o scatta uno snapshot per verificare la conformità dei DPI.")
+    
+    mansione_scelta = st.selectbox("Seleziona Mansione:", list(MANSIONI_DPI.keys()), key="dpi_mansione_sel")
+    dpi_richiesti = MANSIONI_DPI[mansione_scelta]
+    
+    st.info(f"**DPI obbligatori per {mansione_scelta}:** {', '.join(dpi_richiesti)}")
+    
+    metodo_input_dpi = st.radio("Modalità acquisizione immagine DPI:", ["Carica Immagine", "Scatta Foto con Webcam"], key="dpi_input_mode")
+    
+    file_foto_dpi = None
+    if metodo_input_dpi == "Carica Immagine":
+        file_foto_dpi = st.file_uploader("Carica foto lavoratore", type=["png", "jpg", "jpeg"], key="dpi_file_uploader")
+    else:
+        file_foto_dpi = st.camera_input("Scatta foto al lavoratore", key="dpi_camera_input")
+        
+    if file_foto_dpi is not None:
+        img_pil = Image.open(file_foto_dpi).convert('RGB')
+        img_np = np.array(img_pil)
+        
+        st.image(img_pil, caption="Immagine Acquisita", use_container_width=True)
+        
+        if st.button("Avvia Analisi DPI con YOLO", use_container_width=True, key="btn_run_yolo_dpi"):
+            with st.spinner("Elaborazione rilevamento DPI in corso..."):
+                try:
+                    results = model(img_np)
+                    res_plotted = results[0].plot()
+                    st.image(res_plotted, caption="Risultato Rilevamento YOLO", use_container_width=True)
+                    
+                    boxes = results[0].boxes
+                    class_indices = boxes.cls.cpu().numpy() if len(boxes) > 0 else []
+                    class_names = results[0].names
+                    rilievi_oggetti = [class_names[int(c)].lower() for c in class_indices]
+                    
+                    st.markdown("### Esito Controllo Conformità:")
+                    st.write(f"**DPI rilevati dal sistema:** {list(set(rilievi_oggetti)) if rilievi_oggetti else 'Nessun DPI riconosciuto'}")
+                    
+                    mancanti = [dpi for dpi in dpi_richiesti if not any(dpi.lower() in r.lower() for r in rilievi_oggetti)]
+                    
+                    if not mancanti:
+                        st.success("✅ **CONFORME:** Tutti i DPI obbligatori per la mansione sono indossati correttamente.")
+                    else:
+                        st.error(f"❌ **NON CONFORME:** Mancano i seguenti DPI obbligatori: {', '.join(mancanti)}")
+                except Exception as e:
+                    st.error(f"Errore durante l'esecuzione del modello YOLO: {e}")
