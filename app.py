@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
 import qrcode
-import opencv-python-headless
+import cv2
 import numpy as np
 from PIL import Image
 import textwrap
