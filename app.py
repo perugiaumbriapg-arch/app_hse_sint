@@ -2236,225 +2236,225 @@ if nav == "Piano Miglioramento":
                 else:
                     st.error("Password errata.")
         
-        # Caricamento e unione dati per dropdown
-        opzioni = ["Nessuna (Nuova analisi)"]
+            # Caricamento e unione dati per dropdown
+            opzioni = ["Nessuna (Nuova analisi)"]
                     
-        # Leggi Near Miss
-        if os.path.exists(FILE_NEAR_MISS):
-            df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
-            for idx, r in df_nm.iterrows():
-                opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
+            # Leggi Near Miss
+            if os.path.exists(FILE_NEAR_MISS):
+                df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
+                for idx, r in df_nm.iterrows():
+                    opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
                     
-        # Leggi Analisi già fatte
-        if os.path.exists(FILE_ANALISI_NM):
-            df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
-            for idx, r in df_an.iterrows():
-                opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
+            # Leggi Analisi già fatte
+            if os.path.exists(FILE_ANALISI_NM):
+                df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
+                for idx, r in df_an.iterrows():
+                    opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
                     
-        scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
+            scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
 
-        st.markdown("---")
-        st.markdown("### 1. AZIONI INTRAPRESE")
-        
-        st.markdown("#### Azioni immediate di rimedio")
-        st.markdown("*Confronto con campo “Valutazioni / azioni / proposte di miglioramento” in modulo segnalazione*")
-        
-        if "azioni_immediate_txt" not in st.session_state:
-            st.session_state.azioni_immediate_txt = ""
-            
-        azioni_immediate = st.text_area(
-            "Descrivi le azioni immediate di rimedio", 
-            value=st.session_state.azioni_immediate_txt,
-            key="txt_azioni_immediate_rimedio_input", 
-            placeholder="Inserisci la descrizione delle azioni immediate..."
-        )
-        st.session_state.azioni_immediate_txt = azioni_immediate
-        
-        st.markdown("#### Azioni di miglioramento (correttive, preventive) - Tipologia intervento")
-        st.markdown("Utilizza la tabella sottostante per aggiungere le righe e selezionare la tipologia di intervento e la descrizione.")
-        
-        lista_tipologie = [
-            "Tecnico",
-            "Formazione / Addestramento",
-            "Informazione / Comunicazione / Partecipazione",
-            "Definizione / revisione delle procedure e istruzioni lavorative",
-            "Verifica applicazione procedure / istruzioni / comportamenti",
-            "Altro (specificare)"
-        ]
-        
-        if "df_tipologie_session" not in st.session_state:
-            st.session_state.df_tipologie_session = pd.DataFrame(columns=["Tipologia di Intervento", "Descrizione"])
-            st.session_state.df_tipologie_session.loc[0] = ["Tecnico", "Esempio intervento tecnico correttivo"]
-            
-        edited_tipologie = st.data_editor(
-            st.session_state.df_tipologie_session,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Tipologia di Intervento": st.column_config.SelectboxColumn(
-                    "Tipologia di Intervento",
-                    options=lista_tipologie,
-                    required=True
-                ),
-                "Descrizione": st.column_config.TextColumn("Descrizione", required=True)
-            },
-            key="editor_tipologie_interventi"
-        )
-        st.session_state.df_tipologie_session = edited_tipologie
-        
-        st.markdown("---")
-        st.markdown("### 2. FOLLOW UP AZIONI INTRAPRESE")
-        st.markdown("Tabella di monitoraggio, pianificazione e verifica delle azioni correttive e preventive.")
-        
-        if "df_followup_session" not in st.session_state:
-            st.session_state.df_followup_session = pd.DataFrame(columns=[
-                "Azione / Descrizione",
-                "Responsabile attuazione",
-                "Accountable attuazione",
-                "Entro il",
-                "Firma presa in carico",
-                "Data attuazione",
-                "Verifica attuazione",
-                "Data e firma"
-            ])
-            st.session_state.df_followup_session.loc[0] = [
-                "1° - Esempio azione correttiva",
-                "Mario Rossi",
-                "Luigi Verdi",
-                "2026-12-31",
-                "Presa in carico",
-                "2026-06-15",
-                "Verificato e conforme",
-                "2026-06-20 - M. Rossi"
-            ]
-            
-        edited_followup = st.data_editor(
-            st.session_state.df_followup_session,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Azione / Descrizione": st.column_config.TextColumn("Azione / Descrizione", required=True),
-                "Responsabile attuazione": st.column_config.TextColumn("Responsabile attuazione"),
-                "Accountable attuazione": st.column_config.TextColumn("Accountable attuazione"),
-                "Entro il": st.column_config.TextColumn("Entro il (Scadenza)"),
-                "Firma presa in carico": st.column_config.TextColumn("Firma presa in carico"),
-                "Data attuazione": st.column_config.TextColumn("Data attuazione"),
-                "Verifica attuazione": st.column_config.TextColumn("Verifica attuazione"),
-                "Data e firma": st.column_config.TextColumn("Data e firma")
-            },
-            key="editor_follow_up_azioni"
-        )
-        st.session_state.df_followup_session = edited_followup
-
-        # ---------------------------------------------------------
-        #1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
-        # ---------------------------------------------------------
-        # Estrazione Azioni Immediate
-        df_export_azioni_rimedio = pd.DataFrame([{
-            "Sezione": "Azioni Immediate di Rimedio",
-            "Tipologia / Azione": "Descrizione",
-            "Dettaglio / Responsabile": st.session_state.get("azioni_immediate_txt", ""),
-            "Scadenza": "",
-            "Stato / Verifica": ""
-        }])
-
-        # Estrazione Tipologie Intervento
-        df_export_tipologie = st.session_state.get("df_tipologie_session", pd.DataFrame()).copy()
-        if not df_export_tipologie.empty:
-            df_export_tipologie["Sezione"] = "Tipologia Intervento"
-            df_export_tipologie = df_export_tipologie.rename(columns={
-                "Tipologia di Intervento": "Tipologia / Azione",
-                "Descrizione": "Dettaglio / Responsabile"
-            })
-            df_export_tipologie["Scadenza"] = ""
-            df_export_tipologie["Stato / Verifica"] = ""
-
-        # Estrazione Follow-up
-        df_export_followup = st.session_state.get("df_followup_session", pd.DataFrame()).copy()
-        if not df_export_followup.empty:
-            df_export_followup["Sezione"] = "Follow-up Azioni"
-            df_export_followup = df_export_followup.rename(columns={
-                "Azione / Descrizione": "Tipologia / Azione",
-                "Responsabile attuazione": "Dettaglio / Responsabile",
-                "Entro il": "Scadenza",
-                "Verifica attuazione": "Stato / Verifica"
-            })
-
-        # Unione di tutti i DataFrame creati
-        cols_export = ["Sezione", "Tipologia / Azione", "Dettaglio / Responsabile", "Scadenza", "Stato / Verifica"]
-        
-        list_dfs = [df_export_azioni_rimedio[cols_export]]
-        if not df_export_tipologie.empty:
-            list_dfs.append(df_export_tipologie[cols_export])
-        if not df_export_followup.empty:
-            list_dfs.append(df_export_followup[cols_export])
-
-        df_completo_csv = pd.concat(list_dfs, ignore_index=True)
-        
-        # ---------------------------------------------------------
-        # DISPOSIZIONE DEI PULSANTI IN DUE COLONNE
-        # ---------------------------------------------------------
-        # Conversione in byte UTF-8 con BOM per Excel
-        csv_bytes = df_completo_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
-        
-        col_btn_salva, col_btn_down = st.columns(2)
-
-        with col_btn_salva:
-            # PULSANTE 1: SALVATAGGIO LOCALE EXCEL
             st.markdown("---")
-            # UNICO PULSANTE DI AGGIORNAMENTO / SALVATAGGIO
-            if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
-                # Cartella esistente Piano_Miglioramento dentro APP HSE
-                dir_dest = "Piano_Miglioramento"
-                os.makedirs(dir_dest, exist_ok=True)
-                
-                # Generazione nome file basato sul pattern: [evento/analisi collegata]_Piano Miglioramento
-                report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-                nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
-                nome_file_xlsx = f"{nome_file_pulito}_Piano Miglioramento.xlsx"
-                percorso_completo = os.path.join(dir_dest, nome_file_xlsx)
-                
-                # Preparazione del DataFrame per Azioni Intraprese (incluse le azioni immediate di rimedio)
-                df_azioni_intraprese = pd.DataFrame({
-                    "Tipologia Contenuto": ["Azioni immediate di rimedio"],
-                    "Descrizione / Dettaglio": [st.session_state.get("azioni_immediate_txt", "")]
-                })
-                
-                # Scrittura dei dati in un unico file Excel con più fogli distinti
-                try:
-                    with pd.ExcelWriter(percorso_completo, engine='openpyxl') as writer:
-    
-                        # 1. Foglio: Valutazione del rischio
-                        df_vr_to_save = st.session_state.get("df_vr_session", pd.DataFrame())
-                        df_vr_to_save.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
-                        
-                        # 2. Foglio: Azioni intraprese (include Azioni immediate di rimedio)
-                        df_azioni_intraprese.to_excel(writer, sheet_name="Azioni intraprese", index=False)
-                        
-                        # 3. Foglio: Azioni di miglioramento - Tipologia intervento
-                        df_tip_to_save = st.session_state.get("df_tipologie_session", pd.DataFrame())
-                        df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
-                        
-                        # 4. Foglio: Follow up azioni intraprese
-                        df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
-                        df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
-                    
-                    st.success(f"Dati salvati e aggiornati con successo nella cartella esistente:\n`{percorso_completo}`")
-                except Exception as e:
-                    st.error(f"Errore durante il salvataggio del file: {e}")
-            with col_btn_down:
-                # Pulsante 2 Scaricare in .csv
-                report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-                nome_file_csv_down = f"{''.join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()}_Azioni_Piano_Miglioramento.csv"
+             st.markdown("### 1. AZIONI INTRAPRESE")
+        
+            st.markdown("#### Azioni immediate di rimedio")
+            st.markdown("*Confronto con campo “Valutazioni / azioni / proposte di miglioramento” in modulo segnalazione*")
+        
+            if "azioni_immediate_txt" not in st.session_state:
+                st.session_state.azioni_immediate_txt = ""
             
-            st.download_button(
-                label="📥 Scarica Azioni in CSV",
-                data=csv_bytes,
-                file_name=nome_file_csv_down,
-                mime="text/csv",
-                use_container_width=True,
-                key="btn_download_azioni_csv_miglioramento"
+            azioni_immediate = st.text_area(
+                "Descrivi le azioni immediate di rimedio", 
+                value=st.session_state.azioni_immediate_txt,
+                key="txt_azioni_immediate_rimedio_input", 
+                placeholder="Inserisci la descrizione delle azioni immediate..."
             )
+            st.session_state.azioni_immediate_txt = azioni_immediate
+        
+            st.markdown("#### Azioni di miglioramento (correttive, preventive) - Tipologia intervento")
+            st.markdown("Utilizza la tabella sottostante per aggiungere le righe e selezionare la tipologia di intervento e la descrizione.")
+        
+            lista_tipologie = [
+                "Tecnico",
+                "Formazione / Addestramento",
+                "Informazione / Comunicazione / Partecipazione",
+                "Definizione / revisione delle procedure e istruzioni lavorative",
+                "Verifica applicazione procedure / istruzioni / comportamenti",
+                "Altro (specificare)"
+            ]
+        
+            if "df_tipologie_session" not in st.session_state:
+                st.session_state.df_tipologie_session = pd.DataFrame(columns=["Tipologia di Intervento", "Descrizione"])
+                st.session_state.df_tipologie_session.loc[0] = ["Tecnico", "Esempio intervento tecnico correttivo"]
+            
+            edited_tipologie = st.data_editor(
+                st.session_state.df_tipologie_session,
+                num_rows="dynamic",
+                use_container_width=True,
+                column_config={
+                    "Tipologia di Intervento": st.column_config.SelectboxColumn(
+                        "Tipologia di Intervento",
+                        options=lista_tipologie,
+                        required=True
+                    ),
+                    "Descrizione": st.column_config.TextColumn("Descrizione", required=True)
+                },
+                key="editor_tipologie_interventi"
+            )
+            st.session_state.df_tipologie_session = edited_tipologie
+        
+            st.markdown("---")
+            st.markdown("### 2. FOLLOW UP AZIONI INTRAPRESE")
+            st.markdown("Tabella di monitoraggio, pianificazione e verifica delle azioni correttive e preventive.")
+        
+            if "df_followup_session" not in st.session_state:
+                st.session_state.df_followup_session = pd.DataFrame(columns=[
+                    "Azione / Descrizione",
+                    "Responsabile attuazione",
+                    "Accountable attuazione",
+                    "Entro il",
+                    "Firma presa in carico",
+                    "Data attuazione",
+                    "Verifica attuazione",
+                    "Data e firma"
+                ])
+                st.session_state.df_followup_session.loc[0] = [
+                    "1° - Esempio azione correttiva",
+                    "Mario Rossi",
+                    "Luigi Verdi",
+                    "2026-12-31",
+                    "Presa in carico",
+                    "2026-06-15",
+                    "Verificato e conforme",
+                    "2026-06-20 - M. Rossi"
+                ]
+            
+            edited_followup = st.data_editor(
+                st.session_state.df_followup_session,
+                num_rows="dynamic",
+                use_container_width=True,
+                column_config={
+                    "Azione / Descrizione": st.column_config.TextColumn("Azione / Descrizione", required=True),
+                    "Responsabile attuazione": st.column_config.TextColumn("Responsabile attuazione"),
+                    "Accountable attuazione": st.column_config.TextColumn("Accountable attuazione"),
+                    "Entro il": st.column_config.TextColumn("Entro il (Scadenza)"),
+                    "Firma presa in carico": st.column_config.TextColumn("Firma presa in carico"),
+                    "Data attuazione": st.column_config.TextColumn("Data attuazione"),
+                    "Verifica attuazione": st.column_config.TextColumn("Verifica attuazione"),
+                    "Data e firma": st.column_config.TextColumn("Data e firma")
+                },
+                key="editor_follow_up_azioni"
+            )
+            st.session_state.df_followup_session = edited_followup
+
+            # ---------------------------------------------------------
+            #1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
+            # ---------------------------------------------------------
+            # Estrazione Azioni Immediate
+            df_export_azioni_rimedio = pd.DataFrame([{
+                "Sezione": "Azioni Immediate di Rimedio",
+                "Tipologia / Azione": "Descrizione",
+                "Dettaglio / Responsabile": st.session_state.get("azioni_immediate_txt", ""),
+                "Scadenza": "",
+                "Stato / Verifica": ""
+            }])
+
+            # Estrazione Tipologie Intervento
+            df_export_tipologie = st.session_state.get("df_tipologie_session", pd.DataFrame()).copy()
+            if not df_export_tipologie.empty:
+                df_export_tipologie["Sezione"] = "Tipologia Intervento"
+                df_export_tipologie = df_export_tipologie.rename(columns={
+                    "Tipologia di Intervento": "Tipologia / Azione",
+                    "Descrizione": "Dettaglio / Responsabile"
+                })
+                df_export_tipologie["Scadenza"] = ""
+                df_export_tipologie["Stato / Verifica"] = ""
+
+            # Estrazione Follow-up
+            df_export_followup = st.session_state.get("df_followup_session", pd.DataFrame()).copy()
+            if not df_export_followup.empty:
+                df_export_followup["Sezione"] = "Follow-up Azioni"
+                df_export_followup = df_export_followup.rename(columns={
+                    "Azione / Descrizione": "Tipologia / Azione",
+                    "Responsabile attuazione": "Dettaglio / Responsabile",
+                    "Entro il": "Scadenza",
+                    "Verifica attuazione": "Stato / Verifica"
+                })
+
+            # Unione di tutti i DataFrame creati
+            cols_export = ["Sezione", "Tipologia / Azione", "Dettaglio / Responsabile", "Scadenza", "Stato / Verifica"]
+        
+            list_dfs = [df_export_azioni_rimedio[cols_export]]
+            if not df_export_tipologie.empty:
+                list_dfs.append(df_export_tipologie[cols_export])
+            if not df_export_followup.empty:
+                list_dfs.append(df_export_followup[cols_export])
+
+            df_completo_csv = pd.concat(list_dfs, ignore_index=True)
+        
+            # ---------------------------------------------------------
+            # DISPOSIZIONE DEI PULSANTI IN DUE COLONNE
+            # ---------------------------------------------------------
+            # Conversione in byte UTF-8 con BOM per Excel
+            csv_bytes = df_completo_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
+        
+            col_btn_salva, col_btn_down = st.columns(2)
+
+            with col_btn_salva:
+                # PULSANTE 1: SALVATAGGIO LOCALE EXCEL
+                st.markdown("---")
+                # UNICO PULSANTE DI AGGIORNAMENTO / SALVATAGGIO
+                if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
+                    # Cartella esistente Piano_Miglioramento dentro APP HSE
+                    dir_dest = "Piano_Miglioramento"
+                    os.makedirs(dir_dest, exist_ok=True)
+                
+                    # Generazione nome file basato sul pattern: [evento/analisi collegata]_Piano Miglioramento
+                    report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
+                    nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
+                    nome_file_xlsx = f"{nome_file_pulito}_Piano Miglioramento.xlsx"
+                    percorso_completo = os.path.join(dir_dest, nome_file_xlsx)
+                
+                    # Preparazione del DataFrame per Azioni Intraprese (incluse le azioni immediate di rimedio)
+                    df_azioni_intraprese = pd.DataFrame({
+                        "Tipologia Contenuto": ["Azioni immediate di rimedio"],
+                        "Descrizione / Dettaglio": [st.session_state.get("azioni_immediate_txt", "")]
+                    })
+                
+                    # Scrittura dei dati in un unico file Excel con più fogli distinti
+                    try:
+                        with pd.ExcelWriter(percorso_completo, engine='openpyxl') as writer:
+    
+                            # 1. Foglio: Valutazione del rischio
+                            df_vr_to_save = st.session_state.get("df_vr_session", pd.DataFrame())
+                            df_vr_to_save.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
+                        
+                            # 2. Foglio: Azioni intraprese (include Azioni immediate di rimedio)
+                            df_azioni_intraprese.to_excel(writer, sheet_name="Azioni intraprese", index=False)
+                        
+                            # 3. Foglio: Azioni di miglioramento - Tipologia intervento
+                            df_tip_to_save = st.session_state.get("df_tipologie_session", pd.DataFrame())
+                            df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
+                        
+                            # 4. Foglio: Follow up azioni intraprese
+                            df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
+                            df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
+                    
+                        st.success(f"Dati salvati e aggiornati con successo nella cartella esistente:\n`{percorso_completo}`")
+                    except Exception as e:
+                        st.error(f"Errore durante il salvataggio del file: {e}")
+                with col_btn_down:
+                    # Pulsante 2 Scaricare in .csv
+                    report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
+                    nome_file_csv_down = f"{''.join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()}_Azioni_Piano_Miglioramento.csv"
+            
+                st.download_button(
+                    label="📥 Scarica Azioni in CSV",
+                    data=csv_bytes,
+                    file_name=nome_file_csv_down,
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="btn_download_azioni_csv_miglioramento"
+                )
 
 # ==================================================================
 # --- SEZIONE 9: Stima Costo Economico ---
