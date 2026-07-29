@@ -2529,99 +2529,99 @@ if nav == "Skill Matrix":
         if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
             skill_matrix_dir = skill_matrix_dir_alt
                 
-        #SOTTOSEZIONE PUBBLICA- AUTOVALUTAZIONE SKILL MATRIX
-        if sotto_sec_sm == "Autovalutazione Skill Matrix":
-            st.subheader("Autovalutazione Skill Matrix")
-            st.markdown("Consulta o scarica il documento PDF di autovalutazione e compila il form sottostante.")
+    #SOTTOSEZIONE PUBBLICA- AUTOVALUTAZIONE SKILL MATRIX
+    if sotto_sec_sm == "Autovalutazione Skill Matrix":
+        st.subheader("Autovalutazione Skill Matrix")
+        st.markdown("Consulta o scarica il documento PDF di autovalutazione e compila il form sottostante.")
             
-            # 1. Download / Visualizzazione PDF "Skill Matrix Autovalutazione.pdf"
-            file_pdf_sm = os.path.join(skill_matrix_dir, "Skill Matrix Autovalutazione.pdf")
+        # 1. Download / Visualizzazione PDF "Skill Matrix Autovalutazione.pdf"
+        file_pdf_sm = os.path.join(skill_matrix_dir, "Skill Matrix Autovalutazione.pdf")
             
-            if os.path.exists(file_pdf_sm):
-                with open(file_pdf_sm, "rb") as f:
-                    pdf_bytes = f.read()
+        if os.path.exists(file_pdf_sm):
+            with open(file_pdf_sm, "rb") as f:
+                pdf_bytes = f.read()
                 
-                st.download_button(
-                    label="📥 Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
-                    data=pdf_bytes,
-                    file_name="Skill Matrix Autovalutazione.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
+            st.download_button(
+                label="📥 Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
+                data=pdf_bytes,
+                file_name="Skill Matrix Autovalutazione.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.warning("Il file PDF 'Skill Matrix Autovalutazione.pdf' non è stato trovato nella cartella 'Skill_Matrix'.")
+            
+        st.markdown("---")
+        st.markdown("#### Form di Autovalutazione")
+            
+        # 2. Form di compilazione con i nuovi campi richiesti
+        with st.form("form_autovalutazione_skill"):
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                nome_utente = st.text_input("Nome")
+            with col_f2:
+                cognome_utente = st.text_input("Cognome")
+                
+            col_f3, col_f4 = st.columns(2)
+            with col_f3:
+                inquadramento_mansione = st.text_input("Inquadramento-Mansione")
+            with col_f4:
+                ambito_lavorativo = st.selectbox(
+                    "Ambito lavorativo", 
+                    ["Uffici", "Produzione", "Manutenzione", "Stoccaggio MP", "Trasporto-Logistica", "Commerciale"]
                 )
-            else:
-                st.warning("Il file PDF 'Skill Matrix Autovalutazione.pdf' non è stato trovato nella cartella 'Skill_Matrix'.")
-            
-            st.markdown("---")
-            st.markdown("#### Form di Autovalutazione")
-            
-            # 2. Form di compilazione con i nuovi campi richiesti
-            with st.form("form_autovalutazione_skill"):
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    nome_utente = st.text_input("Nome")
-                with col_f2:
-                    cognome_utente = st.text_input("Cognome")
                 
-                col_f3, col_f4 = st.columns(2)
-                with col_f3:
-                    inquadramento_mansione = st.text_input("Inquadramento-Mansione")
-                with col_f4:
-                    ambito_lavorativo = st.selectbox(
-                        "Ambito lavorativo", 
-                        ["Uffici", "Produzione", "Manutenzione", "Stoccaggio MP", "Trasporto-Logistica", "Commerciale"]
-                    )
+            data_compilazione = st.date_input("Data Autovalutazione", value=datetime.today())
                 
-                data_compilazione = st.date_input("Data Autovalutazione", value=datetime.today())
+            st.markdown("##### AUTOVALUTAZIONE DELLA SKILL MATRIX (Punteggio tra 1 e 5)")
                 
-                st.markdown("##### AUTOVALUTAZIONE DELLA SKILL MATRIX (Punteggio tra 1 e 5)")
+            q1 = st.slider("Quanto conosci dei processi produttivi della tua mansione?", 1, 5, 3, key="q1")
+            q2 = st.slider("Hai un buon rapporto con i colleghi di reparto?", 1, 5, 3, key="q2")
+            q3 = st.slider("Valuta le tue capacità di interfacciarti con fornitori e/o clienti", 1, 5, 3, key="q3")
+            q4 = st.slider("Quanto conosci dei processi produttivi del cartone e scatole?", 1, 5, 3, key="q4")
+            q5 = st.slider("Quanto conosci il processo di pallettizzazione del prodotto?", 1, 5, 3, key="q5")
+            q6 = st.slider("Hai competenze legali o tecniche?", 1, 5, 3, key="q6")
+            q7 = st.slider("Quanto sei in grado di individuare i rischi-fabbisogni negli ambienti lavorativi", 1, 5, 3, key="q7")
+            q8 = st.slider("Valuta la tua capacità d’adattamento", 1, 5, 3, key="q8")
+            q9 = st.slider("Valuta le tue capacità comunicative", 1, 5, 3, key="q9")
+            q10 = st.slider("Sei una persona precisa nel lavoro che svolge?", 1, 5, 3, key="q10")
+            q11 = st.slider("Riesci a persuadere agli altri per svolgere delle attività o fare cambiamenti?", 1, 5, 3, key="q11")
+            q12 = st.slider("Hai un’analisi critico del contesto lavorativo? (sai cosa funzione e cosa si potrebbe migliorare)", 1, 5, 3, key="q12")
+            q13 = st.slider("Sei a conoscenza delle turnazioni di lavoro, come vengono comunicate e le dinamiche lavorative all’interno di ogni turno?", 1, 5, 3, key="q13")
+            q14 = st.slider("Ci sono altre persone sotto la tua responsabilità o supervisione?", 1, 5, 3, key="q14")
                 
-                q1 = st.slider("Quanto conosci dei processi produttivi della tua mansione?", 1, 5, 3, key="q1")
-                q2 = st.slider("Hai un buon rapporto con i colleghi di reparto?", 1, 5, 3, key="q2")
-                q3 = st.slider("Valuta le tue capacità di interfacciarti con fornitori e/o clienti", 1, 5, 3, key="q3")
-                q4 = st.slider("Quanto conosci dei processi produttivi del cartone e scatole?", 1, 5, 3, key="q4")
-                q5 = st.slider("Quanto conosci il processo di pallettizzazione del prodotto?", 1, 5, 3, key="q5")
-                q6 = st.slider("Hai competenze legali o tecniche?", 1, 5, 3, key="q6")
-                q7 = st.slider("Quanto sei in grado di individuare i rischi-fabbisogni negli ambienti lavorativi", 1, 5, 3, key="q7")
-                q8 = st.slider("Valuta la tua capacità d’adattamento", 1, 5, 3, key="q8")
-                q9 = st.slider("Valuta le tue capacità comunicative", 1, 5, 3, key="q9")
-                q10 = st.slider("Sei una persona precisa nel lavoro che svolge?", 1, 5, 3, key="q10")
-                q11 = st.slider("Riesci a persuadere agli altri per svolgere delle attività o fare cambiamenti?", 1, 5, 3, key="q11")
-                q12 = st.slider("Hai un’analisi critico del contesto lavorativo? (sai cosa funzione e cosa si potrebbe migliorare)", 1, 5, 3, key="q12")
-                q13 = st.slider("Sei a conoscenza delle turnazioni di lavoro, come vengono comunicate e le dinamiche lavorative all’interno di ogni turno?", 1, 5, 3, key="q13")
-                q14 = st.slider("Ci sono altre persone sotto la tua responsabilità o supervisione?", 1, 5, 3, key="q14")
+            submitted_form = st.form_submit_button("Invia e Salva Autovalutazione", use_container_width=True)
                 
-                submitted_form = st.form_submit_button("Invia e Salva Autovalutazione", use_container_width=True)
-                
-                if submitted_form:
-                    if not nome_utente.strip() or not cognome_utente.strip():
-                        st.error("Inserisci obbligatoriamente Nome e Cognome prima di procedere.")
-                    else:
-                        autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
-                        os.makedirs(autoval_dir, exist_ok=True)
+            if submitted_form:
+                 if not nome_utente.strip() or not cognome_utente.strip():
+                    st.error("Inserisci obbligatoriamente Nome e Cognome prima di procedere.")
+                 else:
+                    autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
+                    os.makedirs(autoval_dir, exist_ok=True)
                         
-                        import re
-                        clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{nome_utente.strip()}_{cognome_utente.strip()}")
-                        clean_date = re.sub(r'[\\/*?:"<>|]', "", str(data_compilazione))
-                        file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
-                        full_csv_path = os.path.join(autoval_dir, file_name_csv)
+                    import re
+                    clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{nome_utente.strip()}_{cognome_utente.strip()}")
+                    clean_date = re.sub(r'[\\/*?:"<>|]', "", str(data_compilazione))
+                    file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
+                    full_csv_path = os.path.join(autoval_dir, file_name_csv)
                         
-                        dati_form = {
-                            "Campo": [
-                                "Nome", "Cognome", "Inquadramento-Mansione", "Ambito lavorativo", "Data Autovalutazione",
-                                "Processi produttivi mansione", "Rapporto colleghi", "Interfaccia fornitori-clienti",
-                                "Processi cartone-scatole", "Processo pallettizzazione", "Competenze legali-tecniche",
-                                "Individuazione rischi-fabbisogni", "Capacità d'adattamento", "Capacità comunicative",
-                                "Precisione lavoro", "Persuasione", "Analisi critica contesto", "Turnazioni", "Responsabilità supervisione"
-                            ],
-                            "Valore": [
-                                nome_utente.strip(), cognome_utente.strip(), inquadramento_mansione.strip(), ambito_lavorativo, str(data_compilazione),
-                                q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11, q12, q13, q14
-                            ]
-                        }
-                        df_res = pd.DataFrame(dati_form)
-                        df_res.to_csv(full_csv_path, index=False, sep=";")
+                    dati_form = {
+                        "Campo": [
+                            "Nome", "Cognome", "Inquadramento-Mansione", "Ambito lavorativo", "Data Autovalutazione",
+                            "Processi produttivi mansione", "Rapporto colleghi", "Interfaccia fornitori-clienti",
+                            "Processi cartone-scatole", "Processo pallettizzazione", "Competenze legali-tecniche",
+                            "Individuazione rischi-fabbisogni", "Capacità d'adattamento", "Capacità comunicative",
+                            "Precisione lavoro", "Persuasione", "Analisi critica contesto", "Turnazioni", "Responsabilità supervisione"
+                        ],
+                        "Valore": [
+                            nome_utente.strip(), cognome_utente.strip(), inquadramento_mansione.strip(), ambito_lavorativo, str(data_compilazione),
+                            q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11, q12, q13, q14
+                        ]
+                    }
+                    df_res = pd.DataFrame(dati_form)
+                    df_res.to_csv(full_csv_path, index=False, sep=";")
                         
-                        st.success(f"Autovalutazione salvata con successo! File: `{file_name_csv}` nella cartella `Autovalutazione`.")
+                    st.success(f"Autovalutazione salvata con successo! File: `{file_name_csv}` nella cartella `Autovalutazione`.")
                         
         else:
             if not st.session_state.auth_skill_matrix:
