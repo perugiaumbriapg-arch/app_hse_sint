@@ -250,15 +250,15 @@ tab_list = [
     "Home Dashboard", 
     "Segnalazione Near Miss", 
     "Scadenzario Adempimenti",
+    "Consultazione",
     "Analisi Segnalazioni Near Miss", 
-    "Conformità Legislativa",
     "Analisi - Fase 2",
-    "KPI",
     "Piano Miglioramento",
     "Stima Costo Economico",
     "Skill Matrix",
-    "Controllo DPI",
-    "Riconoscimento"
+    "Riconoscimento",
+    "KPI",
+    "Controllo DPI"
 ]
 
 # Impostiamo la navigazione
@@ -825,10 +825,10 @@ if nav == "Analisi Segnalazioni Near Miss":
                         st.rerun()
 
 # ==================================================================
-# --- SEZIONE 5: CONFORMITÀ LEGISLATIVA (RIFERIMENTI REALI) ---
+# --- SEZIONE 5: Consultazione CONFORMITÀ LEGISLATIVA (RIFERIMENTI REALI) ---
 # ==================================================================
-if nav == "Conformità Legislativa":
-    st.header("Conformità Legislativa e Archivio Normativo")
+if nav == "Consultazione":
+    st.header("Consultazione Documenti e procedure")
     
     if "autenticato_upload_legale" not in st.session_state:
         st.session_state.autenticato_upload_legale = False
@@ -939,7 +939,7 @@ if nav == "Conformità Legislativa":
             tab_admin1, tab_admin2 = st.tabs(["Documenti & Check-list", "Gestione QR & Normativa"])
             
             with tab_admin1:
-                st.markdown("---")
+                st.markdown("Conformità legislativa e documentale")
                 st.subheader("Caricamento Documenti")
                 file_caricati = st.file_uploader(
                     "Trascina qui Decreti, Testi Unici o Tabelle Word/Excel da archiviare sul disco locale:",
