@@ -396,13 +396,13 @@ if nav == "Home Dashboard":
     # 3. Classifica Sezione "Riconoscimento"
     # ---------------------------------------------------------
 
-    st.markdown("## 🏆 Top Classifica Riconoscimenti")
-    
+    st.markdown("## 🏆 Classifica Riconoscimenti per segnalazioni Near Miss")
+
     # Recupera i dati sempre aggiornati
     df_home_ric = get_riconoscimenti_data()
     
     if not df_home_ric.empty and len(df_home_ric) > 0:
-        # Mostra i primi 3 posti
+        # 1. Podio / Primi 3 posti
         col_h1, col_h2, col_h3 = st.columns(3)
         
         with col_h1:
@@ -415,16 +415,29 @@ if nav == "Home Dashboard":
             if len(df_home_ric) > 2:
                 st.metric("🥉 3° Posto", f"{df_home_ric.iloc[2]['Nominativo']}", f"{df_home_ric.iloc[2]['Punteggio Totale']} Pts")
     
-        # Anteprima primi 5 in classifica
-        with st.expander("Visualizza Top 5 Classifica Completa"):
-            st.dataframe(
-                df_home_ric[["Nominativo", "Punteggio Totale"]].head(5),
-                use_container_width=True,
-                hide_index=True
-            )
+        st.markdown("---")
+        st.subheader("📋 Tabella di Classificazione Completa")
+    
+        # Prepara il DataFrame aggiungendo la posizione in classifica
+        df_classifica_completa = df_home_ric.copy()
+        df_classifica_completa.insert(0, "Posizione", range(1, len(df_classifica_completa) + 1))
+    
+        # 2. Visualizzazione Tabella Intera
+        st.dataframe(
+            df_classifica_completa,
+            column_config={
+                "Posizione": st.column_config.NumberColumn("Posizione", format="#%d"),
+                "Nominativo": st.column_config.TextColumn("Nominativo / Dipendente"),
+                "Punti Segnalazione (+50)": st.column_config.NumberColumn("Punti Segnalazioni", format="%d"),
+                "Punti Skill Matrix (+25)": st.column_config.NumberColumn("Punti Skill Matrix", format="%d"),
+                "Punteggio Totale": st.column_config.NumberColumn("Punteggio Totale", format="%d pts"),
+            },
+            use_container_width=True,
+            hide_index=True
+        )
     else:
         st.info("Nessun dato di riconoscimento ancora disponibile.")
-        
+            
     # ---------------------------------------------------------
     # 4. Visualizzazione Flowchart Segnalazione Near Miss
     # ---------------------------------------------------------
