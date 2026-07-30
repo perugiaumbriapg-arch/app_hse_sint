@@ -16,6 +16,9 @@ import base64
 import numpy as np
 import plotly.express as px
 from ultralytics import YOLO
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
 # Import per l'estrazione del testo dai file locali
 from pypdf import PdfReader
@@ -293,6 +296,7 @@ tab_list = [
     "Home Dashboard", 
     "Segnalazione Near Miss", 
     "Consultazione",
+    "Segnalazione Manutenzione",
     "Analisi Segnalazioni Near Miss",
     "Skill Matrix",
     "Analisi - Fase 2",
@@ -3332,3 +3336,301 @@ if nav == "Controllo DPI":
                         st.error(f"❌ **NON CONFORME:** Mancano i seguenti DPI obbligatori: {', '.join(mancanti)}")
                 except Exception as e:
                     st.error(f"Errore durante l'esecuzione del modello YOLO: {e}")
+
+# ==================================================================================================
+# SEZIONE 14: SEGNALAZIONE MANUTENZIONE
+# ==================================================================================================
+if nav == "Segnalazione Manutenzione":
+    st.header("🛠️ Formulario Segnalazione Manutenzione (NM/NC)")
+    st.markdown(
+        "Compila il modulo sottostante per inviare una segnalazione di Near Miss / Non Conformità legata alla Manutenzione."
+    )
+
+    # ---------------------------------------------------------
+    # 1. GESTIONE CARTELLA E DOWNLOAD MODULO VUOTO
+    # ---------------------------------------------------------
+    DIR_DEST = "Segnalazione_NM_Manutenzione"
+    os.makedirs(DIR_DEST, exist_ok=True)
+    FILE_CSV_ACCUMULATO = os.path.join(
+        DIR_DEST, "segnalazioni_manutenzione_accumulate.csv"
+    )
+
+    # Pulsante per scaricare il PDF Vuoto originale se presente nella cartella
+    pdf_vuoto_path = "Segnalazione_NM_Manutenzione.pdf"
+    if os.path.exists(pdf_vuoto_path):
+        with open(pdf_vuoto_path, "rb") as f:
+            st.download_button(
+                label="📄 Scarica Formulario Vuoto (PDF)",
+                data=f.read(),
+                file_name="Formulario_Vuoto_Segnalazione_Manutenzione.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+    st.markdown("---")
+
+    # ---------------------------------------------------------
+    # 2. COMPILAZIONE FORMULARIO WEB
+    # ---------------------------------------------------------
+    with st.form(
+        key="form_segnalazione_manutenzione", clear_on_submit=True
+    ):
+        st.subheader("📋 Informazioni Generali")
+        col1, col2 = st.columns(2)
+        with col1:
+            tipo_evento = st.radio(
+                "Tipo evento",
+                ["Near Miss", "Non Conformità"],
+                horizontal=True,
+            )
+            segnalatore = st.text_input(
+                "Segnalatore (Mansione o Nome e Cognome)",
+                placeholder="Es. Mario Rossi",
+            )
+            manutenzione_in = st.radio(
+                "Manutenzione in",
+                ["In Azienda", "Azienda Esterna"],
+                horizontal=True,
+            )
+            sesso = st.radio(
+                "Sesso", ["Maschio", "Femmina"], horizontal=True
+            )
+
+        with col2:
+            fascia_eta = st.selectbox(
+                "Fascia di Età",
+                ["<18 anni", "18-30 anni", "31-50 anni", "51-67 anni"],
+            )
+            data_evento = st.date_input(
+                "Data Evento", value=datetime.date.today()
+            )
+            luogo = st.radio(
+                "Luogo",
+                ["In Azienda", "In itinere", "In missione"],
+                horizontal=True,
+            )
+            reparto = st.text_input(
+                "Reparto (se In Azienda)",
+                placeholder="Es. Officina / Produzione",
+            )
+
+        st.markdown("---")
+        st.subheader("📝 Descrizione Criticità e Rischio")
+        desc_evento = st.text_area(
+            "Descrizione dell'evento o della criticità *",
+            placeholder="Descrivi dettagliatamente l'accaduto...",
+        )
+        desc_rischio = st.text_area(
+            "Descrizione del rischio associato al Near Miss",
+            placeholder="Descrivi i potenziali rischi...",
+        )
+
+        st.markdown("---")
+        st.subheader("⚙️ Possibili Cause della Richiesta di Manutenzione")
+
+        opzioni_cause = [
+            "Elettrica: Cortocircuito",
+            "Elettrica: Sovratensione",
+            "Elettrica: Malfunzionamento dei sensori",
+            "Elettrica: Problemi ai circuiti di controllo",
+            "Elettrica: Interruzione dell'alimentazione",
+            "Elettrica: Usura dei cavi elettrici",
+            "Elettrica: Calore eccessivo",
+            "Elettrica: Umidità nel quadro elettrico",
+            "Elettrica: Polvere nel quadro elettrico",
+            "Elettrica: Sovraccarico di rete",
+            "Elettrica: Dispersione",
+            "Elettrica: Problemi messa a terra",
+            "Meccanica: Usura macchine",
+            "Meccanica: Corrosione",
+            "Meccanica: Eccesso di vibrazioni nei macchinari",
+            "Meccanica: Urto meccanico",
+            "Meccanica: Presenza di umidità nei macchinari",
+            "Meccanica: Presenza di polvere nei macchinari",
+            "Meccanica: Eccessivo calore nei macchinari",
+            "Idrico: Rottura tubazione",
+            "Idrico: Guasto caldaia",
+            "Idrico: Filtrazione acqua o lubrificanti",
+            "Idrico: Problema nello scarico",
+            "Idrico: Mancata manutenzione del sistema di filtraggio dell'acqua",
+            "Filtri: Usura dei filtri",
+            "Filtri: Mancanza di filtri",
+            "Filtri: Inadeguatezza del filtro",
+            "Installazione: Guasto alle chiusure porte e finestre",
+            "Errore dei lavoratori",
+            "Mancata manutenzione preventiva",
+        ]
+        cause_selezionate = st.multiselect(
+            "Seleziona una o più cause rilevate:", opzioni_cause
+        )
+        altro_cause = st.text_input(
+            "Altro (specificare altre cause):", placeholder="Inserisci il testo..."
+        )
+
+        st.markdown("---")
+        st.subheader("⚠️ Possibili Conseguenze")
+
+        opzioni_conseguenze = [
+            "Ustioni",
+            "Anomalia/guasto in avviamento/arresto/esercizio (funzionamento)",
+            "Scivolamento",
+            "Abrasione",
+            "Elettrocuzione",
+            "Incastramento di un arto",
+            "Ostruzione macchinario",
+            "Inalazione sostanze tossiche",
+            "Ferite o tagli",
+            "Presenza di elettricità/linea elettrica accessibile",
+            "Presenza imprevista di liquidi (acqua, olio, ...)",
+            "Presenza imprevista di gas, vapori",
+            "Criticità su impianti generali a supporto dell'area di lavoro",
+            "Urti",
+        ]
+        conseguenze_selezionate = st.multiselect(
+            "Seleziona le possibili conseguenze della non manutenzione:",
+            opzioni_conseguenze,
+        )
+        altro_conseguenze = st.text_input(
+            "Altre conseguenze (specificare):", placeholder="Inserisci il testo..."
+        )
+
+        st.markdown("---")
+        st.subheader("🔍 Valutazioni e Interventi")
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            gia_presentata = st.radio(
+                "La situazione rilevata si è già presentata in passato?",
+                ["Sì frequentemente", "Sì raramente", "No"],
+            )
+            necessita_manutenzione = st.radio(
+                "Necessità di manutenzione?", ["Sì", "No"]
+            )
+            tipo_manutenzione = st.multiselect(
+                "Se 'Sì', scegliere la tipologia di manutenzione:",
+                [
+                    "Manutenzione preventiva",
+                    "Manutenzione ordinaria",
+                    "Manutenzione a guasto",
+                    "Manutenzione straordinaria",
+                    "Manutenzione migliorativa",
+                ],
+            )
+
+        with col_v2:
+            intervento_esterno = st.radio(
+                "Necessario intervento da azienda esterna?", ["Sì", "No"]
+            )
+            azioni_miglioramento = st.text_area(
+                "Valutazioni / azioni / proposte di miglioramento",
+                placeholder="Inserisci eventuali proposte...",
+            )
+
+        submitted = st.form_submit_button(
+            "🚀 Invia Segnalazione Manutenzione", use_container_width=True
+        )
+
+    # ---------------------------------------------------------
+    # 3. ELABORAZIONE E SALVATAGGIO DEI DATI
+    # ---------------------------------------------------------
+    if submitted:
+        if not desc_evento.strip():
+            st.error(
+                "⚠️ Il campo 'Descrizione dell'evento o della criticità' è obbligatorio!"
+            )
+        else:
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Costruzione riga dati
+            nuova_risposta = {
+                "Data Ora Invio": now_str,
+                "Tipologia": "NM_Manutenzione",
+                "Tipo Evento": tipo_evento,
+                "Segnalatore": segnalatore,
+                "Manutenzione In": manutenzione_in,
+                "Sesso": sesso,
+                "Fascia Età": fascia_eta,
+                "Data Evento": data_evento.strftime("%d/%m/%Y"),
+                "Luogo": luogo,
+                "Reparto": reparto,
+                "Descrizione Evento": desc_evento,
+                "Descrizione Rischio": desc_rischio,
+                "Cause Selezionate": ", ".join(cause_selezionate),
+                "Altre Cause": altro_cause,
+                "Conseguenze Selezionate": ", ".join(conseguenze_selezionate),
+                "Altre Conseguenze": altro_conseguenze,
+                "Già Presentata in Passato": gia_presentata,
+                "Necessità Manutenzione": necessita_manutenzione,
+                "Tipo Manutenzione": ", ".join(tipo_manutenzione),
+                "Intervento Azienda Esterna": intervento_esterno,
+                "Azioni / Proposte Miglioramento": azioni_miglioramento,
+            }
+
+            df_nuovo = pd.DataFrame([nuova_risposta])
+
+            # Salvataggio incrementale nel file CSV accumulato
+            if os.path.exists(FILE_CSV_ACCUMULATO):
+                df_esistente = pd.read_csv(FILE_CSV_ACCUMULATO, sep=";")
+                df_totale = pd.concat(
+                    [df_esistente, df_nuovo], ignore_index=True
+                )
+            else:
+                df_totale = df_nuovo
+
+            df_totale.to_csv(
+                FILE_CSV_ACCUMULATO, sep=";", index=False, encoding="utf-8-sig"
+            )
+
+            st.success(
+                "✅ Segnalazione inviata con successo e salvata nel database!"
+            )
+            st.session_state["ultima_segnalazione_manutenzione"] = (
+                nuova_risposta
+            )
+
+    # ---------------------------------------------------------
+    # 4. DOWNLOAD PDF DELLA RISPOSTA COMPILATA
+    # ---------------------------------------------------------
+    if "ultima_segnalazione_manutenzione" in st.session_state:
+        st.markdown("---")
+        st.subheader("📥 Scarica la tua Segnalazione")
+
+        dati_pdf = st.session_state["ultima_segnalazione_manutenzione"]
+
+        # Generazione PDF dinamico ReportLab
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            "TitleStyle",
+            parent=styles["Heading1"],
+            fontSize=16,
+            spaceAfter=12,
+        )
+        bold_style = ParagraphStyle(
+            "BoldStyle", parent=styles["Normal"], fontName="Helvetica-Bold"
+        )
+
+        elements = []
+        elements.append(
+            Paragraph(
+                "MODULO SEGNALAZIONE NEAR MISS / MANUTENZIONE", title_style
+            )
+        )
+        elements.append(Spacer(1, 10))
+
+        for k, v in dati_pdf.items():
+            linea = f"<b>{k}:</b> {v if v else 'N/D'}"
+            elements.append(Paragraph(linea, styles["Normal"]))
+            elements.append(Spacer(1, 4))
+
+        doc.build(elements)
+        pdf_data = buffer.getvalue()
+        buffer.close()
+
+        st.download_button(
+            label="📄 Scarica Risposta Compilata in PDF",
+            data=pdf_data,
+            file_name=f"Segnalazione_Manutenzione_{dati_pdf['Data Ora Invio'].replace(':', '-').replace(' ', '_')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
