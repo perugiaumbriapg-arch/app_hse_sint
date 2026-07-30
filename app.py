@@ -468,7 +468,7 @@ if nav == "Home Dashboard":
 # ==================================================================
 if nav == "Segnalazione Near Miss":
     st.info(
-        "Near miss (mancato infortunio): incidente avvenuto nel luogo di lavoro che non ha recato danno fisico al lavoratore, pur avendone il potenziale.\n"
+        "Near miss (mancato infortunio): evento avvenuto nel luogo di lavoro che non ha recato danno fisico al lavoratore, pur avendone il potenziale.\n"
         "Esempi: caduta di materiale imballato durante movimentazione con carrello elevatore; improvvisa fuoriuscita di liquido da tubazione; lavoratore scivola su pavimento bagnato senza riportare danni.\n\n"
         "Non conformità: situazione di pericolo che non genera alcun incidente/infortunio ma rilevabile su procedure operative, attrezzature, ambienti di lavoro, dpi.\n"
         "Esempi: macchinario senza protezione, casco di sicurezza non indossato, area di lavoro priva di percorsi sicuri."
