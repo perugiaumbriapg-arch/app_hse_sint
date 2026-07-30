@@ -254,6 +254,28 @@ def decodifica_qr_opencv(image_file):
 
     return valore if valore else None
 
+# Aggiornamento Classificazione Riconoscimento
+def get_riconoscimenti_data():
+    """Recupera i dati dei riconoscimenti dallo stato di sessione o dal file CSV."""
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        base_dir = os.getcwd()
+        
+    file_riconoscimenti_csv = os.path.join(base_dir, "riconoscimenti_punteggi.csv")
+    
+    if os.path.exists(file_riconoscimenti_csv):
+        try:
+            df = pd.read_csv(file_riconoscimenti_csv, sep=";")
+            df["Punti Segnalazione (+50)"] = pd.to_numeric(df["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
+            df["Punti Skill Matrix (+25)"] = pd.to_numeric(df["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
+            df["Punteggio Totale"] = df["Punti Segnalazione (+50)"] + df["Punti Skill Matrix (+25)"]
+            return df.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
+        except Exception:
+            pass
+            
+    return pd.DataFrame()
+  
 # ==================================================================
 # --- 3. INTESTAZIONE DELLA PIATTAFORMA ---
 # ==================================================================
@@ -373,49 +395,35 @@ if nav == "Home Dashboard":
     # ---------------------------------------------------------
     # 3. Classifica Sezione "Riconoscimento"
     # ---------------------------------------------------------
-    st.markdown("---")
-    st.subheader("🏆 Classifica Riconoscimenti HSE")
-    st.markdown("Panoramica dei punteggi totali accumulati dai segnalatori e dal personale censito nella Skill Matrix.")
 
-    file_riconoscimenti_csv = os.path.join(base_dir, "riconoscimenti_punteggi.csv")
-    df_classifica = pd.DataFrame()
-
-    # Tentativo di caricare il file salvato della sezione Riconoscimento
-    if os.path.exists(file_riconoscimenti_csv):
-        try:
-            df_classifica = pd.read_csv(file_riconoscimenti_csv, sep=";")
-        except Exception:
-            pass
-
-    if not df_classifica.empty:
-        # Assicura conversioni numeriche e calcolo totale
-        df_classifica["Punti Segnalazione (+50)"] = pd.to_numeric(df_classifica["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
-        df_classifica["Punti Skill Matrix (+25)"] = pd.to_numeric(df_classifica["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
-        df_classifica["Punteggio Totale"] = df_classifica["Punti Segnalazione (+50)"] + df_classifica["Punti Skill Matrix (+25)"]
+    st.markdown("## 🏆 Top Classifica Riconoscimenti")
+    
+    # Recupera i dati sempre aggiornati
+    df_home_ric = get_riconoscimenti_data()
+    
+    if not df_home_ric.empty and len(df_home_ric) > 0:
+        # Mostra i primi 3 posti
+        col_h1, col_h2, col_h3 = st.columns(3)
         
-        # Ordina dal punteggio più alto a quello più basso
-        df_classifica = df_classifica.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
-
-        # Mostra il podio con le metriche se ci sono punti assegnati
-        if len(df_classifica) > 0 and df_classifica.iloc[0]["Punteggio Totale"] > 0:
-            pod1, pod2, pod3 = st.columns(3)
-            with pod1:
-                st.metric("🥇 1° Posto", f"{df_classifica.iloc[0]['Nominativo']}", f"{df_classifica.iloc[0]['Punteggio Totale']} Pts")
-            with pod2:
-                if len(df_classifica) > 1:
-                    st.metric("🥈 2° Posto", f"{df_classifica.iloc[1]['Nominativo']}", f"{df_classifica.iloc[1]['Punteggio Totale']} Pts")
-            with pod3:
-                if len(df_classifica) > 2:
-                    st.metric("🥉 3° Posto", f"{df_classifica.iloc[2]['Nominativo']}", f"{df_classifica.iloc[2]['Punteggio Totale']} Pts")
-
-        # Visualizzazione Tabella Classifica
-        st.dataframe(
-            df_classifica[["Nominativo", "Fonte", "Punti Segnalazione (+50)", "Punti Skill Matrix (+25)", "Punteggio Totale"]],
-            use_container_width=True,
-            hide_index=True
-        )
+        with col_h1:
+            if len(df_home_ric) > 0:
+                st.metric("🥇 1° Posto", f"{df_home_ric.iloc[0]['Nominativo']}", f"{df_home_ric.iloc[0]['Punteggio Totale']} Pts")
+        with col_h2:
+            if len(df_home_ric) > 1:
+                st.metric("🥈 2° Posto", f"{df_home_ric.iloc[1]['Nominativo']}", f"{df_home_ric.iloc[1]['Punteggio Totale']} Pts")
+        with col_h3:
+            if len(df_home_ric) > 2:
+                st.metric("🥉 3° Posto", f"{df_home_ric.iloc[2]['Nominativo']}", f"{df_home_ric.iloc[2]['Punteggio Totale']} Pts")
+    
+        # Anteprima primi 5 in classifica
+        with st.expander("Visualizza Top 5 Classifica Completa"):
+            st.dataframe(
+                df_home_ric[["Nominativo", "Punteggio Totale"]].head(5),
+                use_container_width=True,
+                hide_index=True
+            )
     else:
-        st.info("Nessuna classifica ancora salvata. Per generare la prima classifica, accedi ed esegui un salvataggio nella sezione 'Riconoscimento'.")
+        st.info("Nessun dato di riconoscimento ancora disponibile.")
         
     # ---------------------------------------------------------
     # 4. Visualizzazione Flowchart Segnalazione Near Miss
@@ -3235,19 +3243,23 @@ if nav == "Riconoscimento":
             col_sav1, col_sav2 = st.columns(2)
             
             with col_sav1:
-                if st.button("💾 Salva Assegnazione Punteggi", use_container_width=True, key="btn_save_riconoscimenti"):
-                    # Ricalcolo totali
-                    df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
-                    df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
-                    df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
-                    
-                    # Ordina prima di salvare
-                    df_edited = df_edited.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
-                    
-                    # Salva su CSV
-                    df_edited.to_csv(file_riconoscimenti_csv, index=False, sep=";")
-                    st.success("Punteggi salvati con successo e classifica aggiornata!")
-                    st.rerun()
+              if st.button("💾 Salva Assegnazione Punteggi", use_container_width=True, key="btn_save_riconoscimenti"):
+                  # Ricalcolo totali
+                  df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
+                  df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
+                  df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
+                  
+                  # Ordina prima di salvare
+                  df_edited = df_edited.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
+                  
+                  # 1. Salva su CSV
+                  df_edited.to_csv(file_riconoscimenti_csv, index=False, sep=";")
+                  
+                  # 2. AGGIORNAMENTO STATE GLOBALE (Rende i dati visibili ovunque all'istante)
+                  st.session_state["df_riconoscimenti"] = df_edited
+                  
+                  st.success("Punteggi salvati con successo e classifica aggiornata!")
+                  st.rerun()
 
             with col_sav2:
                 csv_ric_data = df_edited.to_csv(index=False, sep=";").encode('utf-8')
