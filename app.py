@@ -3352,9 +3352,7 @@ if nav == "Segnalazione Manutenzione":
     # ---------------------------------------------------------
     DIR_DEST = "Segnalazione_NM_Manutenzione"
     os.makedirs(DIR_DEST, exist_ok=True)
-    FILE_CSV_ACCUMULATO = os.path.join(
-        DIR_DEST, "segnalazioni_manutenzione_accumulate.csv"
-    )
+    FILE_CSV_MANUTENZIONE = os.path.join(DIR_DEST, "manutenzione.csv")
 
     # Pulsante per scaricare il PDF Vuoto originale se presente nella cartella
     pdf_vuoto_path = "Segnalazione_NM_Manutenzione.pdf"
@@ -3565,28 +3563,18 @@ if nav == "Segnalazione Manutenzione":
                 "Azioni / Proposte Miglioramento": azioni_miglioramento,
             }
 
-            df_nuovo = pd.DataFrame([nuova_risposta])
-
-           # Definisci il percorso e assicurati che la cartella esista
-            DIR_MANUTENZIONE = "Segnalazione_NM_Manutenzione"
-            FILE_CSV_MANUTENZIONE = os.path.join(DIR_MANUTENZIONE, "manutenzione.csv")
-
-            # Crea la cartella se non esiste
-            os.makedirs(DIR_MANUTENZIONE, exist_ok=True)
-
-            # Salvataggio incrementale nel file CSV
-            if not os.path.isfile(FILE_CSV_MANUTENZIONE):
-                # Se il file non esiste, lo crea includendo l'intestazione
-                df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, index=False, sep=";", encoding="utf-8-sig")
-            else:
-                # Se il file esiste già, aggiunge i nuovi dati in coda senza intestazione
-                df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, mode="a", header=False, index=False, sep=";", encoding="utf-8-sig")
+            # Scrittura su CSV ottimizzata tramite modulo nativo csv
+            file_esiste = os.path.isfile(FILE_CSV_MANUTENZIONE)
+            with open(FILE_CSV_MANUTENZIONE, mode="a", newline="", encoding="utf-8-sig") as f:
+                writer = csv.DictWriter(f, fieldnames=nuova_risposta.keys(), delimiter=";")
+                if not file_esiste:
+                    writer.writeheader()
+                writer.writerow(nuova_risposta)
 
             st.session_state["ultima_segnalazione_manutenzione"] = nuova_risposta
             st.success("Segnalazione acquisita e salvata con successo!")
-
-            time.sleep(0.5)
             st.rerun()
+
     # ---------------------------------------------------------
     # 4. DOWNLOAD PDF DELLA RISPOSTA COMPILATA
     # ---------------------------------------------------------
@@ -3607,9 +3595,6 @@ if nav == "Segnalazione Manutenzione":
             fontSize=16,
             spaceAfter=12,
         )
-        bold_style = ParagraphStyle(
-            "BoldStyle", parent=styles["Normal"], fontName="Helvetica-Bold"
-        )
 
         elements = []
         elements.append(
@@ -3629,7 +3614,7 @@ if nav == "Segnalazione Manutenzione":
         buffer.close()
 
         st.download_button(
-            label="Scarica Risposta Compilata in PDF",
+            label="📄 Scarica Risposta Compilata in PDF",
             data=pdf_data,
             file_name=f"Segnalazione_Manutenzione_{dati_pdf['Data Ora Invio'].replace(':', '-').replace(' ', '_')}.pdf",
             mime="application/pdf",
