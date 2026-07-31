@@ -12,3 +12,5 @@ opencv-python-headless==4.10.0.84
 ultralytics
 reportlab
 csv
+github3.py
+PyGithub
