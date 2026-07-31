@@ -3567,20 +3567,26 @@ if nav == "Segnalazione Manutenzione":
 
             df_nuovo = pd.DataFrame([nuovo_record])
 
-           # Salvataggio incrementale nel file CSV manutenzione
-          if not os.path.isfile(FILE_CSV_MANUTENZIONE):
-              # Se il file non esiste, lo crea includendo l'intestazione (header)
-              df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, index=False, sep=";", encoding="utf-8-sig")
-          else:
-              # Se il file esiste già, aggiunge la nuova riga in coda senza intestazione
-              df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, mode='a', header=False, index=False, sep=";", encoding="utf-8-sig")
-          
-          # Aggiornamento dello stato ed esito
-          st.session_state["ultima_segnalazione_manutenzione"] = nuova_risposta
-          st.success("Segnalazione acquisita e salvata con successo!")
-          
-          time.sleep(0.5)
-          st.rerun()
+           # Definisci il percorso e assicurati che la cartella esista
+            DIR_MANUTENZIONE = "Segnalazione_NM_Manutenzione"
+            FILE_CSV_MANUTENZIONE = os.path.join(DIR_MANUTENZIONE, "manutenzione.csv")
+
+            # Crea la cartella se non esiste
+            os.makedirs(DIR_MANUTENZIONE, exist_ok=True)
+
+            # Salvataggio incrementale nel file CSV
+            if not os.path.isfile(FILE_CSV_MANUTENZIONE):
+                # Se il file non esiste, lo crea includendo l'intestazione
+                df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, index=False, sep=";", encoding="utf-8-sig")
+            else:
+                # Se il file esiste già, aggiunge i nuovi dati in coda senza intestazione
+                df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, mode="a", header=False, index=False, sep=";", encoding="utf-8-sig")
+
+            st.session_state["ultima_segnalazione_manutenzione"] = nuova_risposta
+            st.success("Segnalazione acquisita e salvata con successo!")
+
+            time.sleep(0.5)
+            st.rerun()
     # ---------------------------------------------------------
     # 4. DOWNLOAD PDF DELLA RISPOSTA COMPILATA
     # ---------------------------------------------------------
