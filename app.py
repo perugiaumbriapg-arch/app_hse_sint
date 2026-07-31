@@ -1080,107 +1080,103 @@ if nav == "Analisi Segnalazioni Near Miss":
             # PULSANTE DI INVIO - GESTITO SUBITO FUORI DAL BLOCCO WITH FORM
             if submit_button:
               # ---------------------------------------------------------
-    # 3. ELABORAZIONE E SALVATAGGIO DEI DATI SU GITHUB
-    # ---------------------------------------------------------
-    if submitted:
-        if not desc_evento.strip():
-            st.error(
-                "Il campo 'Descrizione dell'evento o della criticità' è obbligatorio!"
-            )
-        else:
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            # Costruzione riga dati
-            nuova_risposta = {
-                "Data Ora Invio": now_str,
-                "Segnalazione Collegata": selezione_nm,
-                "Descrizione": descrizione_finale.replace("\n", " ")
-                .replace("\r", " ")
-                .replace(";", ","),
-                "Incidente": ", ".join(incidente_selezionato),
-                "Attività": ", ".join(attivita_selezionata),
-                "Cause": ", ".join(cause_selezionate),
-                "Storico": storico_eventi,
-                "Criticità": ", ".join(criticita_selezionate),
-                "Danno Strutture": danno_strutture,
-                "Danno Produttività": danno_produttivita,
-                "Danno Persone": danno_persone,
-                "Frequenza": frequenza,
-                "Commento RSPP": "",
-                "Firma RSPP (Stato)": "Non Firmato",
-                "Allegato Analisi": allegato_analisi_nome,
-                    
-            }
-
-            try:
-                # Inizializzazione della connessione con GitHub API
-                github_token = st.secrets["GITHUB_TOKEN"]
-                repo_name = st.secrets["REPO_NAME"]
-                path_in_repo = "Segnalazione_NM_Manutenzione/manutenzione.csv"
-
-                g = Github(github_token)
-                repo = g.get_repo(repo_name)
-
-                # Preparazione stringa della nuova riga in formato CSV (delimitatore ';')
-                output = io.StringIO()
-                writer = csv.DictWriter(
-                    output, fieldnames=nuova_risposta.keys(), delimiter=";"
-                )
-                writer.writerow(nuova_risposta)
-                nuova_riga_csv = output.getvalue()
-
-                try:
-                    # Se il file esiste già su GitHub, lo recupera e aggiunge la riga
-                    file_content = repo.get_contents(path_in_repo)
-                    contenuto_esistente = base64.b64decode(
-                        file_content.content
-                    ).decode("utf-8-sig")
-
-                    # Aggiunge a capo se non presente alla fine del file esistente
-                    if not contenuto_esistente.endswith("\n"):
-                        contenuto_esistente += "\n"
-
-                    nuovo_contenuto = contenuto_esistente + nuova_riga_csv
-
-                    repo.update_file(
-                        path=path_in_repo,
-                        message=f"Nuova segnalazione manutenzione ({now_str})",
-                        content=nuovo_contenuto,
-                        sha=file_content.sha,
-                    )
-                except GithubException as e:
-                    if e.status == 404:
-                        # Se il file non esiste ancora su GitHub, scrive intestazione + prima riga
-                        output_init = io.StringIO()
-                        writer_init = csv.DictWriter(
-                            output_init,
-                            fieldnames=nuova_risposta.keys(),
-                            delimiter=";",
-                        )
-                        writer_init.writeheader()
-                        writer_init.writerow(nuova_risposta)
-                        nuovo_contenuto = output_init.getvalue()
-
-                        repo.create_file(
-                            path=path_in_repo,
-                            message=f"Creazione manutenzione.csv e prima segnalazione ({now_str})",
-                            content=nuovo_contenuto,
-                        )
-                    else:
-                        raise e
-
-                st.session_state["ultima_segnalazione_manutenzione"] = (
-                    nuova_risposta
-                )
-                st.success(
-                    "Segnalazione acquisita e salvata con successo su GitHub!"
-                )
-                st.rerun()
-
-            except Exception as e:
-                st.error(
-                    f"Si è verificato un errore durante il salvataggio su GitHub: {e}"
-                )
+              # 3. ELABORAZIONE E SALVATAGGIO DEI DATI SU GITHUB
+              # ---------------------------------------------------------
+              if submitted:
+                  if:
+                      now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+          
+                      # Costruzione riga dati
+                      nuova_risposta = {
+                          "Data Ora Invio": now_str,
+                          "Segnalazione Collegata": selezione_nm,
+                          "Descrizione": descrizione_finale.replace("\n", " ")
+                          .replace("\r", " ")
+                          .replace(";", ","),
+                          "Incidente": ", ".join(incidente_selezionato),
+                          "Attività": ", ".join(attivita_selezionata),
+                          "Cause": ", ".join(cause_selezionate),
+                          "Storico": storico_eventi,
+                          "Criticità": ", ".join(criticita_selezionate),
+                          "Danno Strutture": danno_strutture,
+                          "Danno Produttività": danno_produttivita,
+                          "Danno Persone": danno_persone,
+                          "Frequenza": frequenza,
+                          "Commento RSPP": "",
+                          "Firma RSPP (Stato)": "Non Firmato",
+                          "Allegato Analisi": allegato_analisi_nome,
+                              
+                      }
+          
+                      try:
+                          # Inizializzazione della connessione con GitHub API
+                          github_token = st.secrets["GITHUB_TOKEN"]
+                          repo_name = st.secrets["REPO_NAME"]
+                          path_in_repo = "analisi_near_miss.csv"
+          
+                          g = Github(github_token)
+                          repo = g.get_repo(repo_name)
+          
+                          # Preparazione stringa della nuova riga in formato CSV (delimitatore ';')
+                          output = io.StringIO()
+                          writer = csv.DictWriter(
+                              output, fieldnames=nuova_risposta.keys(), delimiter=";"
+                          )
+                          writer.writerow(nuova_risposta)
+                          nuova_riga_csv = output.getvalue()
+          
+                          try:
+                              # Se il file esiste già su GitHub, lo recupera e aggiunge la riga
+                              file_content = repo.get_contents(path_in_repo)
+                              contenuto_esistente = base64.b64decode(
+                                  file_content.content
+                              ).decode("utf-8-sig")
+          
+                              # Aggiunge a capo se non presente alla fine del file esistente
+                              if not contenuto_esistente.endswith("\n"):
+                                  contenuto_esistente += "\n"
+          
+                              nuovo_contenuto = contenuto_esistente + nuova_riga_csv
+          
+                              repo.update_file(
+                                  path=path_in_repo,
+                                  message=f"Nuova analisi near miss ({now_str})",
+                                  content=nuovo_contenuto,
+                                  sha=file_content.sha,
+                              )
+                          except GithubException as e:
+                              if e.status == 404:
+                                  # Se il file non esiste ancora su GitHub, scrive intestazione + prima riga
+                                  output_init = io.StringIO()
+                                  writer_init = csv.DictWriter(
+                                      output_init,
+                                      fieldnames=nuova_risposta.keys(),
+                                      delimiter=";",
+                                  )
+                                  writer_init.writeheader()
+                                  writer_init.writerow(nuova_risposta)
+                                  nuovo_contenuto = output_init.getvalue()
+          
+                                  repo.create_file(
+                                      path=path_in_repo,
+                                      message=f"Creazione analisi_near_miss.csv e prima segnalazione ({now_str})",
+                                      content=nuovo_contenuto,
+                                  )
+                              else:
+                                  raise e
+          
+                          st.session_state["ultima_segnalazione_analisi_near_miss"] = (
+                              nuova_risposta
+                          )
+                          st.success(
+                              "Analisi acquisita e salvata con successo su GitHub!"
+                          )
+                          st.rerun()
+          
+                      except Exception as e:
+                          st.error(
+                              f"Si è verificato un errore durante il salvataggio su GitHub: {e}"
+                          )
               
 
         # --- SUBSEZIONE COMMENTO E FIRMA RSPP ---
