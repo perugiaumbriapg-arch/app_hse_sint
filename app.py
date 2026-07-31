@@ -1230,6 +1230,9 @@ if nav == "Analisi Segnalazioni Near Miss":
                             )
                             time.sleep(1)
                             st.rerun()
+
+
+
 # ==================================================================
 # --- SEZIONE 5: Consultazione CONFORMITÀ LEGISLATIVA (RIFERIMENTI REALI) ---
 # ==================================================================
