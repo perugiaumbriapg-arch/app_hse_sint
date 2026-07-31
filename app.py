@@ -3565,7 +3565,7 @@ if nav == "Segnalazione Manutenzione":
                 "Azioni / Proposte Miglioramento": azioni_miglioramento,
             }
 
-            df_nuovo = pd.DataFrame([nuovo_record])
+            df_nuovo = pd.DataFrame([nuova_risposta])
 
            # Definisci il percorso e assicurati che la cartella esista
             DIR_MANUTENZIONE = "Segnalazione_NM_Manutenzione"
