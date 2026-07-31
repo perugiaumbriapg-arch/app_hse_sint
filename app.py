@@ -3177,6 +3177,10 @@ if nav == "Skill Matrix":
         st.subheader("Autovalutazione Skill Matrix")
         st.markdown("Consulta o scarica il documento PDF di autovalutazione e compila il form sottostante.")
         
+        # Definizione percorsi locali per la lettura del PDF
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
+        
         # Download / Visualizzazione PDF "Skill Matrix Autovalutazione.pdf"
         file_pdf_sm = os.path.join(skill_matrix_dir, "Skill Matrix Autovalutazione.pdf")
         
@@ -3239,14 +3243,12 @@ if nav == "Skill Matrix":
                 if not nome_utente.strip() or not cognome_utente.strip():
                     st.error("Inserisci obbligatoriamente Nome e Cognome prima di procedere.")
                 else:
-                    autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
-                    os.makedirs(autoval_dir, exist_ok=True)
-                    
-                    import re
                     clean_name = re.sub(r'[\\/*?:"<>|]', "", f"{nome_utente.strip()}_{cognome_utente.strip()}")
                     clean_date = re.sub(r'[\\/*?:"<>|]', "", str(data_compilazione))
                     file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
-                    full_csv_path = os.path.join(autoval_dir, file_name_csv)
+                    
+                    # Costruiamo il percorso del file su GitHub
+                    github_path = f"Skill_Matrix/Autovalutazione/{file_name_csv}"
                     
                     dati_form = {
                         "Campo": [
@@ -3262,9 +3264,36 @@ if nav == "Skill Matrix":
                         ]
                     }
                     df_res = pd.DataFrame(dati_form)
-                    df_res.to_csv(full_csv_path, index=False, sep=";")
+                    csv_content = df_res.to_csv(index=False, sep=";")
                     
-                    st.success(f"Autovalutazione salvata con successo! File: `{file_name_csv}` nella cartella `Autovalutazione`.")
+                    # Salvataggio tramite API GitHub
+                    try:
+                        token = st.secrets["GITHUB_TOKEN"]
+                        repo_name = st.secrets["GITHUB_REPO"]
+                        
+                        g = Github(token)
+                        repo = g.get_repo(repo_name)
+                        
+                        # Controlla se il file esiste già su GitHub per aggiornarlo o crearlo
+                        try:
+                            file_existing = repo.get_contents(github_path)
+                            repo.update_file(
+                                path=github_path,
+                                message=f"Aggiornata autovalutazione: {file_name_csv}",
+                                content=csv_content,
+                                sha=file_existing.sha
+                            )
+                        except GithubException:
+                            repo.create_file(
+                                path=github_path,
+                                message=f"Aggiunta nuova autovalutazione: {file_name_csv}",
+                                content=csv_content
+                            )
+                            
+                        st.success(f"Autovalutazione salvata permanentemente su GitHub nel percorso: `{github_path}`")
+                        
+                    except Exception as e:
+                        st.error(f"Errore nel salvataggio su GitHub: {e}")
 
     # =========================================================
     # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX (Richiede Password)
