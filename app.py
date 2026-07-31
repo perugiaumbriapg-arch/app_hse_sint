@@ -66,7 +66,7 @@ if not os.path.exists(DIR_CONFORMITA):
     os.makedirs(DIR_CONFORMITA)
 
 if not os.path.exists(DIR_IMMAGINI_ANALISI):
-    os.makedirs(DIR_IMMAGINI_ANALISI)
+    os.makedirs(DIR_IMMAGINI_ANALISI, exist_ok=True)
 
 COLONNE_SCADENZARIO = [
     "Adempimento", 
