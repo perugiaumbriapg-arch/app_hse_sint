@@ -70,14 +70,6 @@ if not os.path.exists(DIR_CONFORMITA):
 if not os.path.exists(DIR_IMMAGINI_ANALISI):
     os.makedirs(DIR_IMMAGINI_ANALISI, exist_ok=True)
 
-# ==================================================================
-# Leggere file Analisi Near Miss
-# ==================================================================
-df_analisi = (
-    pd.read_csv(FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python")
-    if os.path.exists(FILE_ANALISI_NM)
-    else pd.DataFrame()
-)
 
 COLONNE_SCADENZARIO = [
     "Adempimento", 
@@ -852,7 +844,9 @@ if nav == "Analisi Segnalazioni Near Miss":
 
     if not st.session_state.autenticato_rspp:
         pwd_rspp = st.text_input(
-            "Inserisci la Password di Accesso", type="password", key="pwd_rspp_tab"
+            "Inserisci la Password di Accesso",
+            type="password",
+            key="pwd_rspp_tab",
         )
         if st.button("Convalida Accesso", use_container_width=True):
             if pwd_rspp == "hse2026":
@@ -875,6 +869,42 @@ if nav == "Analisi Segnalazioni Near Miss":
         if not os.path.exists(DIR_IMMAGINI_ANALISI):
             os.makedirs(DIR_IMMAGINI_ANALISI)
 
+        # Funzione di supporto per salvare l'intero DataFrame aggiornato su GitHub
+        def salva_df_analisi_su_github(
+            df_target, message="Aggiornamento analisi_near_miss.csv"
+        ):
+            try:
+                github_token = st.secrets["GITHUB_TOKEN"]
+                repo_name = st.secrets["REPO_NAME"]
+                g = Github(github_token)
+                repo = g.get_repo(repo_name)
+
+                csv_buffer = df_target.to_csv(index=False, sep=";")
+
+                try:
+                    file_content = repo.get_contents(FILE_ANALISI_NM)
+                    repo.update_file(
+                        path=FILE_ANALISI_NM,
+                        message=message,
+                        content=csv_buffer,
+                        sha=file_content.sha,
+                    )
+                except GithubException as ge:
+                    if ge.status == 404:
+                        repo.create_file(
+                            path=FILE_ANALISI_NM,
+                            message=message,
+                            content=csv_buffer,
+                        )
+                    else:
+                        raise ge
+                return True
+            except Exception as ex:
+                st.error(
+                    f"Errore durante il salvataggio su GitHub: {ex}"
+                )
+                return False
+
         # --- LETTURA DELLE SEGNALAZIONI DAI DUE FILE ---
         lista_segnalazioni = []
         mappa_descrizioni = {}
@@ -883,7 +913,10 @@ if nav == "Analisi Segnalazioni Near Miss":
         if os.path.exists(FILE_NEAR_MISS):
             try:
                 df_nm = pd.read_csv(
-                    FILE_NEAR_MISS, sep=";", on_bad_lines="skip", engine="python"
+                    FILE_NEAR_MISS,
+                    sep=";",
+                    on_bad_lines="skip",
+                    engine="python",
                 )
                 for idx, row in df_nm.iterrows():
                     data_ev = str(
@@ -892,7 +925,9 @@ if nav == "Analisi Segnalazioni Near Miss":
                         )
                     )
                     segnalatore = str(
-                        row.get("Segnalatore", row.get("Nome Segnalatore", "N/D"))
+                        row.get(
+                            "Segnalatore", row.get("Nome Segnalatore", "N/D")
+                        )
                     )
                     label = f"{data_ev} | Segnalazione NM | {segnalatore}"
                     lista_segnalazioni.append(label)
@@ -904,7 +939,10 @@ if nav == "Analisi Segnalazioni Near Miss":
         if os.path.exists(FILE_MANUTENZIONE):
             try:
                 df_man = pd.read_csv(
-                    FILE_MANUTENZIONE, sep=";", on_bad_lines="skip", engine="python"
+                    FILE_MANUTENZIONE,
+                    sep=";",
+                    on_bad_lines="skip",
+                    engine="python",
                 )
                 for idx, row in df_man.iterrows():
                     data_ev = str(
@@ -913,7 +951,9 @@ if nav == "Analisi Segnalazioni Near Miss":
                         )
                     )
                     segnalatore = str(
-                        row.get("Segnalatore", row.get("Nome Segnalatore", "N/D"))
+                        row.get(
+                            "Segnalatore", row.get("Nome Segnalatore", "N/D")
+                        )
                     )
                     label = f"{data_ev} | NM_Manutenzione | {segnalatore}"
                     lista_segnalazioni.append(label)
@@ -921,7 +961,7 @@ if nav == "Analisi Segnalazioni Near Miss":
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_MANUTENZIONE}: {e}")
 
-        # Lettura file delle analisi (con gestione errori righe corrotte)
+        # Lettura file delle analisi
         df_analisi = (
             pd.read_csv(
                 FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python"
@@ -1077,107 +1117,48 @@ if nav == "Analisi Segnalazioni Near Miss":
 
                 submit_button = st.form_submit_button("Salva Modulo Direzione")
 
-            # PULSANTE DI INVIO - GESTITO SUBITO FUORI DAL BLOCCO WITH FORM
+            # PULSANTE DI INVIO
             if submit_button:
-              # ---------------------------------------------------------
-              # 3. ELABORAZIONE E SALVATAGGIO DEI DATI SU GITHUB
-              # ---------------------------------------------------------
-              if submitted:
-                  if:
-                      now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-          
-                      # Costruzione riga dati
-                      nuova_risposta = {
-                          "Data Ora Invio": now_str,
-                          "Segnalazione Collegata": selezione_nm,
-                          "Descrizione": descrizione_finale.replace("\n", " ")
-                          .replace("\r", " ")
-                          .replace(";", ","),
-                          "Incidente": ", ".join(incidente_selezionato),
-                          "Attività": ", ".join(attivita_selezionata),
-                          "Cause": ", ".join(cause_selezionate),
-                          "Storico": storico_eventi,
-                          "Criticità": ", ".join(criticita_selezionate),
-                          "Danno Strutture": danno_strutture,
-                          "Danno Produttività": danno_produttivita,
-                          "Danno Persone": danno_persone,
-                          "Frequenza": frequenza,
-                          "Commento RSPP": "",
-                          "Firma RSPP (Stato)": "Non Firmato",
-                          "Allegato Analisi": allegato_analisi_nome,
-                              
-                      }
-          
-                      try:
-                          # Inizializzazione della connessione con GitHub API
-                          github_token = st.secrets["GITHUB_TOKEN"]
-                          repo_name = st.secrets["REPO_NAME"]
-                          path_in_repo = "analisi_near_miss.csv"
-          
-                          g = Github(github_token)
-                          repo = g.get_repo(repo_name)
-          
-                          # Preparazione stringa della nuova riga in formato CSV (delimitatore ';')
-                          output = io.StringIO()
-                          writer = csv.DictWriter(
-                              output, fieldnames=nuova_risposta.keys(), delimiter=";"
-                          )
-                          writer.writerow(nuova_risposta)
-                          nuova_riga_csv = output.getvalue()
-          
-                          try:
-                              # Se il file esiste già su GitHub, lo recupera e aggiunge la riga
-                              file_content = repo.get_contents(path_in_repo)
-                              contenuto_esistente = base64.b64decode(
-                                  file_content.content
-                              ).decode("utf-8-sig")
-          
-                              # Aggiunge a capo se non presente alla fine del file esistente
-                              if not contenuto_esistente.endswith("\n"):
-                                  contenuto_esistente += "\n"
-          
-                              nuovo_contenuto = contenuto_esistente + nuova_riga_csv
-          
-                              repo.update_file(
-                                  path=path_in_repo,
-                                  message=f"Nuova analisi near miss ({now_str})",
-                                  content=nuovo_contenuto,
-                                  sha=file_content.sha,
-                              )
-                          except GithubException as e:
-                              if e.status == 404:
-                                  # Se il file non esiste ancora su GitHub, scrive intestazione + prima riga
-                                  output_init = io.StringIO()
-                                  writer_init = csv.DictWriter(
-                                      output_init,
-                                      fieldnames=nuova_risposta.keys(),
-                                      delimiter=";",
-                                  )
-                                  writer_init.writeheader()
-                                  writer_init.writerow(nuova_risposta)
-                                  nuovo_contenuto = output_init.getvalue()
-          
-                                  repo.create_file(
-                                      path=path_in_repo,
-                                      message=f"Creazione analisi_near_miss.csv e prima segnalazione ({now_str})",
-                                      content=nuovo_contenuto,
-                                  )
-                              else:
-                                  raise e
-          
-                          st.session_state["ultima_segnalazione_analisi_near_miss"] = (
-                              nuova_risposta
-                          )
-                          st.success(
-                              "Analisi acquisita e salvata con successo su GitHub!"
-                          )
-                          st.rerun()
-          
-                      except Exception as e:
-                          st.error(
-                              f"Si è verificato un errore durante il salvataggio su GitHub: {e}"
-                          )
-              
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                # Costruzione riga dati
+                nuova_risposta = {
+                    "Data Analisi": now_str,
+                    "Segnalazione Collegata": selezione_nm,
+                    "Descrizione": descrizione_finale.replace("\n", " ")
+                    .replace("\r", " ")
+                    .replace(";", ","),
+                    "Incidente": ", ".join(incidente_selezionato),
+                    "Attività": ", ".join(attivita_selezionata),
+                    "Cause": ", ".join(cause_selezionate),
+                    "Storico": storico_eventi,
+                    "Criticità": ", ".join(criticita_selezionate),
+                    "Danno Strutture": danno_strutture,
+                    "Danno Produttività": danno_produttivita,
+                    "Danno Persone": danno_persone,
+                    "Frequenza": frequenza,
+                    "Commento RSPP": "",
+                    "Firma RSPP (Stato)": "Non Firmato",
+                    "Allegato Analisi": allegato_analisi_nome,
+                }
+
+                # Unisci il nuovo record al DataFrame o crealo se non esiste
+                df_nuovo_rec = pd.DataFrame([nuova_risposta])
+                df_totale = pd.concat(
+                    [df_analisi, df_nuovo_rec], ignore_index=True
+                )
+
+                if salva_df_analisi_su_github(
+                    df_totale, f"Nuova analisi near miss ({now_str})"
+                ):
+                    st.session_state[
+                        "ultima_segnalazione_analisi_near_miss"
+                    ] = nuova_risposta
+                    st.success(
+                        "Analisi acquisita e salvata con successo su GitHub!"
+                    )
+                    time.sleep(1)
+                    st.rerun()
 
         # --- SUBSEZIONE COMMENTO E FIRMA RSPP ---
         elif st.session_state.sub_sezione_rspp == "firma":
@@ -1189,7 +1170,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                 opzioni_r = []
                 mappatura = {}
                 for idx, r in df_analisi.iterrows():
-                    testo_o = f"Analisi del {r.get('Data Analisi','N/D')} | Collegamento: {r.get('Segnalazione Collegata','Nessuno')}"
+                    testo_o = f"Analisi del {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Nessuno')}"
                     opzioni_r.append(testo_o)
                     mappatura[testo_o] = idx
 
@@ -1210,7 +1191,8 @@ if nav == "Analisi Segnalazioni Near Miss":
                     else ""
                 )
                 comm_in = st.text_area(
-                    "Note / Commenti del Professionista (RSPP):", value=comm_pre
+                    "Note / Commenti del Professionista (RSPP):",
+                    value=comm_pre,
                 )
                 file_f = st.file_uploader(
                     "Carica Firma Grafica",
@@ -1237,12 +1219,17 @@ if nav == "Analisi Segnalazioni Near Miss":
                             if file_f
                             else "Testo Convalidato"
                         )
-                        df_analisi.to_csv(FILE_ANALISI_NM, index=False, sep=";")
-                        st.success(
-                            "Commento e firma RSPP salvati con successo nella riga relativa!"
-                        )
-                        time.sleep(0.5)
-                        st.rerun()
+
+                        # Salvataggio aggiornamento direttamente su GitHub
+                        if salva_df_analisi_su_github(
+                            df_analisi,
+                            f"Aggiornamento firma/commento RSPP riga {idx_sel}",
+                        ):
+                            st.success(
+                                "Commento e firma RSPP salvati e sincronizzati con successo su GitHub!"
+                            )
+                            time.sleep(1)
+                            st.rerun()
 # ==================================================================
 # --- SEZIONE 5: Consultazione CONFORMITÀ LEGISLATIVA (RIFERIMENTI REALI) ---
 # ==================================================================
