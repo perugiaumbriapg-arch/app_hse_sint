@@ -3354,7 +3354,6 @@ if nav == "Segnalazione Manutenzione":
     # ---------------------------------------------------------
     DIR_DEST = "Segnalazione_NM_Manutenzione"
     os.makedirs(DIR_DEST, exist_ok=True)
-    FILE_CSV_MANUTENZIONE = os.path.join(DIR_DEST, "manutenzione.csv")
 
     # Pulsante per scaricare il PDF Vuoto originale se presente nella cartella
     pdf_vuoto_path = "Segnalazione_NM_Manutenzione.pdf"
@@ -3372,9 +3371,7 @@ if nav == "Segnalazione Manutenzione":
     # ---------------------------------------------------------
     # 2. COMPILAZIONE FORMULARIO WEB
     # ---------------------------------------------------------
-    with st.form(
-        key="form_segnalazione_manutenzione", clear_on_submit=True
-    ):
+    with st.form(key="form_segnalazione_manutenzione", clear_on_submit=True):
         st.subheader("Informazioni Generali")
         col1, col2 = st.columns(2)
         with col1:
@@ -3392,18 +3389,14 @@ if nav == "Segnalazione Manutenzione":
                 ["In Azienda", "Azienda Esterna"],
                 horizontal=True,
             )
-            sesso = st.radio(
-                "Sesso", ["Maschio", "Femmina"], horizontal=True
-            )
+            sesso = st.radio("Sesso", ["Maschio", "Femmina"], horizontal=True)
 
         with col2:
             fascia_eta = st.selectbox(
                 "Fascia di Età",
                 ["<18 anni", "18-30 anni", "31-50 anni", "51-67 anni"],
             )
-            data_evento = st.date_input(
-                "Data Evento", value=date.today()
-            )
+            data_evento = st.date_input("Data Evento", value=date.today())
             luogo = st.radio(
                 "Luogo",
                 ["In Azienda", "In itinere", "In missione"],
@@ -3530,7 +3523,7 @@ if nav == "Segnalazione Manutenzione":
         )
 
     # ---------------------------------------------------------
-    # 3. ELABORAZIONE E SALVATAGGIO DEI DATI
+    # 3. ELABORAZIONE E SALVATAGGIO DEI DATI SU GITHUB
     # ---------------------------------------------------------
     if submitted:
         if not desc_evento.strip():
@@ -3565,17 +3558,75 @@ if nav == "Segnalazione Manutenzione":
                 "Azioni / Proposte Miglioramento": azioni_miglioramento,
             }
 
-            # Scrittura su CSV ottimizzata tramite modulo nativo csv
-            file_esiste = os.path.isfile(FILE_CSV_MANUTENZIONE)
-            with open(FILE_CSV_MANUTENZIONE, mode="a", newline="", encoding="utf-8-sig") as f:
-                writer = csv.DictWriter(f, fieldnames=nuova_risposta.keys(), delimiter=";")
-                if not file_esiste:
-                    writer.writeheader()
-                writer.writerow(nuova_risposta)
+            try:
+                # Inizializzazione della connessione con GitHub API
+                github_token = st.secrets["GITHUB_TOKEN"]
+                repo_name = st.secrets["REPO_NAME"]
+                path_in_repo = "Segnalazione_NM_Manutenzione/manutenzione.csv"
 
-            st.session_state["ultima_segnalazione_manutenzione"] = nuova_risposta
-            st.success("Segnalazione acquisita e salvata con successo!")
-            st.rerun()
+                g = Github(github_token)
+                repo = g.get_repo(repo_name)
+
+                # Preparazione stringa della nuova riga in formato CSV (delimitatore ';')
+                output = io.StringIO()
+                writer = csv.DictWriter(
+                    output, fieldnames=nuova_risposta.keys(), delimiter=";"
+                )
+                writer.writerow(nuova_risposta)
+                nuova_riga_csv = output.getvalue()
+
+                try:
+                    # Se il file esiste già su GitHub, lo recupera e aggiunge la riga
+                    file_content = repo.get_contents(path_in_repo)
+                    contenuto_esistente = base64.b64decode(
+                        file_content.content
+                    ).decode("utf-8-sig")
+
+                    # Aggiunge a capo se non presente alla fine del file esistente
+                    if not contenuto_esistente.endswith("\n"):
+                        contenuto_esistente += "\n"
+
+                    nuovo_contenuto = contenuto_esistente + nuova_riga_csv
+
+                    repo.update_file(
+                        path=path_in_repo,
+                        message=f"Nuova segnalazione manutenzione ({now_str})",
+                        content=nuovo_contenuto,
+                        sha=file_content.sha,
+                    )
+                except GithubException as e:
+                    if e.status == 404:
+                        # Se il file non esiste ancora su GitHub, scrive intestazione + prima riga
+                        output_init = io.StringIO()
+                        writer_init = csv.DictWriter(
+                            output_init,
+                            fieldnames=nuova_risposta.keys(),
+                            delimiter=";",
+                        )
+                        writer_init.writeheader()
+                        writer_init.writerow(nuova_risposta)
+                        nuovo_contenuto = output_init.getvalue()
+
+                        repo.create_file(
+                            path=path_in_repo,
+                            message=f"Creazione manutenzione.csv e prima segnalazione ({now_str})",
+                            content=nuovo_contenuto,
+                        )
+                    else:
+                        raise e
+
+                st.session_state["ultima_segnalazione_manutenzione"] = (
+                    nuova_risposta
+                )
+                st.success(
+                    "Segnalazione acquisita e salvata con successo su GitHub!"
+                )
+                st.rerun()
+
+            except Exception as e:
+                st.error(
+                    f"Si è verificato un errore durante il salvataggio su GitHub: {e}"
+                )
 
     # ---------------------------------------------------------
     # 4. DOWNLOAD PDF DELLA RISPOSTA COMPILATA
