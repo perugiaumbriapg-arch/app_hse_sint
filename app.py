@@ -1213,12 +1213,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                             .replace("\r", " ")
                             .replace(";", ",")
                         )
-                        df_analisi.at[idx_sel, "Commento RSPP"] = commento_pulito
-                        df_analisi.at[idx_sel, "Firma RSPP (Stato)"] = (
-                            f"Firmato ({file_f.name})"
-                            if file_f
-                            else "Testo Convalidato"
-                        )
+                        df_analisi["Commento RSPP"] = df_analisi["Commento RSPP"].astype("string")
 
                         # Salvataggio aggiornamento direttamente su GitHub
                         if salva_df_analisi_su_github(
