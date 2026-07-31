@@ -46,14 +46,6 @@ MANSIONI_DPI = {
     "Addetto cliché e fustelle": ["boots", "gloves", "otoprotector", "googles"],
     "Addetto carrellisti magazzino bobine": ["boots", "gloves", "googles", "no-vest", "vest"],
 }
-# ==================================================================
-# Leggere file Analisi Near Miss
-# ==================================================================
-df_analisi = (
-    pd.read_csv(FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python")
-    if os.path.exists(FILE_ANALISI_NM)
-    else pd.DataFrame()
-)
 
 # ==================================================================
 # --- 1. CONFIGURAZIONI INIZIALI E DATABASE LOCALI ---
@@ -77,6 +69,15 @@ if not os.path.exists(DIR_CONFORMITA):
 
 if not os.path.exists(DIR_IMMAGINI_ANALISI):
     os.makedirs(DIR_IMMAGINI_ANALISI, exist_ok=True)
+
+# ==================================================================
+# Leggere file Analisi Near Miss
+# ==================================================================
+df_analisi = (
+    pd.read_csv(FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python")
+    if os.path.exists(FILE_ANALISI_NM)
+    else pd.DataFrame()
+)
 
 COLONNE_SCADENZARIO = [
     "Adempimento", 
