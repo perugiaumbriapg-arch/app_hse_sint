@@ -906,7 +906,47 @@ if nav == "Analisi Segnalazioni Near Miss":
                 
     if st.session_state.autenticato_rspp:
         st.success("Autenticato")
-        df_segnalazioni = pd.read_csv(FILE_NEAR_MISS, sep=";") if os.path.exists(FILE_NEAR_MISS) else pd.DataFrame()
+        
+        # --- PERCORSI DEI FILE ---
+        FILE_NEAR_MISS = "segnalazioni_near_miss.csv"
+        FILE_MANUTENZIONE = os.path.join("Segnalazione_NM_Manutenzione", "manutenzione.csv")
+        FILE_ANALISI_NM = "analisi_near_miss.csv"
+        DIR_IMMAGINI_ANALISI = "immagini_analisi"
+        
+        if not os.path.exists(DIR_IMMAGINI_ANALISI):
+            os.makedirs(DIR_IMMAGINI_ANALISI)
+        
+        # --- LETTURA DELLE SEGNALAZIONI DAI DUE FILE ---
+        lista_segnalazioni = []
+        mappa_descrizioni = {}
+        
+        # 1. Lettura File "segnalazioni_near_miss.csv"
+        if os.path.exists(FILE_NEAR_MISS):
+            try:
+                df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
+                for idx, row in df_nm.iterrows():
+                    data_ev = str(row.get('Data Segnalazione', row.get('Data Evento', 'N/D')))
+                    segnalatore = str(row.get('Segnalatore', row.get('Nome Segnalatore', 'N/D')))
+                    label = f"{data_ev} | Segnalazione NM | {segnalatore}"
+                    lista_segnalazioni.append(label)
+                    mappa_descrizioni[label] = str(row.get('Descrizione', ''))
+            except Exception as e:
+                st.warning(f"Impossibile leggere {FILE_NEAR_MISS}: {e}")
+                
+        # 2. Lettura File "manutenzione.csv"
+        if os.path.exists(FILE_MANUTENZIONE):
+            try:
+                df_man = pd.read_csv(FILE_MANUTENZIONE, sep=";")
+                for idx, row in df_man.iterrows():
+                    data_ev = str(row.get('Data Segnalazione', row.get('Data Evento', 'N/D')))
+                    segnalatore = str(row.get('Segnalatore', row.get('Nome Segnalatore', 'N/D')))
+                    label = f"{data_ev} | NM_Manutenzione | {segnalatore}"
+                    lista_segnalazioni.append(label)
+                    mappa_descrizioni[label] = str(row.get('Descrizione', ''))
+            except Exception as e:
+                st.warning(f"Impossibile leggere {FILE_MANUTENZIONE}: {e}")
+        
+        # Lettura del file delle analisi per la gestione generale e firma
         df_analisi = pd.read_csv(FILE_ANALISI_NM, sep=";") if os.path.exists(FILE_ANALISI_NM) else pd.DataFrame()
         
         if "sub_sezione_rspp" not in st.session_state:
@@ -922,19 +962,15 @@ if nav == "Analisi Segnalazioni Near Miss":
                 
         st.markdown("---")
         
+        # --- SUBSEZIONE COMPILAZIONE ---
         if st.session_state.sub_sezione_rspp == "compilazione":
-            opzioni_tendina = ["Nessun collegamento (Crea analisi indipendente)"]
-            if not df_segnalazioni.empty:
-                for idx, row in df_segnalazioni.iterrows():
-                    opzioni_tendina.append(f"{row.get('Data Segnalazione','N/D')} | {row.get('Tipo Evento','N/D')} | {row.get('Segnalatore','N/D')}")
-                    
+            opzioni_tendina = ["Nessun collegamento (Crea analisi indipendente)"] + lista_segnalazioni
+            
             selezione_nm = st.selectbox("Seleziona una segnalazione a cui allacciarti:", opzioni_tendina)
             desc_def = ""
             if selezione_nm != "Nessun collegamento (Crea analisi indipendente)":
-                indice = opzioni_tendina.index(selezione_nm) - 1
-                if indice < len(df_segnalazioni):
-                    desc_def = str(df_segnalazioni.iloc[indice].get('Descrizione', ''))
-                st.info("Testo caricato.")
+                desc_def = mappa_descrizioni.get(selezione_nm, "")
+                st.info("Testo della segnalazione caricato.")
             
             st.markdown("#### Inserimento immagine o allegato di supporto per l'Analisi (Facoltativo)")
             opzione_media_analisi = st.radio(
@@ -1003,34 +1039,45 @@ if nav == "Analisi Segnalazioni Near Miss":
                         st.success("Analisi e relativi allegati salvati correttamente nel database locale!")
                         time.sleep(0.5)
                         st.rerun()
-                    except Exception as e: st.error(f"Errore: {e}")
-                    
+                    except Exception as e:
+                        st.error(f"Errore durante il salvataggio: {e}")
+                        
+        # --- SUBSEZIONE COMMENTO E FIRMA RSPP ---
         elif st.session_state.sub_sezione_rspp == "firma":
             if df_analisi.empty:
-                st.warning("Nessuna analisi presente.")
+                st.warning("Nessuna analisi presente nel file 'analisi_near_miss.csv'.")
             else:
                 opzioni_r = []
                 mappatura = {}
                 for idx, r in df_analisi.iterrows():
-                    testo_o = f"Analisi del {r.get('Data Analisi','N/D')} | Collegamento: {r.get('Segnalazione Collegata','')}"
+                    testo_o = f"Analisi del {r.get('Data Analisi','N/D')} | Collegamento: {r.get('Segnalazione Collegata','Nessuno')}"
                     opzioni_r.append(testo_o)
                     mappatura[testo_o] = idx
                     
-                scelta_rec = st.selectbox("Scegli la riga da integrare:", opzioni_r)
+                scelta_rec = st.selectbox("Scegli l'analisi da integrare con commento e firma:", opzioni_r)
                 idx_sel = mappatura[scelta_rec]
                 
-                comm_pre = str(df_analisi.at[idx_sel, "Commento RSPP"]) if "Commento RSPP" in df_analisi.columns and pd.notna(df_analisi.at[idx_sel, "Commento RSPP"]) else ""
-                comm_in = st.text_area("Note / Commenti del Professionista:", value=comm_pre)
-                file_f = st.file_uploader("Carica Firma Grafica", type=["png","jpg","jpeg"])
+                # Garantisce la presenza delle colonne se non esistono ancora
+                if "Commento RSPP" not in df_analisi.columns:
+                    df_analisi["Commento RSPP"] = ""
+                if "Firma RSPP (Stato)" not in df_analisi.columns:
+                    df_analisi["Firma RSPP (Stato)"] = "Non Firmato"
                 
-                if file_f: st.image(file_f, width=150)
+                comm_pre = str(df_analisi.at[idx_sel, "Commento RSPP"]) if pd.notna(df_analisi.at[idx_sel, "Commento RSPP"]) else ""
+                comm_in = st.text_area("Note / Commenti del Professionista (RSPP):", value=comm_pre)
+                file_f = st.file_uploader("Carica Firma Grafica", type=["png", "jpg", "jpeg"], key="uploader_firma_rspp")
+                
+                if file_f:
+                    st.image(file_f, width=150)
+                    
                 if st.button("Salva ed Applica Modifiche in Riga"):
-                    if not comm_in.strip(): st.error("Inserire un commento.")
+                    if not comm_in.strip():
+                        st.error("Inserire un commento prima di salvare.")
                     else:
                         df_analisi.at[idx_sel, "Commento RSPP"] = comm_in.strip()
                         df_analisi.at[idx_sel, "Firma RSPP (Stato)"] = f"Firmato ({file_f.name})" if file_f else "Testo Convalidato"
                         df_analisi.to_csv(FILE_ANALISI_NM, index=False, sep=";")
-                        st.success("Record aggiornato in linea!")
+                        st.success("Commento e firma RSPP salvati con successo nella riga relativa!")
                         time.sleep(0.5)
                         st.rerun()
 
