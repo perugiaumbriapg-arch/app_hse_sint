@@ -3402,7 +3402,7 @@ if nav == "Segnalazione Manutenzione":
                 ["<18 anni", "18-30 anni", "31-50 anni", "51-67 anni"],
             )
             data_evento = st.date_input(
-                "Data Evento", value=datetime.date.today()
+                "Data Evento", value=datetime.datetime.now().date()
             )
             luogo = st.radio(
                 "Luogo",
