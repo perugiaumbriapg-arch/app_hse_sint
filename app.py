@@ -1019,46 +1019,46 @@ if nav == "Analisi Segnalazioni Near Miss":
                 with colY:
                     danno_persone = st.radio("Danno potenziale persone", ["nessuno", "lieve", "grave", "gravissimo"])
                     frequenza = st.radio("Frequenza stimata", ["rara", "frequente", "molto frequente"])
-                    
-             if st.form_submit_button("Salva Modulo Direzione"):
-                  try:
-                      nuova_an = {
-                          "Data Analisi": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-                          "Segnalazione Collegata": selezione_nm,
-                          "Descrizione": descrizione_finale.replace("\n", " ")
-                          .replace("\r", " ")
-                          .replace(";", ","),  # Rimuove ; e newlines per non rompere il CSV
-                          "Incidente": ", ".join(incidente_selezionato),
-                          "Attività": ", ".join(attivita_selezionata),
-                          "Cause": ", ".join(cause_selezionate),
-                          "Storico": storico_eventi,
-                          "Criticità": ", ".join(criticita_selezionate),
-                          "Danno Strutture": danno_strutture,
-                          "Danno Produttività": danno_produttivita,
-                          "Danno Persone": danno_persone,
-                          "Frequenza": frequenza,
-                          "Commento RSPP": "",
-                          "Firma RSPP (Stato)": "Non Firmato",
-                          "Allegato Analisi": allegato_analisi_nome,
-                      }
-              
-                      df_n = pd.DataFrame([nuova_an])
-              
-                      if not os.path.isfile(FILE_ANALISI_NM) or os.stat(FILE_ANALISI_NM).st_size == 0:
-                          # Se il file non esiste o è vuoto, crealo con gli header
-                          df_n.to_csv(FILE_ANALISI_NM, index=False, sep=";")
-                      else:
-                          # Se esiste, leggi la prima riga per allineare le colonne prima di appendere
-                          df_esistente = pd.read_csv(FILE_ANALISI_NM, sep=";", nrows=1)
-                          # Reindicizza il nuovo DF affinché abbia esattamente le stesse colonne del file esistente
-                          df_n = df_n.reindex(columns=df_esistente.columns, fill_value="")
-                          df_n.to_csv(FILE_ANALISI_NM, mode="a", header=False, index=False, sep=";")
-              
-                      st.success("Analisi salvata correttamente!")
-                      time.sleep(0.5)
-                      st.rerun()
-                  except Exception as e:
-                      st.error(f"Errore durante il salvataggio: {e}")
+
+          if st.form_submit_button("Salva Modulo Direzione"):
+            try:
+                nuova_an = {
+                    "Data Analisi": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                    "Segnalazione Collegata": selezione_nm,
+                    "Descrizione": descrizione_finale.replace("\n", " ")
+                    .replace("\r", " ")
+                    .replace(";", ","),  # Rimuove ; e newlines per non rompere il CSV
+                    "Incidente": ", ".join(incidente_selezionato),
+                    "Attività": ", ".join(attivita_selezionata),
+                    "Cause": ", ".join(cause_selezionate),
+                    "Storico": storico_eventi,
+                    "Criticità": ", ".join(criticita_selezionate),
+                    "Danno Strutture": danno_strutture,
+                    "Danno Produttività": danno_produttivita,
+                    "Danno Persone": danno_persone,
+                    "Frequenza": frequenza,
+                    "Commento RSPP": "",
+                    "Firma RSPP (Stato)": "Non Firmato",
+                    "Allegato Analisi": allegato_analisi_nome,
+                }
+        
+                df_n = pd.DataFrame([nuova_an])
+        
+                if not os.path.isfile(FILE_ANALISI_NM) or os.stat(FILE_ANALISI_NM).st_size == 0:
+                    # Se il file non esiste o è vuoto, crealo con gli header
+                    df_n.to_csv(FILE_ANALISI_NM, index=False, sep=";")
+                else:
+                    # Se esiste, leggi la prima riga per allineare le colonne prima di appendere
+                    df_esistente = pd.read_csv(FILE_ANALISI_NM, sep=";", nrows=1)
+                    # Reindicizza il nuovo DF affinché abbia esattamente le stesse colonne del file esistente
+                    df_n = df_n.reindex(columns=df_esistente.columns, fill_value="")
+                    df_n.to_csv(FILE_ANALISI_NM, mode="a", header=False, index=False, sep=";")
+        
+                st.success("Analisi salvata correttamente!")
+                time.sleep(0.5)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Errore durante il salvataggio: {e}")
                         
         # --- SUBSEZIONE COMMENTO E FIRMA RSPP ---
         elif st.session_state.sub_sezione_rspp == "firma":
