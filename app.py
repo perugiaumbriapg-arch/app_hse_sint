@@ -3629,7 +3629,7 @@ if nav == "Segnalazione Manutenzione":
         buffer.close()
 
         st.download_button(
-            label="📄 Scarica Risposta Compilata in PDF",
+            label="Scarica Risposta Compilata in PDF",
             data=pdf_data,
             file_name=f"Segnalazione_Manutenzione_{dati_pdf['Data Ora Invio'].replace(':', '-').replace(' ', '_')}.pdf",
             mime="application/pdf",
