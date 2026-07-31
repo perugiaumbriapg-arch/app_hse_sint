@@ -3341,7 +3341,7 @@ if nav == "Controllo DPI":
 # SEZIONE 14: SEGNALAZIONE MANUTENZIONE
 # ==================================================================================================
 if nav == "Segnalazione Manutenzione":
-    st.header("🛠️ Formulario Segnalazione Manutenzione (NM/NC)")
+    st.header("Formulario Segnalazione Manutenzione (NM/NC)")
     st.markdown(
         "Compila il modulo sottostante per inviare una segnalazione di Near Miss / Non Conformità legata alla Manutenzione."
     )
@@ -3360,7 +3360,7 @@ if nav == "Segnalazione Manutenzione":
     if os.path.exists(pdf_vuoto_path):
         with open(pdf_vuoto_path, "rb") as f:
             st.download_button(
-                label="📄 Scarica Formulario Vuoto (PDF)",
+                label="Scarica Formulario Vuoto (PDF)",
                 data=f.read(),
                 file_name="Formulario_Vuoto_Segnalazione_Manutenzione.pdf",
                 mime="application/pdf",
@@ -3374,7 +3374,7 @@ if nav == "Segnalazione Manutenzione":
     with st.form(
         key="form_segnalazione_manutenzione", clear_on_submit=True
     ):
-        st.subheader("📋 Informazioni Generali")
+        st.subheader("Informazioni Generali")
         col1, col2 = st.columns(2)
         with col1:
             tipo_evento = st.radio(
@@ -3401,7 +3401,7 @@ if nav == "Segnalazione Manutenzione":
                 ["<18 anni", "18-30 anni", "31-50 anni", "51-67 anni"],
             )
             data_evento = st.date_input(
-                "Data Evento", value=datetime.datetime.now().date()
+                "Data Evento", value=date.today()
             )
             luogo = st.radio(
                 "Luogo",
@@ -3414,7 +3414,7 @@ if nav == "Segnalazione Manutenzione":
             )
 
         st.markdown("---")
-        st.subheader("📝 Descrizione Criticità e Rischio")
+        st.subheader("Descrizione Criticità e Rischio")
         desc_evento = st.text_area(
             "Descrizione dell'evento o della criticità *",
             placeholder="Descrivi dettagliatamente l'accaduto...",
@@ -3425,7 +3425,7 @@ if nav == "Segnalazione Manutenzione":
         )
 
         st.markdown("---")
-        st.subheader("⚙️ Possibili Cause della Richiesta di Manutenzione")
+        st.subheader("Possibili Cause della Richiesta di Manutenzione")
 
         opzioni_cause = [
             "Elettrica: Cortocircuito",
@@ -3467,7 +3467,7 @@ if nav == "Segnalazione Manutenzione":
         )
 
         st.markdown("---")
-        st.subheader("⚠️ Possibili Conseguenze")
+        st.subheader("Possibili Conseguenze")
 
         opzioni_conseguenze = [
             "Ustioni",
@@ -3494,7 +3494,7 @@ if nav == "Segnalazione Manutenzione":
         )
 
         st.markdown("---")
-        st.subheader("🔍 Valutazioni e Interventi")
+        st.subheader("Valutazioni e Interventi")
         col_v1, col_v2 = st.columns(2)
         with col_v1:
             gia_presentata = st.radio(
@@ -3525,7 +3525,7 @@ if nav == "Segnalazione Manutenzione":
             )
 
         submitted = st.form_submit_button(
-            "🚀 Invia Segnalazione Manutenzione", use_container_width=True
+            "Invia Segnalazione Manutenzione", use_container_width=True
         )
 
     # ---------------------------------------------------------
@@ -3534,7 +3534,7 @@ if nav == "Segnalazione Manutenzione":
     if submitted:
         if not desc_evento.strip():
             st.error(
-                "⚠️ Il campo 'Descrizione dell'evento o della criticità' è obbligatorio!"
+                "Il campo 'Descrizione dell'evento o della criticità' è obbligatorio!"
             )
         else:
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3580,7 +3580,7 @@ if nav == "Segnalazione Manutenzione":
             )
 
             st.success(
-                "✅ Segnalazione inviata con successo e salvata nel database!"
+                "Segnalazione inviata con successo e salvata nel database!"
             )
             st.session_state["ultima_segnalazione_manutenzione"] = (
                 nuova_risposta
