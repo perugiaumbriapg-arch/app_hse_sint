@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import qrcode
 import cv2
+import re
 import numpy as np
 from PIL import Image
 import textwrap
