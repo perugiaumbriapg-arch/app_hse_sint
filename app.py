@@ -899,67 +899,93 @@ if nav == "Scadenzario Adempimenti":
 # ==================================================================
 if nav == "Analisi Segnalazioni Near Miss":
     st.header("Analisi approfondita delle segnalazioni Near Miss")
-    
+
     if "autenticato_rspp" not in st.session_state:
         st.session_state.autenticato_rspp = False
-        
+
     if not st.session_state.autenticato_rspp:
-        pwd_rspp = st.text_input("Inserisci la Password di Accesso", type="password", key="pwd_rspp_tab")
+        pwd_rspp = st.text_input(
+            "Inserisci la Password di Accesso", type="password", key="pwd_rspp_tab"
+        )
         if st.button("Convalida Accesso", use_container_width=True):
             if pwd_rspp == "hse2026":
                 st.session_state.autenticato_rspp = True
                 st.rerun()
             else:
                 st.error("Credenziali errate.")
-                
+
     if st.session_state.autenticato_rspp:
         st.success("Autenticato")
-        
+
         # --- PERCORSI DEI FILE ---
         FILE_NEAR_MISS = "segnalazioni_near_miss.csv"
-        FILE_MANUTENZIONE = os.path.join("Segnalazione_NM_Manutenzione", "manutenzione.csv")
+        FILE_MANUTENZIONE = os.path.join(
+            "Segnalazione_NM_Manutenzione", "manutenzione.csv"
+        )
         FILE_ANALISI_NM = "analisi_near_miss.csv"
         DIR_IMMAGINI_ANALISI = "immagini_analisi"
-        
+
         if not os.path.exists(DIR_IMMAGINI_ANALISI):
             os.makedirs(DIR_IMMAGINI_ANALISI)
-        
+
         # --- LETTURA DELLE SEGNALAZIONI DAI DUE FILE ---
         lista_segnalazioni = []
         mappa_descrizioni = {}
-        
+
         # 1. Lettura File "segnalazioni_near_miss.csv"
         if os.path.exists(FILE_NEAR_MISS):
             try:
-                df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
+                df_nm = pd.read_csv(
+                    FILE_NEAR_MISS, sep=";", on_bad_lines="skip", engine="python"
+                )
                 for idx, row in df_nm.iterrows():
-                    data_ev = str(row.get('Data Segnalazione', row.get('Data Evento', 'N/D')))
-                    segnalatore = str(row.get('Segnalatore', row.get('Nome Segnalatore', 'N/D')))
+                    data_ev = str(
+                        row.get(
+                            "Data Segnalazione", row.get("Data Evento", "N/D")
+                        )
+                    )
+                    segnalatore = str(
+                        row.get("Segnalatore", row.get("Nome Segnalatore", "N/D"))
+                    )
                     label = f"{data_ev} | Segnalazione NM | {segnalatore}"
                     lista_segnalazioni.append(label)
-                    mappa_descrizioni[label] = str(row.get('Descrizione', ''))
+                    mappa_descrizioni[label] = str(row.get("Descrizione", ""))
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_NEAR_MISS}: {e}")
-                
+
         # 2. Lettura File "manutenzione.csv"
         if os.path.exists(FILE_MANUTENZIONE):
             try:
-                df_man = pd.read_csv(FILE_MANUTENZIONE, sep=";")
+                df_man = pd.read_csv(
+                    FILE_MANUTENZIONE, sep=";", on_bad_lines="skip", engine="python"
+                )
                 for idx, row in df_man.iterrows():
-                    data_ev = str(row.get('Data Segnalazione', row.get('Data Evento', 'N/D')))
-                    segnalatore = str(row.get('Segnalatore', row.get('Nome Segnalatore', 'N/D')))
+                    data_ev = str(
+                        row.get(
+                            "Data Segnalazione", row.get("Data Evento", "N/D")
+                        )
+                    )
+                    segnalatore = str(
+                        row.get("Segnalatore", row.get("Nome Segnalatore", "N/D"))
+                    )
                     label = f"{data_ev} | NM_Manutenzione | {segnalatore}"
                     lista_segnalazioni.append(label)
-                    mappa_descrizioni[label] = str(row.get('Descrizione', ''))
+                    mappa_descrizioni[label] = str(row.get("Descrizione", ""))
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_MANUTENZIONE}: {e}")
-        
-        # Lettura del file delle analisi per la gestione generale e firma
-        df_analisi = pd.read_csv(FILE_ANALISI_NM, sep=";") if os.path.exists(FILE_ANALISI_NM) else pd.DataFrame()
-        
+
+        # Lettura file delle analisi (con gestione errori righe corrotte)
+        df_analisi = (
+            pd.read_csv(
+                FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python"
+            )
+            if os.path.exists(FILE_ANALISI_NM)
+            else pd.DataFrame()
+        )
+
         if "sub_sezione_rspp" not in st.session_state:
             st.session_state.sub_sezione_rspp = "compilazione"
-            
+
         col_m1, col_m2 = st.columns(2)
         with col_m1:
             if st.button("Apri Nuovo Modulo Analisi", use_container_width=True):
@@ -967,103 +993,202 @@ if nav == "Analisi Segnalazioni Near Miss":
         with col_m2:
             if st.button("Commento e firma RSPP", use_container_width=True):
                 st.session_state.sub_sezione_rspp = "firma"
-                
+
         st.markdown("---")
-        
+
         # --- SUBSEZIONE COMPILAZIONE ---
         if st.session_state.sub_sezione_rspp == "compilazione":
-            opzioni_tendina = ["Nessun collegamento (Crea analisi indipendente)"] + lista_segnalazioni
-            
-            selezione_nm = st.selectbox("Seleziona una segnalazione a cui allacciarti:", opzioni_tendina)
+            opzioni_tendina = [
+                "Nessun collegamento (Crea analisi indipendente)"
+            ] + lista_segnalazioni
+
+            selezione_nm = st.selectbox(
+                "Seleziona una segnalazione a cui allacciarti:", opzioni_tendina
+            )
             desc_def = ""
-            if selezione_nm != "Nessun collegamento (Crea analisi indipendente)":
+            if (
+                selezione_nm
+                != "Nessun collegamento (Crea analisi indipendente)"
+            ):
                 desc_def = mappa_descrizioni.get(selezione_nm, "")
                 st.info("Testo della segnalazione caricato.")
-            
-            st.markdown("#### Inserimento immagine o allegato di supporto per l'Analisi (Facoltativo)")
-            opzione_media_analisi = st.radio(
-                "Scegli la modalità di inserimento file/immagine per l'analisi:", 
-                ["Nessun file", "Carica file locale", "Scatta foto istantanea"],
-                key="scelta_media_analisi_rspp"
+
+            st.markdown(
+                "#### Inserimento immagine o allegato di supporto per l'Analisi (Facoltativo)"
             )
-            
+            opzione_media_analisi = st.radio(
+                "Scegli la modalità di inserimento file/immagine per l'analisi:",
+                ["Nessun file", "Carica file locale", "Scatta foto istantanea"],
+                key="scelta_media_analisi_rspp",
+            )
+
             allegato_analisi_nome = "Nessuna"
             if opzione_media_analisi == "Carica file locale":
-                file_img_an = st.file_uploader("Scegli un file per l'analisi", type=["png", "jpg", "jpeg", "pdf", "docx"], key="uploader_analisi_rspp")
+                file_img_an = st.file_uploader(
+                    "Scegli un file per l'analisi",
+                    type=["png", "jpg", "jpeg", "pdf", "docx"],
+                    key="uploader_analisi_rspp",
+                )
                 if file_img_an:
                     allegato_analisi_nome = file_img_an.name
-                    with open(os.path.join(DIR_IMMAGINI_ANALISI, file_img_an.name), "wb") as f_local:
+                    with open(
+                        os.path.join(
+                            DIR_IMMAGINI_ANALISI, file_img_an.name
+                        ),
+                        "wb",
+                    ) as f_local:
                         f_local.write(file_img_an.getbuffer())
-                    st.caption(f"File '{file_img_an.name}' salvato in {DIR_IMMAGINI_ANALISI}/")
+                    st.caption(
+                        f"File '{file_img_an.name}' salvato in {DIR_IMMAGINI_ANALISI}/"
+                    )
             elif opzione_media_analisi == "Scatta foto istantanea":
-                foto_scattata_an = st.camera_input("Scatta una foto della verifica tecnica", key="camera_analisi_rspp")
+                foto_scattata_an = st.camera_input(
+                    "Scatta una foto della verifica tecnica",
+                    key="camera_analisi_rspp",
+                )
                 if foto_scattata_an:
                     allegato_analisi_nome = f"analisi_scatto_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                    with open(os.path.join(DIR_IMMAGINI_ANALISI, allegato_analisi_nome), "wb") as f_local:
+                    with open(
+                        os.path.join(
+                            DIR_IMMAGINI_ANALISI, allegato_analisi_nome
+                        ),
+                        "wb",
+                    ) as f_local:
                         f_local.write(foto_scattata_an.getbuffer())
-                    st.caption(f"Foto '{allegato_analisi_nome}' archiviata in {DIR_IMMAGINI_ANALISI}/")
-            
+                    st.caption(
+                        f"Foto '{allegato_analisi_nome}' archiviata in {DIR_IMMAGINI_ANALISI}/"
+                    )
+
             st.markdown("---")
+
+            # FORM DI INSERIMENTO ANALISI
             with st.form("form_analisi_sup"):
-                descrizione_finale = st.text_area("Integrazione dell'evento", value=desc_def)
-                incidente_selezionato = st.multiselect("Incidente potenziale:", ["Caduta dall’alto", "Ribaltamento mezzo", "Contatto elettrico", "Tagli, punture", "Altro"])
-                attivita_selezionata = st.multiselect("Attività svolta:", ["Lavori manuali", "Azionamento macchine", "Manutenzione", "Altro"])
-                cause_selezionate = st.multiselect("Cause radice:", ["Errore procedurale", "Illuminazione inadeguata", "Mancanza/Uso errato DPI", "Altro"])
-                storico_eventi = st.radio("Già verificato in passato?", ["Sì frequentemente", "Sì raramente", "No"])
-                criticita_selezionate = st.multiselect("Criticità:", ["Vigilanza/Coordinamento", "Emergenze e Antincendio", "Formazione carente", "Nessuna"])
-                
+                descrizione_finale = st.text_area(
+                    "Integrazione dell'evento", value=desc_def
+                )
+                incidente_selezionato = st.multiselect(
+                    "Incidente potenziale:",
+                    [
+                        "Caduta dall’alto",
+                        "Ribaltamento mezzo",
+                        "Contatto elettrico",
+                        "Tagli, punture",
+                        "Altro",
+                    ],
+                )
+                attivita_selezionata = st.multiselect(
+                    "Attività svolta:",
+                    [
+                        "Lavori manuali",
+                        "Azionamento macchine",
+                        "Manutenzione",
+                        "Altro",
+                    ],
+                )
+                cause_selezionate = st.multiselect(
+                    "Cause radice:",
+                    [
+                        "Errore procedurale",
+                        "Illuminazione inadeguata",
+                        "Mancanza/Uso errato DPI",
+                        "Altro",
+                    ],
+                )
+                storico_eventi = st.radio(
+                    "Già verificato in passato?",
+                    ["Sì frequentemente", "Sì raramente", "No"],
+                )
+                criticita_selezionate = st.multiselect(
+                    "Criticità:",
+                    [
+                        "Vigilanza/Coordinamento",
+                        "Emergenze e Antincendio",
+                        "Formazione carente",
+                        "Nessuna",
+                    ],
+                )
+
                 colX, colY = st.columns(2)
                 with colX:
-                    danno_strutture = st.radio("Danno a strutture", ["nessuno", "lieve", "medio", "notevole"])
-                    danno_produttivita = st.radio("Danno produttivo", ["nessuna", "breve", "media", "rilevante"])
+                    danno_strutture = st.radio(
+                        "Danno a strutture",
+                        ["nessuno", "lieve", "medio", "notevole"],
+                    )
+                    danno_produttivita = st.radio(
+                        "Danno produttivo",
+                        ["nessuna", "breve", "media", "rilevante"],
+                    )
                 with colY:
-                    danno_persone = st.radio("Danno potenziale persone", ["nessuno", "lieve", "grave", "gravissimo"])
-                    frequenza = st.radio("Frequenza stimata", ["rara", "frequente", "molto frequente"])
+                    danno_persone = st.radio(
+                        "Danno potenziale persone",
+                        ["nessuno", "lieve", "grave", "gravissimo"],
+                    )
+                    frequenza = st.radio(
+                        "Frequenza stimata",
+                        ["rara", "frequente", "molto frequente"],
+                    )
 
-          if st.form_submit_button("Salva Modulo Direzione"):
-            try:
-                nuova_an = {
-                    "Data Analisi": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-                    "Segnalazione Collegata": selezione_nm,
-                    "Descrizione": descrizione_finale.replace("\n", " ")
-                    .replace("\r", " ")
-                    .replace(";", ","),  # Rimuove ; e newlines per non rompere il CSV
-                    "Incidente": ", ".join(incidente_selezionato),
-                    "Attività": ", ".join(attivita_selezionata),
-                    "Cause": ", ".join(cause_selezionate),
-                    "Storico": storico_eventi,
-                    "Criticità": ", ".join(criticita_selezionate),
-                    "Danno Strutture": danno_strutture,
-                    "Danno Produttività": danno_produttivita,
-                    "Danno Persone": danno_persone,
-                    "Frequenza": frequenza,
-                    "Commento RSPP": "",
-                    "Firma RSPP (Stato)": "Non Firmato",
-                    "Allegato Analisi": allegato_analisi_nome,
-                }
-        
-                df_n = pd.DataFrame([nuova_an])
-        
-                if not os.path.isfile(FILE_ANALISI_NM) or os.stat(FILE_ANALISI_NM).st_size == 0:
-                    # Se il file non esiste o è vuoto, crealo con gli header
-                    df_n.to_csv(FILE_ANALISI_NM, index=False, sep=";")
-                else:
-                    # Se esiste, leggi la prima riga per allineare le colonne prima di appendere
-                    df_esistente = pd.read_csv(FILE_ANALISI_NM, sep=";", nrows=1)
-                    # Reindicizza il nuovo DF affinché abbia esattamente le stesse colonne del file esistente
-                    df_n = df_n.reindex(columns=df_esistente.columns, fill_value="")
-                    df_n.to_csv(FILE_ANALISI_NM, mode="a", header=False, index=False, sep=";")
-        
-                st.success("Analisi salvata correttamente!")
-                time.sleep(0.5)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Errore durante il salvataggio: {e}")
-                        
+                submit_button = st.form_submit_button("Salva Modulo Direzione")
+
+            # PULSANTE DI INVIO - GESTITO SUBITO FUORI DAL BLOCCO WITH FORM
+            if submit_button:
+                try:
+                    nuova_an = {
+                        "Data Analisi": datetime.now().strftime(
+                            "%d-%m-%Y %H:%M:%S"
+                        ),
+                        "Segnalazione Collegata": selezione_nm,
+                        "Descrizione": descrizione_finale.replace("\n", " ")
+                        .replace("\r", " ")
+                        .replace(";", ","),
+                        "Incidente": ", ".join(incidente_selezionato),
+                        "Attività": ", ".join(attivita_selezionata),
+                        "Cause": ", ".join(cause_selezionate),
+                        "Storico": storico_eventi,
+                        "Criticità": ", ".join(criticita_selezionate),
+                        "Danno Strutture": danno_strutture,
+                        "Danno Produttività": danno_produttivita,
+                        "Danno Persone": danno_persone,
+                        "Frequenza": frequenza,
+                        "Commento RSPP": "",
+                        "Firma RSPP (Stato)": "Non Firmato",
+                        "Allegato Analisi": allegato_analisi_nome,
+                    }
+
+                    df_n = pd.DataFrame([nuova_an])
+
+                    if (
+                        not os.path.isfile(FILE_ANALISI_NM)
+                        or os.stat(FILE_ANALISI_NM).st_size == 0
+                    ):
+                        df_n.to_csv(FILE_ANALISI_NM, index=False, sep=";")
+                    else:
+                        df_exist = pd.read_csv(
+                            FILE_ANALISI_NM, sep=";", nrows=1
+                        )
+                        df_n = df_n.reindex(
+                            columns=df_exist.columns, fill_value=""
+                        )
+                        df_n.to_csv(
+                            FILE_ANALISI_NM,
+                            mode="a",
+                            header=False,
+                            index=False,
+                            sep=";",
+                        )
+
+                    st.success("Analisi salvata correttamente!")
+                    time.sleep(0.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante il salvataggio: {e}")
+
         # --- SUBSEZIONE COMMENTO E FIRMA RSPP ---
         elif st.session_state.sub_sezione_rspp == "firma":
             if df_analisi.empty:
-                st.warning("Nessuna analisi presente nel file 'analisi_near_miss.csv'.")
+                st.warning(
+                    "Nessuna analisi presente nel file 'analisi_near_miss.csv'."
+                )
             else:
                 opzioni_r = []
                 mappatura = {}
@@ -1071,34 +1196,57 @@ if nav == "Analisi Segnalazioni Near Miss":
                     testo_o = f"Analisi del {r.get('Data Analisi','N/D')} | Collegamento: {r.get('Segnalazione Collegata','Nessuno')}"
                     opzioni_r.append(testo_o)
                     mappatura[testo_o] = idx
-                    
-                scelta_rec = st.selectbox("Scegli l'analisi da integrare con commento e firma:", opzioni_r)
+
+                scelta_rec = st.selectbox(
+                    "Scegli l'analisi da integrare con commento e firma:",
+                    opzioni_r,
+                )
                 idx_sel = mappatura[scelta_rec]
-                
-                # Garantisce la presenza delle colonne se non esistono ancora
+
                 if "Commento RSPP" not in df_analisi.columns:
                     df_analisi["Commento RSPP"] = ""
                 if "Firma RSPP (Stato)" not in df_analisi.columns:
                     df_analisi["Firma RSPP (Stato)"] = "Non Firmato"
-                
-                comm_pre = str(df_analisi.at[idx_sel, "Commento RSPP"]) if pd.notna(df_analisi.at[idx_sel, "Commento RSPP"]) else ""
-                comm_in = st.text_area("Note / Commenti del Professionista (RSPP):", value=comm_pre)
-                file_f = st.file_uploader("Carica Firma Grafica", type=["png", "jpg", "jpeg"], key="uploader_firma_rspp")
-                
+
+                comm_pre = (
+                    str(df_analisi.at[idx_sel, "Commento RSPP"])
+                    if pd.notna(df_analisi.at[idx_sel, "Commento RSPP"])
+                    else ""
+                )
+                comm_in = st.text_area(
+                    "Note / Commenti del Professionista (RSPP):", value=comm_pre
+                )
+                file_f = st.file_uploader(
+                    "Carica Firma Grafica",
+                    type=["png", "jpg", "jpeg"],
+                    key="uploader_firma_rspp",
+                )
+
                 if file_f:
                     st.image(file_f, width=150)
-                    
+
                 if st.button("Salva ed Applica Modifiche in Riga"):
                     if not comm_in.strip():
                         st.error("Inserire un commento prima di salvare.")
                     else:
-                        df_analisi.at[idx_sel, "Commento RSPP"] = comm_in.strip()
-                        df_analisi.at[idx_sel, "Firma RSPP (Stato)"] = f"Firmato ({file_f.name})" if file_f else "Testo Convalidato"
+                        commento_pulito = (
+                            comm_in.strip()
+                            .replace("\n", " ")
+                            .replace("\r", " ")
+                            .replace(";", ",")
+                        )
+                        df_analisi.at[idx_sel, "Commento RSPP"] = commento_pulito
+                        df_analisi.at[idx_sel, "Firma RSPP (Stato)"] = (
+                            f"Firmato ({file_f.name})"
+                            if file_f
+                            else "Testo Convalidato"
+                        )
                         df_analisi.to_csv(FILE_ANALISI_NM, index=False, sep=";")
-                        st.success("Commento e firma RSPP salvati con successo nella riga relativa!")
+                        st.success(
+                            "Commento e firma RSPP salvati con successo nella riga relativa!"
+                        )
                         time.sleep(0.5)
                         st.rerun()
-
 # ==================================================================
 # --- SEZIONE 5: Consultazione CONFORMITÀ LEGISLATIVA (RIFERIMENTI REALI) ---
 # ==================================================================
