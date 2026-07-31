@@ -743,73 +743,19 @@ if nav == "Segnalazione Near Miss":
                 # ---------------------------------------------------------
                 # SALVATAGGIO AUTOMATICO SU GITHUB (segnalazioni_near_miss.csv)
                 # ---------------------------------------------------------
-                try:
-                    github_token = st.secrets["GITHUB_TOKEN"]
-                    repo_name = st.secrets["REPO_NAME"]
-
-                    # File presente nella root di GitHub (stesso livello di app.py)
-                    path_in_repo = "segnalazioni_near_miss.csv"
-
-                    g = Github(github_token)
-                    repo = g.get_repo(repo_name)
-
-                    # Formattazione della nuova riga CSV
-                    output = io.StringIO()
-                    writer = csv.DictWriter(
-                        output, fieldnames=nuovo_record.keys(), delimiter=";"
-                    )
-                    writer.writerow(nuovo_record)
-                    nuova_riga_csv = output.getvalue()
-
-                    try:
-                        # Legge il file esistente su GitHub e aggiunge la nuova riga
-                        file_content = repo.get_contents(path_in_repo)
-                        contenuto_esistente = base64.b64decode(
-                            file_content.content
-                        ).decode("utf-8-sig")
-
-                        if not contenuto_esistente.endswith("\n"):
-                            contenuto_esistente += "\n"
-
-                        nuovo_contenuto = contenuto_esistente + nuova_riga_csv
-
-                        repo.update_file(
-                            path=path_in_repo,
-                            message=f"Nuova segnalazione Near Miss ({now_str})",
-                            content=nuovo_contenuto,
-                            sha=file_content.sha,
-                        )
-                    except GithubException as e:
-                        if e.status == 404:
-                            # Se il file non esiste ancora su GitHub, lo crea con le intestazioni
-                            output_init = io.StringIO()
-                            writer_init = csv.DictWriter(
-                                output_init,
-                                fieldnames=nuovo_record.keys(),
-                                delimiter=";",
-                            )
-                            writer_init.writeheader()
-                            writer_init.writerow(nuovo_record)
-                            nuovo_contenuto = output_init.getvalue()
-
-                            repo.create_file(
-                                path=path_in_repo,
-                                message=f"Creazione segnalazioni_near_miss.csv ({now_str})",
-                                content=nuovo_contenuto,
-                            )
-                        else:
-                            raise e
-
-                    st.success(
-                        "Segnalazione acquisita e salvata con successo su GitHub!"
-                    )
-                    time.sleep(0.5)
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(
-                        f"Si è verificato un errore durante il salvataggio su GitHub: {e}"
-                    )
+                if submit_button:
+                    # 1. Unisci il nuovo record con i dati esistenti
+                    df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
+                
+                    # 2. Invia l'aggiornamento a GitHub
+                    if salva_csv_su_github(
+                        df_totale,
+                        FILE_ANALISI_NM,
+                        f"Aggiunta analisi del {datetime.now().strftime('%d/%m/%Y')}",
+                    ):
+                        st.success("Analisi salvata e sincronizzata con successo su GitHub!")
+                        time.sleep(1)
+                        st.rerun()
 
 # ==================================================================
 # --- SEZIONE 3: SCADENZARIO ADEMPIMENTI ---
