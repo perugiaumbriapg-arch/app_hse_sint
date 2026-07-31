@@ -57,6 +57,7 @@ st.set_page_config(
 FILE_NEAR_MISS = "near_miss.csv"
 FILE_ANALISI_NM = "analisi_near_miss.csv"
 FILE_SCADENZARIO = "scadenzario.xlsx"
+FILE_CSV_MANUTENZIONE = "manutenzione.csv"
 DIR_CONFORMITA = "documenti_conformita"
 DIR_IMMAGINI_ANALISI = "Immagini_Analisi_Near_Miss"
 DIR_ANALISI = os.path.dirname(os.path.abspath(__file__))
@@ -3564,19 +3565,19 @@ if nav == "Segnalazione Manutenzione":
                 "Azioni / Proposte Miglioramento": azioni_miglioramento,
             }
 
-            df_nuovo = pd.DataFrame([nuova_risposta])
+            df_nuovo = pd.DataFrame([nuovo_record])
 
-            # Salvataggio incrementale nel file CSV accumulato
-            if os.path.exists(FILE_CSV_ACCUMULATO):
-                df_esistente = pd.read_csv(FILE_CSV_ACCUMULATO, sep=";")
-                df_totale = pd.concat(
-                    [df_esistente, df_nuovo], ignore_index=True
-                )
-            else:
-                df_totale = df_nuovo
+            # Salvataggio incrementale nel file CSV manutenzione
+            if not os.path.isfile(FILE_CSV_MANUTENZIONE):
+                    df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, index=False, sep=";")
+                else:
+                    df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, mode='a', header=False, index=False, sep=";")
+                st.success("Segnalazione acquisita con successo nel file CSV locale!")
+                time.sleep(0.5)
+                st.rerun()
 
             df_totale.to_csv(
-                FILE_CSV_ACCUMULATO, sep=";", index=False, encoding="utf-8-sig"
+                FILE_CSV_MANUTENZIONE, sep=";", index=False, encoding="utf-8-sig"
             )
 
             st.success(
@@ -3586,12 +3587,13 @@ if nav == "Segnalazione Manutenzione":
                 nuova_risposta
             )
 
+
     # ---------------------------------------------------------
     # 4. DOWNLOAD PDF DELLA RISPOSTA COMPILATA
     # ---------------------------------------------------------
     if "ultima_segnalazione_manutenzione" in st.session_state:
         st.markdown("---")
-        st.subheader("📥 Scarica la tua Segnalazione")
+        st.subheader("Scarica la tua Segnalazione")
 
         dati_pdf = st.session_state["ultima_segnalazione_manutenzione"]
 
