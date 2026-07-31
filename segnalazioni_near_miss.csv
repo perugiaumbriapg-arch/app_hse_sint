@@ -1,3 +1,4 @@
 Data Segnalazione;Tipo Evento;Segnalatore;Sesso;Fascia Eta;Data Evento;Luogo;Reparto;Fascia Oraria;Ora Lavorativa Lavoratore;Descrizione;Percorso Immagine;Cause Rilevate;Presentata in Passato;Proposte Miglioramento;Stato Presa in Carico
 04-07-2026 21:41:33;Near Miss;Ondulatore;Maschio;18-30 anni;02-07-2026;In Azienda;Ondulatore;6-12;3;Pavimento bagnato e scivoloso nell'area dell'ondulatore. Elevata umidità vicino all'ondulatore.;immagini_near_miss/NM_20260704_214133.png;Presenza imprevista liquidi;Sì raramente;tbc;In attesa di firma
 04-07-2026 21:43:22;Near Miss;ZIO;Maschio;31-50 anni;01-07-2026;In itinere;Ufficio;12-18;7;Scivolata dalle scale;immagini_near_miss/NM_20260704_214322.png;Illuminazione non idonea/assente;No;;In attesa di firma
+31-07-2026 10:58:41;Near Miss;Anonimo;Femmina;51-67 anni;31/07/2026;In Azienda;Portineria;12-18;N/D;Scafale archivio protocollo ddt in entrata innestabile. C'è rischio che si rivalti.;Nessuna;Altro: Usura mobile;No;;Da firmare
