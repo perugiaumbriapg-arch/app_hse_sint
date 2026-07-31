@@ -1173,18 +1173,18 @@ if nav == "Analisi Segnalazioni Near Miss":
                     testo_o = f"Analisi del {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Nessuno')}"
                     opzioni_r.append(testo_o)
                     mappatura[testo_o] = idx
-
+        
                 scelta_rec = st.selectbox(
                     "Scegli l'analisi da integrare con commento e firma:",
                     opzioni_r,
                 )
                 idx_sel = mappatura[scelta_rec]
-
+        
                 if "Commento RSPP" not in df_analisi.columns:
                     df_analisi["Commento RSPP"] = ""
                 if "Firma RSPP (Stato)" not in df_analisi.columns:
                     df_analisi["Firma RSPP (Stato)"] = "Non Firmato"
-
+        
                 comm_pre = (
                     str(df_analisi.at[idx_sel, "Commento RSPP"])
                     if pd.notna(df_analisi.at[idx_sel, "Commento RSPP"])
@@ -1199,10 +1199,10 @@ if nav == "Analisi Segnalazioni Near Miss":
                     type=["png", "jpg", "jpeg"],
                     key="uploader_firma_rspp",
                 )
-
+        
                 if file_f:
                     st.image(file_f, width=150)
-
+        
                 if st.button("Salva ed Applica Modifiche in Riga"):
                     if not comm_in.strip():
                         st.error("Inserire un commento prima di salvare.")
@@ -1213,13 +1213,18 @@ if nav == "Analisi Segnalazioni Near Miss":
                             .replace("\r", " ")
                             .replace(";", ",")
                         )
-                        df_analisi["Commento RSPP"] = df_analisi["Commento RSPP"].astype("string")
-
-                        # Salvataggio aggiornamento direttamente su GitHub
-                        if salva_df_analisi_su_github(
-                            df_analisi["Commento RSPP"] = df_analisi["Commento RSPP"].astype(object)
-                            df_analisi.loc[idx_sel, "Commento RSPP"] = str(commento_pulito),
-                        ):
+        
+                        # 1. Assegna i tipi di dato corretti per evitare TypeError
+                        df_analisi["Commento RSPP"] = df_analisi["Commento RSPP"].astype(object)
+                        df_analisi["Firma RSPP (Stato)"] = df_analisi["Firma RSPP (Stato)"].astype(object)
+        
+                        # 2. Aggiorna i valori nel DataFrame PRIMA di salvare
+                        df_analisi.at[idx_sel, "Commento RSPP"] = commento_pulito
+                        if file_f:
+                            df_analisi.at[idx_sel, "Firma RSPP (Stato)"] = "Firmato"
+        
+                        # 3. Invia il DataFrame aggiornato a GitHub
+                        if salva_df_analisi_su_github(df_analisi):
                             st.success(
                                 "Commento e firma RSPP salvati e sincronizzati con successo su GitHub!"
                             )
