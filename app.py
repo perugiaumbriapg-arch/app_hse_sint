@@ -488,9 +488,6 @@ if nav == "Home Dashboard":
     else:
         st.error("Il file PDF 'FLOWCHART SEGNALAZIONE NEAR MISS.pdf' non è stato trovato.")
 
-    
-    
-
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
 # ==================================================================
@@ -501,145 +498,309 @@ if nav == "Segnalazione Near Miss":
         "Non conformità: situazione di pericolo che non genera alcun incidente/infortunio ma rilevabile su procedure operative, attrezzature, ambienti di lavoro, dpi.\n"
         "Esempi: macchinario senza protezione, casco di sicurezza non indossato, area di lavoro priva di percorsi sicuri."
     )
-    
+
     st.subheader("MODULO S.NM.NC - Segnalazione Near Miss o Non Conformità")
-    
+
     st.markdown("#### Inserisce immagine (Facoltativo)")
     opzione_immagine = st.radio(
-        "Scegli la modalità di inserimento immagine:", 
-        ["Nessuna immagine", "Carica file", "Scatta foto col cellulare/webcam"],
-        key="scelta_media_reattiva"
+        "Scegli la modalità di inserimento immagine:",
+        [
+            "Nessuna immagine",
+            "Carica file",
+            "Scatta foto col cellulare/webcam",
+        ],
+        key="scelta_media_reattiva",
     )
-    
+
     immagine_salvata_nome = "Nessuna"
     if opzione_immagine == "Carica file":
-        file_img = st.file_uploader("Scegli un file immagine", type=["png", "jpg", "jpeg"], key="uploader_reattivo")
+        file_img = st.file_uploader(
+            "Scegli un file immagine",
+            type=["png", "jpg", "jpeg"],
+            key="uploader_reattivo",
+        )
         if file_img:
             immagine_salvata_nome = file_img.name
     elif opzione_immagine == "Scatta foto col cellulare/webcam":
-        foto_scattata = st.camera_input("Scatta una foto della criticità", key="camera_reattiva")
+        foto_scattata = st.camera_input(
+            "Scatta una foto della criticità", key="camera_reattiva"
+        )
         if foto_scattata:
-            immagine_salvata_nome = f"scatto_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-            
+            immagine_salvata_nome = (
+                f"scatto_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            )
+
     st.markdown("---")
 
     with st.form("form_segnalazione_near_miss", clear_on_submit=True):
         col_tipo, col_segnalatore = st.columns(2)
         with col_tipo:
-            tipo_evento = st.radio("Tipo evento", ["Near Miss", "Non Conformità"])
+            tipo_evento = st.radio(
+                "Tipo evento", ["Near Miss", "Non Conformità"]
+            )
         with col_segnalatore:
-            segnalatore = st.text_input("Segnalatore (inserire mansione o nome cognome)")
-            
+            segnalatore = st.text_input(
+                "Segnalatore (inserire mansione o nome cognome)"
+            )
+
         col_sesso, col_eta, col_data = st.columns(3)
         with col_sesso:
             sesso = st.radio("Sesso", ["Maschio", "Femmina"])
         with col_eta:
-            fascia_eta = st.radio("Fascia di Età", ["<18 anni", "18-30 anni", "31-50 anni", "51-67 anni"])
+            fascia_eta = st.radio(
+                "Fascia di Età",
+                ["<18 anni", "18-30 anni", "31-50 anni", "51-67 anni"],
+            )
         with col_data:
             data_evento = st.date_input("Data (formato gg/mm/aaaa)")
-            
+
         col_luogo, col_reparto = st.columns(2)
         with col_luogo:
-            luogo = st.radio("Luogo", ["In Azienda", "In itinere", "In missione"])
+            luogo = st.radio(
+                "Luogo", ["In Azienda", "In itinere", "In missione"]
+            )
         with col_reparto:
             reparto_aziendale = st.text_input("Reparto (se è In Azienda)")
-            
+
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            fascia_oraria = st.radio("Fascia oraria di accadimento", ["0-6", "6-12", "12-18", "18-24"])
+            fascia_oraria = st.radio(
+                "Fascia oraria di accadimento",
+                ["0-6", "6-12", "12-18", "18-24"],
+            )
         with col_f2:
-            fascia_lavoratore = st.text_input("Fascia oraria per il lavoratore (1, 2, 3 ora Max. 8 ore)")
-            
-        descrizione = st.text_area("Descrizione dell'evento o della criticità (campo a testo libero)")
+            fascia_lavoratore = st.text_input(
+                "Fascia oraria per il lavoratore (1, 2, 3 ora Max. 8 ore)"
+            )
 
-        st.markdown("#### Possibili cause dell'evento / In caso di Non Conformità selezionare la tipologia")
-        
+        descrizione = st.text_area(
+            "Descrizione dell'evento o della criticità (campo a testo libero)"
+        )
+
+        st.markdown(
+            "#### Possibili cause dell'evento / In caso di Non Conformità selezionare la tipologia"
+        )
+
         col_c1, col_c2 = st.columns(2)
         with col_c1:
-            c_err_proc = st.checkbox("Errore procedurale (disattenzione, scarsa conoscenza procedure operative, ...)")
-            c_prob_comm = st.checkbox("Problema di comunicazione (lingua, incertezza nei ruoli e/o compiti, ...)")
-            c_manc_proc = st.checkbox("Mancanza/inadeguatezza di procedure operative")
-            c_manc_prot = st.checkbox("Mancanza di protezioni sull'attrezzatura")
-            c_car_prot = st.checkbox("Carenza (inadeguatezza) di protezioni sull'attrezzatura")
-            c_anom_guasto = st.checkbox("Anomalia/guasto in avviamento/arresto/esercizio (funzionamento)")
-            c_unica_attrez = st.checkbox("Unica attrezzatura disponibile ma non idonea alla lavorazione")
-            c_ass_attrez = st.checkbox("Assenza di attrezzature idonee alla lavorazione")
-            c_stocc_err = st.checkbox("Stoccaggio/etichettatura errato di materiali")
-            c_prob_mat = st.checkbox("Problema legato alle caratteristiche/trasformazioni di materiali")
-            c_segnal_inad = st.checkbox("Segnaletica di sicurezza/Cartellonistica inadeguata o assente")
-            c_ass_perc = st.checkbox("Assenza o inadeguatezza di percorsi in sicurezza, vie di transito, uscite di emergenza")
-            
+            c_err_proc = st.checkbox(
+                "Errore procedurale (disattenzione, scarsa conoscenza procedure operative, ...)"
+            )
+            c_prob_comm = st.checkbox(
+                "Problema di comunicazione (lingua, incertezza nei ruoli e/o compiti, ...)"
+            )
+            c_manc_proc = st.checkbox(
+                "Mancanza/inadeguatezza di procedure operative"
+            )
+            c_manc_prot = st.checkbox(
+                "Mancanza di protezioni sull'attrezzatura"
+            )
+            c_car_prot = st.checkbox(
+                "Carenza (inadeguatezza) di protezioni sull'attrezzatura"
+            )
+            c_anom_guasto = st.checkbox(
+                "Anomalia/guasto in avviamento/arresto/esercizio (funzionamento)"
+            )
+            c_unica_attrez = st.checkbox(
+                "Unica attrezzatura disponibile ma non idonea alla lavorazione"
+            )
+            c_ass_attrez = st.checkbox(
+                "Assenza di attrezzature idonee alla lavorazione"
+            )
+            c_stocc_err = st.checkbox(
+                "Stoccaggio/etichettatura errato di materiali"
+            )
+            c_prob_mat = st.checkbox(
+                "Problema legato alle caratteristiche/trasformazioni di materiali"
+            )
+            c_segnal_inad = st.checkbox(
+                "Segnaletica di sicurezza/Cartellonistica inadeguata o assente"
+            )
+            c_ass_perc = st.checkbox(
+                "Assenza o inadeguatezza di percorsi in sicurezza, vie di transito, uscite di emergenza"
+            )
+
         with col_c2:
             c_illum_inad = st.checkbox("Illuminazione non idonea o assente")
-            c_ass_barr = st.checkbox("Assenza o inadeguatezza di barriere, protezioni, parapetti, armature")
+            c_ass_barr = st.checkbox(
+                "Assenza o inadeguatezza di barriere, protezioni, parapetti, armature"
+            )
             c_spazi_inad = st.checkbox("Spazi inadeguati su postazioni di lavoro")
-            c_ass_stocc = st.checkbox("Assenza o inadeguatezza di aree di stoccaggio")
-            c_pres_liq = st.checkbox("Presenza imprevista di liquidi (acqua, olio, ...)")
+            c_ass_stocc = st.checkbox(
+                "Assenza o inadeguatezza di aree di stoccaggio"
+            )
+            c_pres_liq = st.checkbox(
+                "Presenza imprevista di liquidi (acqua, olio, ...)"
+            )
             c_pres_gas = st.checkbox("Presenza imprevista di gas, vapori")
-            c_crit_imp = st.checkbox("Criticità su impianti generali a supporto dell'area di lavoro")
-            c_pres_elett = st.checkbox("Presenza di elettricità/linea elettrica accessibile")
+            c_crit_imp = st.checkbox(
+                "Criticità su impianti generali a supporto dell'area di lavoro"
+            )
+            c_pres_elett = st.checkbox(
+                "Presenza di elettricità/linea elettrica accessibile"
+            )
             c_rumore = st.checkbox("Livelli di rumorosità inadeguati")
             c_manc_dpi = st.checkbox("Mancato uso o uso errato di DPI")
             c_dpi_non_forn = st.checkbox("DPI non fornito")
             c_dpi_inad = st.checkbox("DPI inadeguato")
-            
-        altro_specificare = st.text_input("Altro (specificare campo a testo libero)")
+
+        altro_specificare = st.text_input(
+            "Altro (specificare campo a testo libero)"
+        )
         storico_riscontro = st.radio(
             "In base alla tua esperienza lavorativa, la situazione rilevata o osservata si è già presentata in passato anche recente?",
-            ["Sì frequentemente", "Sì raramente", "No"]
+            ["Sì frequentemente", "Sì raramente", "No"],
         )
-        valutazioni_proposte = st.text_area("Valutazioni / azioni / proposte di miglioramento (campo a testo libero)")
-        
-        submit_modulo = st.form_submit_button("Registra ed Invia Segnalazione", use_container_width=True)
-        
+        valutazioni_proposte = st.text_area(
+            "Valutazioni / azioni / proposte di miglioramento (campo a testo libero)"
+        )
+
+        submit_modulo = st.form_submit_button(
+            "Registra ed Invia Segnalazione", use_container_width=True
+        )
+
         if submit_modulo:
             if not descrizione.strip():
-                st.error("Errore: La descrizione dell'evento è obbligatoria per effettuare il salvataggio.")
+                st.error(
+                    "Errore: La descrizione dell'evento è obbligatoria per effettuare il salvataggio."
+                )
             else:
                 cause_selezionate = []
                 mappa_cause = {
-                    "Errore procedurale": c_err_proc, "Problema comunicazione": c_prob_comm, "Mancanza procedure": c_manc_proc,
-                    "Mancanza protezioni": c_manc_prot, "Carenza protezioni": c_car_prot, "Anomalia guasto": c_anom_guasto,
-                    "Unica attrezzatura non idonea": c_unica_attrez, "Assenza attrezzature idonee": c_ass_attrez,
-                    "Stoccaggio errato": c_stocc_err, "Problema materiali": c_prob_mat, "Segnaletica inadeguata": c_segnal_inad,
-                    "Inadeguatezza percorsi": c_ass_perc, "Illuminazione inadeguata": c_illum_inad, "Assenza barriere": c_ass_barr,
-                    "Spazi inadeguati": c_spazi_inad, "Assenza aree stoccaggio": c_ass_stocc, "Presenza liquidi": c_pres_liq,
-                    "Presenza gas": c_pres_gas, "Criticità impianti": c_crit_imp, "Presenza elettricità": c_pres_elett,
-                    "Rumorosità": c_rumore, "Mancato uso DPI": c_manc_dpi, "DPI non fornito": c_dpi_non_forn, "DPI inadeguato": c_dpi_inad
+                    "Errore procedurale": c_err_proc,
+                    "Problema comunicazione": c_prob_comm,
+                    "Mancanza procedure": c_manc_proc,
+                    "Mancanza protezioni": c_manc_prot,
+                    "Carenza protezioni": c_car_prot,
+                    "Anomalia guasto": c_anom_guasto,
+                    "Unica attrezzatura non idonea": c_unica_attrez,
+                    "Assenza attrezzature idonee": c_ass_attrez,
+                    "Stoccaggio errato": c_stocc_err,
+                    "Problema materiali": c_prob_mat,
+                    "Segnaletica inadeguata": c_segnal_inad,
+                    "Inadeguatezza percorsi": c_ass_perc,
+                    "Illuminazione inadeguata": c_illum_inad,
+                    "Assenza barriere": c_ass_barr,
+                    "Spazi inadeguati": c_spazi_inad,
+                    "Assenza aree stoccaggio": c_ass_stocc,
+                    "Presenza liquidi": c_pres_liq,
+                    "Presenza gas": c_pres_gas,
+                    "Criticità impianti": c_crit_imp,
+                    "Presenza elettricità": c_pres_elett,
+                    "Rumorosità": c_rumore,
+                    "Mancato uso DPI": c_manc_dpi,
+                    "DPI non fornito": c_dpi_non_forn,
+                    "DPI inadeguato": c_dpi_inad,
                 }
                 for nome_c, var_c in mappa_cause.items():
                     if var_c:
                         cause_selezionate.append(nome_c)
                 if altro_specificare.strip():
-                    cause_selezionate.append(f"Altro: {altro_specificare.strip()}")
+                    cause_selezionate.append(
+                        f"Altro: {altro_specificare.strip()}"
+                    )
+
+                now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
                 nuovo_record = {
-                    "Data Segnalazione": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                    "Data Segnalazione": now_str,
                     "Tipo Evento": tipo_evento,
-                    "Segnalatore": segnalatore.strip() if segnalatore.strip() else "Anonimo",
+                    "Segnalatore": (
+                        segnalatore.strip() if segnalatore.strip() else "Anonimo"
+                    ),
                     "Sesso": sesso,
                     "Fascia Eta": fascia_eta,
                     "Data Evento Real": data_evento.strftime("%d/%m/%Y"),
                     "Luogo": luogo,
-                    "Reparto": reparto_aziendale.strip() if reparto_aziendale.strip() else "N/D",
+                    "Reparto": (
+                        reparto_aziendale.strip()
+                        if reparto_aziendale.strip()
+                        else "N/D"
+                    ),
                     "Fascia Oraria Accadimento": fascia_oraria,
-                    "Fascia Oraria Lavoratore": fascia_lavoratore.strip() if fascia_lavoratore.strip() else "N/D",
+                    "Fascia Oraria Lavoratore": (
+                        fascia_lavoratore.strip()
+                        if fascia_lavoratore.strip()
+                        else "N/D"
+                    ),
                     "Descrizione": descrizione.strip(),
                     "Immagine Allegata": immagine_salvata_nome,
                     "Cause Rilevate": ", ".join(cause_selezionate),
                     "Verificato in Passato": storico_riscontro,
                     "Proposte Miglioramento": valutazioni_proposte.strip(),
-                    "Firma Presa in Carico": "Da firmare"
+                    "Firma Presa in Carico": "Da firmare",
                 }
-                
-                df_nuovo = pd.DataFrame([nuovo_record])
-                if not os.path.isfile(FILE_NEAR_MISS):
-                    df_nuovo.to_csv(FILE_NEAR_MISS, index=False, sep=";")
-                else:
-                    df_nuovo.to_csv(FILE_NEAR_MISS, mode='a', header=False, index=False, sep=";")
-                st.success("Segnalazione acquisita con successo nel file CSV locale!")
-                time.sleep(0.5)
-                st.rerun()
+
+                # ---------------------------------------------------------
+                # SALVATAGGIO AUTOMATICO SU GITHUB (segnalazioni_near_miss.csv)
+                # ---------------------------------------------------------
+                try:
+                    github_token = st.secrets["GITHUB_TOKEN"]
+                    repo_name = st.secrets["REPO_NAME"]
+
+                    # File presente nella root di GitHub (stesso livello di app.py)
+                    path_in_repo = "segnalazioni_near_miss.csv"
+
+                    g = Github(github_token)
+                    repo = g.get_repo(repo_name)
+
+                    # Formattazione della nuova riga CSV
+                    output = io.StringIO()
+                    writer = csv.DictWriter(
+                        output, fieldnames=nuovo_record.keys(), delimiter=";"
+                    )
+                    writer.writerow(nuovo_record)
+                    nuova_riga_csv = output.getvalue()
+
+                    try:
+                        # Legge il file esistente su GitHub e aggiunge la nuova riga
+                        file_content = repo.get_contents(path_in_repo)
+                        contenuto_esistente = base64.b64decode(
+                            file_content.content
+                        ).decode("utf-8-sig")
+
+                        if not contenuto_esistente.endswith("\n"):
+                            contenuto_esistente += "\n"
+
+                        nuovo_contenuto = contenuto_esistente + nuova_riga_csv
+
+                        repo.update_file(
+                            path=path_in_repo,
+                            message=f"Nuova segnalazione Near Miss ({now_str})",
+                            content=nuovo_contenuto,
+                            sha=file_content.sha,
+                        )
+                    except GithubException as e:
+                        if e.status == 404:
+                            # Se il file non esiste ancora su GitHub, lo crea con le intestazioni
+                            output_init = io.StringIO()
+                            writer_init = csv.DictWriter(
+                                output_init,
+                                fieldnames=nuovo_record.keys(),
+                                delimiter=";",
+                            )
+                            writer_init.writeheader()
+                            writer_init.writerow(nuovo_record)
+                            nuovo_contenuto = output_init.getvalue()
+
+                            repo.create_file(
+                                path=path_in_repo,
+                                message=f"Creazione segnalazioni_near_miss.csv ({now_str})",
+                                content=nuovo_contenuto,
+                            )
+                        else:
+                            raise e
+
+                    st.success(
+                        "Segnalazione acquisita e salvata con successo su GitHub!"
+                    )
+                    time.sleep(0.5)
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(
+                        f"Si è verificato un errore durante il salvataggio su GitHub: {e}"
+                    )
 
 # ==================================================================
 # --- SEZIONE 3: SCADENZARIO ADEMPIMENTI ---
