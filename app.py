@@ -19,6 +19,7 @@ from ultralytics import YOLO
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+import csv
 
 # Import per l'estrazione del testo dai file locali
 from pypdf import PdfReader
