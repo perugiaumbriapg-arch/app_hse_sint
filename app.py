@@ -1217,8 +1217,8 @@ if nav == "Analisi Segnalazioni Near Miss":
 
                         # Salvataggio aggiornamento direttamente su GitHub
                         if salva_df_analisi_su_github(
-                            df_analisi,
-                            f"Aggiornamento firma/commento RSPP riga {idx_sel}",
+                            df_analisi["Commento RSPP"] = df_analisi["Commento RSPP"].astype(object)
+                            df_analisi.loc[idx_sel, "Commento RSPP"] = str(commento_pulito),
                         ):
                             st.success(
                                 "Commento e firma RSPP salvati e sincronizzati con successo su GitHub!"
