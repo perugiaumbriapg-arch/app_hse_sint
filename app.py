@@ -1,7 +1,6 @@
 import os
 import time
-from datetime import datetime, timedelta
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import streamlit as st
 import pandas as pd
 import qrcode
