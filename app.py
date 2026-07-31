@@ -3567,27 +3567,20 @@ if nav == "Segnalazione Manutenzione":
 
             df_nuovo = pd.DataFrame([nuovo_record])
 
-            # Salvataggio incrementale nel file CSV manutenzione
-            if not os.path.isfile(FILE_CSV_MANUTENZIONE):
-                    df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, index=False, sep=";")
-                else:
-                    df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, mode='a', header=False, index=False, sep=";")
-                st.success("Segnalazione acquisita con successo nel file CSV locale!")
-                time.sleep(0.5)
-                st.rerun()
-
-            df_totale.to_csv(
-                FILE_CSV_MANUTENZIONE, sep=";", index=False, encoding="utf-8-sig"
-            )
-
-            st.success(
-                "Segnalazione inviata con successo e salvata nel database!"
-            )
-            st.session_state["ultima_segnalazione_manutenzione"] = (
-                nuova_risposta
-            )
-
-
+           # Salvataggio incrementale nel file CSV manutenzione
+          if not os.path.isfile(FILE_CSV_MANUTENZIONE):
+              # Se il file non esiste, lo crea includendo l'intestazione (header)
+              df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, index=False, sep=";", encoding="utf-8-sig")
+          else:
+              # Se il file esiste già, aggiunge la nuova riga in coda senza intestazione
+              df_nuovo.to_csv(FILE_CSV_MANUTENZIONE, mode='a', header=False, index=False, sep=";", encoding="utf-8-sig")
+          
+          # Aggiornamento dello stato ed esito
+          st.session_state["ultima_segnalazione_manutenzione"] = nuova_risposta
+          st.success("Segnalazione acquisita e salvata con successo!")
+          
+          time.sleep(0.5)
+          st.rerun()
     # ---------------------------------------------------------
     # 4. DOWNLOAD PDF DELLA RISPOSTA COMPILATA
     # ---------------------------------------------------------
