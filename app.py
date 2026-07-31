@@ -20,6 +20,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 import csv
+from github import Github, GithubException
 
 # Import per l'estrazione del testo dai file locali
 from pypdf import PdfReader
