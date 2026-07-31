@@ -3537,7 +3537,7 @@ if nav == "Segnalazione Manutenzione":
                 "Il campo 'Descrizione dell'evento o della criticità' è obbligatorio!"
             )
         else:
-            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             # Costruzione riga dati
             nuova_risposta = {
