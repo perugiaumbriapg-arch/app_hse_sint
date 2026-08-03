@@ -3486,12 +3486,34 @@ if nav == "Skill Matrix":
                                         df_single_updated.to_csv(f_path, index=False, sep=";")
                                     except Exception:
                                         salvati_ok = False
+                                  # Salvataggio tramite API GitHub
+                                    try:
+                                        token = st.secrets["GITHUB_TOKEN"]
+                                        repo_name = st.secrets["GITHUB_REPO"]
+                                        
+                                        g = Github(token)
+                                        repo = g.get_repo(repo_name)
+                                        
+                                        # Controlla se il file esiste già su GitHub per aggiornarlo o crearlo
+                                        try:
+                                            file_existing = repo.get_contents(github_path)
+                                            repo.update_file(
+                                                path=github_path,
+                                                message=f"Aggiornata autovalutazione: {file_name_csv}",
+                                                content=csv_content,
+                                                sha=file_existing.sha
+                                            )
+                                        except GithubException:
+                                            repo.create_file(
+                                                path=github_path,
+                                                message=f"Aggiunta Tabella Skill Matrix: {file_name_csv}",
+                                                content=csv_content
+                                            )
                                             
-                                if salvati_ok:
-                                    st.success("Modifiche salvate con successo nei file CSV di autovalutazione!")
-                                else:
-                                    st.warning("Salvataggio completato con alcune eccezioni.")
-                            
+                                        st.success(f"Tabella Skill Matrix salvata e aggiornata: `{github_path}`")
+                                        
+                                    except Exception as e:
+                                        st.error(f"Errore nel salvataggio su GitHub: {e}")                            
                         with col_btn2:
                             csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
                             st.download_button(
