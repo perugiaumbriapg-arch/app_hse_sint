@@ -1069,7 +1069,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Colpito, urtato da",
                         "Urtare contro, andare a sbattere",
                         "Tagliarsi, pungersi",
-                        "Sollecitazioni fisiche (rumore, vibrazioni, radiazioni ecc.)!,
+                        "Sollecitazioni fisiche (rumore, vibrazioni, radiazioni ecc.)",
                         "Disturbi causati da animali",
                         "Ribaltamento mezzo",
                         "Contatto elettrico diretto/indiretto",
