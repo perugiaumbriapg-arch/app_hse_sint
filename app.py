@@ -3318,7 +3318,7 @@ if nav == "Skill Matrix":
                     file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
                     
                     # Costruiamo il percorso del file su GitHub
-                    github_path = f"Skill_Matrix/Autovalutazione/{file_name_csv}"
+                    github_path = f"Skill_Matrix, Autovalutazione, {file_name_csv}"
                     
                     dati_form = {
                         "Campo": [
