@@ -3339,7 +3339,7 @@ if nav == "Skill Matrix":
                     # Salvataggio tramite API GitHub
                     try:
                         token = st.secrets["GITHUB_TOKEN"]
-                        repo_name = st.secrets["GITHUB_REPO"]
+                        repo_name = st.secrets["REPO_NAME"]
                         
                         g = Github(token)
                         repo = g.get_repo(repo_name)
@@ -3481,7 +3481,7 @@ if nav == "Skill Matrix":
                               if salvati_ok:
                                   try:
                                       token = st.secrets["GITHUB_TOKEN"]
-                                      repo_name = st.secrets["GITHUB_REPO"]
+                                      repo_name = st.secrets["REPO_NAME"]
                                       
                                       g = Github(token)
                                       repo = g.get_repo(repo_name)
