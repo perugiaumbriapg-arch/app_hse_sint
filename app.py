@@ -3391,7 +3391,11 @@ if nav == "Skill Matrix":
           st.markdown("---")
           st.markdown("Visualizza e modifica direttamente i dati aggregati delle autovalutazioni inserite dal personale.")
               
+          # Percorsi locali
+          # skill_matrix_dir è la cartella "Skill_Matrix" allo stesso livello di app.py
+          skill_matrix_dir = "Skill_Matrix"
           autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
+          
           if os.path.exists(autoval_dir):
               files_csv = [f for f in os.listdir(autoval_dir) if f.endswith(".csv")]
               if files_csv:
@@ -3455,46 +3459,26 @@ if nav == "Skill Matrix":
                       col_btn1, col_btn2 = st.columns(2)
                       with col_btn1:
                           if st.button("💾 Salva Modifiche Tabella Skill Matrix", use_container_width=True, key="btn_save_master_sm"):
-                              salvati_ok = True
-                              for idx, row in edited_master_sm.iterrows():
-                                  f_src = row.get("File Sorgente", "")
-                                  if pd.isna(f_src) or not f_src:
-                                      import re
-                                      c_name = re.sub(r'[\\/*?:"<>|]', "", f"{row['Nome']}_{row['Cognome']}")
-                                      c_date = re.sub(r'[\\/*?:"<>|]', "", str(row['Data Autovalutazione']))
-                                      f_src = f"{c_name}_{c_date}_Autovalutazione_SkillMatrix.csv"
-                                          
-                                  f_path = os.path.join(autoval_dir, f_src)
-                                      
-                                  df_single_updated = pd.DataFrame({
-                                      "Campo": [
-                                          "Nome", "Cognome", "Inquadramento-Mansione", "Ambito lavorativo", "Data Autovalutazione",
-                                          "Processi produttivi mansione", "Rapporto colleghi", "Interfaccia fornitori-clienti",
-                                          "Processi cartone-scatole", "Processo pallettizzazione", "Competenze legali-tecniche",
-                                          "Individuazione rischi-fabbisogni", "Capacità d'adattamento", "Capacità comunicative",
-                                          "Precisione lavoro", "Persuasione", "Analisi critica contesto", "Turnazioni", "Responsabilità supervisione"
-                                      ],
-                                      "Valore": [
-                                          row["Nome"], row["Cognome"], row["Inquadramento-Mansione"], row["Ambito lavorativo"], row["Data Autovalutazione"],
-                                          row["Processi produttivi mansione"], row["Rapporto colleghi"], row["Interfaccia fornitori-clienti"],
-                                          row["Processi cartone-scatole"], row["Processo pallettizzazione"], row["Competenze legali-tecniche"],
-                                          row["Individuazione rischi-fabbisogni"], row["Capacità d'adattamento"], row["Capacità comunicative"],
-                                          row["Precisione lavoro"], row["Persuasione"], row["Analisi critica contesto"], row["Turnazioni"], row["Responsabilità supervisione"]
-                                      ]
-                                  })
-                                  try:
-                                      df_single_updated.to_csv(f_path, index=False, sep=";")
-                                  except Exception:
-                                      salvati_ok = False
+                              # 1. Definizione file e percorsi per la Panoramica Generale
+                              file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
+                              master_local_path = os.path.join(skill_matrix_dir, file_name_master)
+                              github_master_path = f"Skill_Matrix/{file_name_master}"
+                              
+                              # Genera il contenuto CSV dall'editor
+                              csv_master_content = edited_master_sm.to_csv(index=False, sep=";")
       
-                                  # Definizione delle variabili per GitHub
-                                  file_name_csv = f_src
-                                  # Percorso del file relativo all'interno del repository GitHub
-                                  github_path = f"SkillMatrix/Autovalutazione/{file_name_csv}"
-                                  # Conversione del DataFrame in stringa CSV
-                                  csv_content = df_single_updated.to_csv(index=False, sep=";")
+                              # 2. Salvataggio Locale del Master CSV
+                              try:
+                                  os.makedirs(skill_matrix_dir, exist_ok=True)
+                                  with open(master_local_path, "w", encoding="utf-8") as f:
+                                      f.write(csv_master_content)
+                                  salvati_ok = True
+                              except Exception as e:
+                                  st.error(f"Errore nel salvataggio locale: {e}")
+                                  salvati_ok = False
       
-                                  # Salvataggio tramite API GitHub
+                              # 3. Salvataggio/Aggiornamento su GitHub della Panoramica Generale
+                              if salvati_ok:
                                   try:
                                       token = st.secrets["GITHUB_TOKEN"]
                                       repo_name = st.secrets["GITHUB_REPO"]
@@ -3502,26 +3486,26 @@ if nav == "Skill Matrix":
                                       g = Github(token)
                                       repo = g.get_repo(repo_name)
                                       
-                                      # Controlla se il file esiste già su GitHub per aggiornarlo o crearlo
                                       try:
-                                          file_existing = repo.get_contents(github_path)
+                                          file_existing = repo.get_contents(github_master_path)
                                           repo.update_file(
-                                              path=github_path,
-                                              message=f"Aggiornata autovalutazione: {file_name_csv}",
-                                              content=csv_content,
+                                              path=github_master_path,
+                                              message=f"Aggiornata panoramica generale: {file_name_master}",
+                                              content=csv_master_content,
                                               sha=file_existing.sha
                                           )
                                       except GithubException:
                                           repo.create_file(
-                                              path=github_path,
-                                              message=f"Aggiunta Tabella Skill Matrix: {file_name_csv}",
-                                              content=csv_content
+                                              path=github_master_path,
+                                              message=f"Creata panoramica generale: {file_name_master}",
+                                              content=csv_master_content
                                           )
                                           
-                                      st.success(f"Tabella Skill Matrix salvata e aggiornata su GitHub: `{github_path}`")
+                                      st.success(f"Panoramica Generale salvata ed emessa su GitHub: `{github_master_path}`")
                                       
                                   except Exception as e:
-                                      st.error(f"Errore nel salvataggio su GitHub per `{file_name_csv}`: {e}")                            
+                                      st.error(f"Errore nel salvataggio su GitHub: {e}")
+                                      
                       with col_btn2:
                           csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
                           st.download_button(
