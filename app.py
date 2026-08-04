@@ -1611,6 +1611,13 @@ if nav == "Consultazione":
 # ==================================================================
 # --- SEZIONE 6: Analisi - Fase 2 ---
 # ==================================================================
+# ==================================================================
+# --- RECUPERO SICURO DELLE VARIABILI DI GITHUB ---
+# ==================================================================
+# Cerca prima nei Secrets di Streamlit Cloud, poi nelle variabili di ambiente del sistema.
+GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", os.environ.get("GITHUB_TOKEN", ""))
+REPO_NAME = st.secrets.get("REPO_NAME", os.environ.get("REPO_NAME", ""))
+
 if nav == "Analisi - Fase 2":
     st.header("Analisi - Fase 2 delle segnalazioni near miss")
     # --- SEZIONE 2: ANALISI ISHIKAWA ---
