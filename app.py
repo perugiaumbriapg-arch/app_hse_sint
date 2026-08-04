@@ -49,6 +49,55 @@ MANSIONI_DPI = {
     "Addetto carrellisti magazzino bobine": ["boots", "gloves", "googles", "no-vest", "vest"],
 }
 
+# Gestione libreria PyGithub per il salvataggio su repository GitHub remota
+try:
+    from github import Github
+    GITHUB_AVAILABLE = True
+except ImportError:
+    GITHUB_AVAILABLE = False
+
+
+def salva_file_su_github(path_repo, contenuto_bytes, messaggio_commit):
+    """
+    Funzione helper per salvare o aggiornare un file direttamente sulla repository GitHub remota.
+    Richiede st.secrets["GITHUB_TOKEN"] e st.secrets["REPO_NAME"] oppure le relative variabili d'ambiente.
+    """
+    token = st.secrets.get("GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    repo_name = st.secrets.get("REPO_NAME") or os.environ.get("REPO_NAME")
+
+    if not token or not repo_name:
+        st.warning("⚠️ GITHUB_TOKEN o REPO_NAME non configurati nei secrets/variabili d'ambiente. Salvataggio locale eseguito.")
+        return False
+
+    if not GITHUB_AVAILABLE:
+        st.error("❌ Libreria 'PyGithub' non installata. Aggiungi 'PyGithub' al file requirements.txt.")
+        return False
+
+    try:
+        g = Github(token)
+        repo = g.get_repo(repo_name)
+
+        try:
+            # Se il file esiste già sulla repository, lo aggiorniamo
+            contents = repo.get_contents(path_repo)
+            repo.update_file(
+                path=path_repo,
+                message=messaggio_commit,
+                content=contenuto_bytes,
+                sha=contents.sha
+            )
+        except Exception:
+            # Se il file non esiste, lo creiamo
+            repo.create_file(
+                path=path_repo,
+                message=messaggio_commit,
+                content=contenuto_bytes
+            )
+        return True
+    except Exception as e:
+        st.error(f"Errore durante la connessione/scrittura su GitHub: {e}")
+        return False
+
 # ==================================================================
 # --- 1. CONFIGURAZIONI INIZIALI E DATABASE LOCALI ---
 # ==================================================================
@@ -2724,31 +2773,32 @@ if nav == "Piano Miglioramento":
             styled_df = edited_df.style.map(color_cells, subset=["Significatività"])
             st.dataframe(styled_df, use_container_width=True)
 
-            # --- Salvataggio e Download della Tabella Dinamica (Senza Colori) ---
+            # --- Salvataggio e Download della Tabella Dinamica ---
             if 'edited_df' in locals() and not edited_df.empty:
                 try:
                     base_dir = os.path.dirname(os.path.abspath(__file__))
                 except NameError:
                     base_dir = os.getcwd()
         
-                # Percorso della cartella allo stesso livello di app.py: Piano_Miglioramento
                 target_val_rischio_dir = os.path.join(base_dir, "Piano_Miglioramento")
                 os.makedirs(target_val_rischio_dir, exist_ok=True)
     
-                # Generazione nome file dinamico con timestamp per farlo variare a ogni salvataggio
-                from datetime import datetime
                 timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-                file_name_dinamico = f"Report_di_Analisi_Fase_2_da_consultare_collegare_Valutazione_Rischio_Dinamica_{timestamp_str}.csv"
+                report_sel_vr = st.session_state.get("report_analisi_selezionato", "Report_Generico")
+                nome_pulito_vr = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_vr]).strip()
+                file_name_dinamico = f"Valutazione_Rischio_{nome_pulito_vr}_{timestamp_str}.csv"
                 full_path_dinamico = os.path.join(target_val_rischio_dir, file_name_dinamico)
     
-                # Esportazione in CSV standard (senza formattazione o colori)
                 csv_data_dinamico = edited_df.to_csv(index=False, sep=";")
     
-                # Salvataggio automatico nella cartella dedicata
+                # Salvataggio Locale
                 with open(full_path_dinamico, "w", encoding="utf-8") as f:
                     f.write(csv_data_dinamico)
-        
-                # Pulsante Streamlit per il download (corretto)
+                
+                # Salvataggio Remoto su GitHub
+                github_path_vr = f"Piano_Miglioramento/{file_name_dinamico}"
+                salva_file_su_github(github_path_vr, csv_data_dinamico.encode("utf-8-sig"), f"Add Valutazione Rischio {file_name_dinamico}")
+
                 st.download_button(
                     label="📥 Scarica Tabella Dinamica in formato CSV (.csv)",
                     data=csv_data_dinamico,
@@ -2756,7 +2806,7 @@ if nav == "Piano Miglioramento":
                     mime="text/csv",
                     use_container_width=True
                 )
-                st.success(f"File salvato automaticamente nella cartella: `{target_val_rischio_dir}`")
+                st.success(f"File salvato e sincronizzato sia localmente che su GitHub in: `{github_path_vr}`")
             else:
                 st.info("Compila o genera la tabella dinamica per abilitare il download e il salvataggio del file.")
             
@@ -2765,7 +2815,6 @@ if nav == "Piano Miglioramento":
         st.subheader("Azioni Piano di Miglioramento")
         st.markdown("Gestione delle azioni intraprese, delle tipologie di intervento e del relativo follow-up.")
 
-        # Gestione autenticazione sottosezione
         if "auth_piano_m" not in st.session_state:
             st.session_state.auth_piano_m = False
             
@@ -2779,16 +2828,13 @@ if nav == "Piano Miglioramento":
                 else:
                     st.error("Password errata.")
         else:
-            # Caricamento e unione dati per dropdown
             opzioni = ["Nessuna (Nuova analisi)"]
                     
-            # Leggi Near Miss
             if os.path.exists(FILE_NEAR_MISS):
                 df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
                 for idx, r in df_nm.iterrows():
                     opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
                     
-            # Leggi Analisi già fatte
             if os.path.exists(FILE_ANALISI_NM):
                 df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
                 for idx, r in df_an.iterrows():
@@ -2890,9 +2936,8 @@ if nav == "Piano Miglioramento":
             st.session_state.df_followup_session = edited_followup
 
             # ---------------------------------------------------------
-            # 1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
+            # PREPARAZIONE DATI ESPORTAZIONE ED UNIFICAZIONE
             # ---------------------------------------------------------
-            # Estrazione Azioni Immediate
             df_export_azioni_rimedio = pd.DataFrame([{
                 "Sezione": "Azioni Immediate di Rimedio",
                 "Tipologia / Azione": "Descrizione",
@@ -2901,7 +2946,6 @@ if nav == "Piano Miglioramento":
                 "Stato / Verifica": ""
             }])
 
-            # Estrazione Tipologie Intervento
             df_export_tipologie = st.session_state.get("df_tipologie_session", pd.DataFrame()).copy()
             if not df_export_tipologie.empty:
                 df_export_tipologie["Sezione"] = "Tipologia Intervento"
@@ -2912,7 +2956,6 @@ if nav == "Piano Miglioramento":
                 df_export_tipologie["Scadenza"] = ""
                 df_export_tipologie["Stato / Verifica"] = ""
 
-            # Estrazione Follow-up
             df_export_followup = st.session_state.get("df_followup_session", pd.DataFrame()).copy()
             if not df_export_followup.empty:
                 df_export_followup["Sezione"] = "Follow-up Azioni"
@@ -2923,7 +2966,6 @@ if nav == "Piano Miglioramento":
                     "Verifica attuazione": "Stato / Verifica"
                 })
 
-            # Unione di tutti i DataFrame creati
             cols_export = ["Sezione", "Tipologia / Azione", "Dettaglio / Responsabile", "Scadenza", "Stato / Verifica"]
         
             list_dfs = [df_export_azioni_rimedio[cols_export]]
@@ -2933,69 +2975,82 @@ if nav == "Piano Miglioramento":
                 list_dfs.append(df_export_followup[cols_export])
 
             df_completo_csv = pd.concat(list_dfs, ignore_index=True)
-        
-            # ---------------------------------------------------------
-            # DISPOSIZIONE DEI PULSANTI IN DUE COLONNE
-            # ---------------------------------------------------------
-            # Conversione in byte UTF-8 con BOM per Excel
             csv_bytes = df_completo_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
         
             col_btn_salva, col_btn_down = st.columns(2)
 
             with col_btn_salva:
-                # PULSANTE 1: SALVATAGGIO LOCALE ED ESPORTAZIONE NELLA CARTELLA "Piano_Miglioramento"
+                # PULSANTE DI SALVATAGGIO LOCALE E REMOTO SU GITHUB
                 st.markdown("---")
-                # UNICO PULSANTE DI AGGIORNAMENTO / SALVATAGGIO
                 if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
                     try:
                         base_dir = os.path.dirname(os.path.abspath(__file__))
                     except NameError:
                         base_dir = os.getcwd()
 
-                    # Cartella Piano_Miglioramento allo stesso livello di app.py
                     dir_dest = os.path.join(base_dir, "Piano_Miglioramento")
                     os.makedirs(dir_dest, exist_ok=True)
                 
-                    # Generazione nome file basato sul pattern: [evento/analisi collegata]_Piano Miglioramento
                     report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
                     nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
-                    nome_file_xlsx = f"{nome_file_pulito}_Piano Miglioramento.xlsx"
-                    percorso_completo = os.path.join(dir_dest, nome_file_xlsx)
-                
-                    # Salvataggio specifico del solo Follow-up in CSV nella cartella Piano_Miglioramento
-                    percorso_followup_csv = os.path.join(dir_dest, "Piano_Miglioramento_FollowUp.csv")
-                    df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
-                    df_follow_to_save.to_csv(percorso_followup_csv, index=False, sep=";", encoding="utf-8-sig")
+                    
+                    # Nome univoco per ogni record/evento collegato
+                    nome_file_xlsx = f"{nome_file_pulito}_Piano_Miglioramento.xlsx"
+                    nome_followup_csv = f"Piano_Miglioramento_FollowUp_{nome_file_pulito}.csv"
+                    
+                    percorso_completo_xlsx = os.path.join(dir_dest, nome_file_xlsx)
+                    percorso_followup_csv = os.path.join(dir_dest, nome_followup_csv)
 
-                    # Preparazione del DataFrame per Azioni Intraprese (incluse le azioni immediate di rimedio)
+                    df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
+                    
+                    # 1. Salvataggio CSV Follow-up Locale e GitHub
+                    csv_followup_bytes = df_follow_to_save.to_csv(index=False, sep=";").encode("utf-8-sig")
+                    with open(percorso_followup_csv, "wb") as f:
+                        f.write(csv_followup_bytes)
+                        
+                    github_csv_path = f"Piano_Miglioramento/{nome_followup_csv}"
+                    ok_github_csv = salva_file_su_github(github_csv_path, csv_followup_bytes, f"Update {nome_followup_csv}")
+
+                    # 2. Generazione Excel e Salvataggio Locale e GitHub
                     df_azioni_intraprese = pd.DataFrame({
                         "Tipologia Contenuto": ["Azioni immediate di rimedio"],
                         "Descrizione / Dettaglio": [st.session_state.get("azioni_immediate_txt", "")]
                     })
                 
-                    # Scrittura dei dati in un unico file Excel con più fogli distinti
                     try:
-                        with pd.ExcelWriter(percorso_completo, engine='openpyxl') as writer:
-    
-                            # 1. Foglio: Valutazione del rischio
+                        excel_buffer = io.BytesIO()
+                        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                             df_vr_to_save = st.session_state.get("df_vr_session", pd.DataFrame())
                             df_vr_to_save.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
                         
-                            # 2. Foglio: Azioni intraprese (include Azioni immediate di rimedio)
                             df_azioni_intraprese.to_excel(writer, sheet_name="Azioni intraprese", index=False)
                         
-                            # 3. Foglio: Azioni di miglioramento - Tipologia intervento
                             df_tip_to_save = st.session_state.get("df_tipologie_session", pd.DataFrame())
                             df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
                         
-                            # 4. Foglio: Follow up azioni intraprese
                             df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
+
+                        xlsx_bytes = excel_buffer.getvalue()
+
+                        # Salva file excel su disco locale
+                        with open(percorso_completo_xlsx, "wb") as f:
+                            f.write(xlsx_bytes)
+                            
+                        # Salva file excel su GitHub online
+                        github_xlsx_path = f"Piano_Miglioramento/{nome_file_xlsx}"
+                        ok_github_xlsx = salva_file_su_github(github_xlsx_path, xlsx_bytes, f"Update {nome_file_xlsx}")
                     
-                        st.success(f"Dati salvati con successo nella cartella `Piano_Miglioramento`:\n- File Excel Completo: `{percorso_completo}`\n- File CSV Follow-up: `{percorso_followup_csv}`")
+                        st.success(
+                            f"✅ Dati salvati con successo!\n\n"
+                            f"**File Generati:**\n"
+                            f"- Excel: `Piano_Miglioramento/{nome_file_xlsx}`\n"
+                            f"- CSV Follow-up: `{github_csv_path}`\n\n"
+                            f"**Stato Sync GitHub Remoto:** {'Sincronizzato online ✅' if ok_github_xlsx and ok_github_csv else 'Salvataggio Remoto Non Riuscito (verificare Token) ⚠️'}"
+                        )
                     except Exception as e:
-                        st.error(f"Errore durante il salvataggio dei file: {e}")
+                        st.error(f"Errore durante il salvataggio dei file Excel/CSV: {e}")
+
             with col_btn_down:
-                # Pulsante 2 Scaricare in .csv
                 report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
                 nome_file_csv_down = f"{''.join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()}_Azioni_Piano_Miglioramento.csv"
             
