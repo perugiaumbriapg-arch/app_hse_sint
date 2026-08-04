@@ -2628,7 +2628,6 @@ if nav == "Piano Miglioramento":
                                 
             scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
             
-            
             file_analisi_target = globals().get("FILE_ANALISI_NM", "analisi_fase_2.csv")
             file_near_miss_target = globals().get("FILE_NEAR_MISS", "near_miss.csv")
             
@@ -2664,10 +2663,16 @@ if nav == "Piano Miglioramento":
             st.markdown("I parametri numerici (**Probabilità**, **Gravità**, **Sensibilità**, **Controllo**) accettano esclusivamente numeri interi compresi tra **1 e 3**.")
             
             # Inizializzazione DataFrame Valutazione Rischio in session_state se non presente
+            try:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            except NameError:
+                base_dir = os.getcwd()
+
+            dir_pm_path = os.path.join(base_dir, "Piano_Miglioramento")
+            os.makedirs(dir_pm_path, exist_ok=True)
+            file_excel_vr = os.path.join(dir_pm_path, "valutazione_rischio.xlsx")
+
             if "df_vr_session" not in st.session_state:
-                dir_pm_path = os.path.join("APP HSE", "Piano_Miglioramento")
-                os.makedirs(dir_pm_path, exist_ok=True)
-                file_excel_vr = os.path.join(dir_pm_path, "valutazione_rischio.xlsx")
                 if os.path.exists(file_excel_vr):
                     st.session_state.df_vr_session = pd.read_excel(file_excel_vr)
                 else:
@@ -2726,37 +2731,34 @@ if nav == "Piano Miglioramento":
                 except NameError:
                     base_dir = os.getcwd()
         
-            # Percorso della cartella: APP HSE -> Piano_Miglioramento -> Valutazione Rischio 
-            target_val_rischio_dir = os.path.join(base_dir, "APP HSE", "Piano_Miglioramento", "Valutazione Rischio ")
-            if not os.path.exists(os.path.join(base_dir, "APP HSE")):
-                target_val_rischio_dir = os.path.join(base_dir, "Piano_Miglioramento", "Valutazione Rischio ")
+                # Percorso della cartella allo stesso livello di app.py: Piano_Miglioramento
+                target_val_rischio_dir = os.path.join(base_dir, "Piano_Miglioramento")
+                os.makedirs(target_val_rischio_dir, exist_ok=True)
+    
+                # Generazione nome file dinamico con timestamp per farlo variare a ogni salvataggio
+                from datetime import datetime
+                timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                file_name_dinamico = f"Report_di_Analisi_Fase_2_da_consultare_collegare_Valutazione_Rischio_Dinamica_{timestamp_str}.csv"
+                full_path_dinamico = os.path.join(target_val_rischio_dir, file_name_dinamico)
+    
+                # Esportazione in CSV standard (senza formattazione o colori)
+                csv_data_dinamico = edited_df.to_csv(index=False, sep=";")
+    
+                # Salvataggio automatico nella cartella dedicata
+                with open(full_path_dinamico, "w", encoding="utf-8") as f:
+                    f.write(csv_data_dinamico)
         
-            os.makedirs(target_val_rischio_dir, exist_ok=True)
-    
-            # Generazione nome file dinamico con timestamp per farlo variare a ogni salvataggio
-            from datetime import datetime
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_name_dinamico = f"Report_di_Analisi_Fase_2_da_consultare_collegare_Valutazione_Rischio_Dinamica_{timestamp_str}.csv"
-            full_path_dinamico = os.path.join(target_val_rischio_dir, file_name_dinamico)
-    
-            # Esportazione in CSV standard (senza formattazione o colori)
-            csv_data_dinamico = edited_df.to_csv(index=False, sep=";")
-    
-            # Salvataggio automatico nella cartella dedicata
-            with open(full_path_dinamico, "w", encoding="utf-8") as f:
-                f.write(csv_data_dinamico)
-        
-            # Pulsante Streamlit per il download (corretto)
-            st.download_button(
-                label="📥 Scarica Tabella Dinamica in formato CSV (.csv)",
-                data=csv_data_dinamico,
-                file_name=file_name_dinamico,
-                mime="text/csv",
-                use_container_width=True
-            )
-            st.success(f"File salvato automaticamente nella cartella: `{target_val_rischio_dir}`")
-        else:
-            st.info("Compila o genera la tabella dinamica per abilitare il download e il salvataggio del file.")
+                # Pulsante Streamlit per il download (corretto)
+                st.download_button(
+                    label="📥 Scarica Tabella Dinamica in formato CSV (.csv)",
+                    data=csv_data_dinamico,
+                    file_name=file_name_dinamico,
+                    mime="text/csv",
+                    use_container_width=True
+                )
+                st.success(f"File salvato automaticamente nella cartella: `{target_val_rischio_dir}`")
+            else:
+                st.info("Compila o genera la tabella dinamica per abilitare il download e il salvataggio del file.")
             
                 
     elif sotto_sec == "Azioni Piano di Miglioramento":
@@ -2888,7 +2890,7 @@ if nav == "Piano Miglioramento":
             st.session_state.df_followup_session = edited_followup
 
             # ---------------------------------------------------------
-            #1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
+            # 1. PREPARAZIONE DATI PER IL DOWNLOAD CSV
             # ---------------------------------------------------------
             # Estrazione Azioni Immediate
             df_export_azioni_rimedio = pd.DataFrame([{
@@ -2941,12 +2943,17 @@ if nav == "Piano Miglioramento":
             col_btn_salva, col_btn_down = st.columns(2)
 
             with col_btn_salva:
-                # PULSANTE 1: SALVATAGGIO LOCALE EXCEL
+                # PULSANTE 1: SALVATAGGIO LOCALE ED ESPORTAZIONE NELLA CARTELLA "Piano_Miglioramento"
                 st.markdown("---")
                 # UNICO PULSANTE DI AGGIORNAMENTO / SALVATAGGIO
                 if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
-                    # Cartella esistente Piano_Miglioramento dentro APP HSE
-                    dir_dest = "Piano_Miglioramento"
+                    try:
+                        base_dir = os.path.dirname(os.path.abspath(__file__))
+                    except NameError:
+                        base_dir = os.getcwd()
+
+                    # Cartella Piano_Miglioramento allo stesso livello di app.py
+                    dir_dest = os.path.join(base_dir, "Piano_Miglioramento")
                     os.makedirs(dir_dest, exist_ok=True)
                 
                     # Generazione nome file basato sul pattern: [evento/analisi collegata]_Piano Miglioramento
@@ -2955,6 +2962,11 @@ if nav == "Piano Miglioramento":
                     nome_file_xlsx = f"{nome_file_pulito}_Piano Miglioramento.xlsx"
                     percorso_completo = os.path.join(dir_dest, nome_file_xlsx)
                 
+                    # Salvataggio specifico del solo Follow-up in CSV nella cartella Piano_Miglioramento
+                    percorso_followup_csv = os.path.join(dir_dest, "Piano_Miglioramento_FollowUp.csv")
+                    df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
+                    df_follow_to_save.to_csv(percorso_followup_csv, index=False, sep=";", encoding="utf-8-sig")
+
                     # Preparazione del DataFrame per Azioni Intraprese (incluse le azioni immediate di rimedio)
                     df_azioni_intraprese = pd.DataFrame({
                         "Tipologia Contenuto": ["Azioni immediate di rimedio"],
@@ -2977,16 +2989,15 @@ if nav == "Piano Miglioramento":
                             df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
                         
                             # 4. Foglio: Follow up azioni intraprese
-                            df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
                             df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
                     
-                        st.success(f"Dati salvati e aggiornati con successo nella cartella esistente:\n`{percorso_completo}`")
+                        st.success(f"Dati salvati con successo nella cartella `Piano_Miglioramento`:\n- File Excel Completo: `{percorso_completo}`\n- File CSV Follow-up: `{percorso_followup_csv}`")
                     except Exception as e:
-                        st.error(f"Errore durante il salvataggio del file: {e}")
-                with col_btn_down:
-                    # Pulsante 2 Scaricare in .csv
-                    report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-                    nome_file_csv_down = f"{''.join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()}_Azioni_Piano_Miglioramento.csv"
+                        st.error(f"Errore durante il salvataggio dei file: {e}")
+            with col_btn_down:
+                # Pulsante 2 Scaricare in .csv
+                report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
+                nome_file_csv_down = f"{''.join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()}_Azioni_Piano_Miglioramento.csv"
             
                 st.download_button(
                     label="📥 Scarica Azioni in CSV",
@@ -2996,7 +3007,6 @@ if nav == "Piano Miglioramento":
                     use_container_width=True,
                     key="btn_download_azioni_csv_miglioramento"
                 )
-
 # ==================================================================
 # --- SEZIONE 9: Stima Costo Economico ---
 # ==================================================================
