@@ -1611,8 +1611,8 @@ if nav == "Consultazione":
 # --- SEZIONE 6: Analisi - Fase 2 ---
 # ==================================================================
 if nav == "Analisi - Fase 2":
-    st. header ("Analisi - Fase 2 delle segnalazioni near miss")
-            # --- SEZIONE 2: ANALISI ISHIKAWA ---
+    st.header("Analisi - Fase 2 delle segnalazioni near miss")
+    # --- SEZIONE 2: ANALISI ISHIKAWA ---
     if "autenticato_fase2" not in st.session_state:
         st.session_state.autenticato_fase2 = False
         
@@ -1624,6 +1624,7 @@ if nav == "Analisi - Fase 2":
                 st.rerun()
             else:
                 st.error("Credenziali errate.")
+                
     if st.session_state.autenticato_fase2:
 
         # Caricamento e unione dati per dropdown
@@ -1733,11 +1734,12 @@ if nav == "Analisi - Fase 2":
                 pdf.cell(0, 10, f"- {key}: {val}", ln=True)
             pdf.ln(5)
 
-            # Scrittura 5Whys
+            # Scrittura 5Whys (Inclusione di tutti i 5 Perché)
             pdf.set_font("Arial", 'B', 14)
             pdf.cell(0, 10, "5Whys:", ln=True)
             pdf.set_font("Arial", size=12)
-            pdf.cell(0, 10, f"Perchè 1: {dati_report['5Whys'][0]}", ln=True)
+            for i, why in enumerate(dati_report['5Whys'], 1):
+                pdf.cell(0, 10, f"Perché {i}: {why}", ln=True)
             pdf.ln(5)
 
             # Scrittura Conclusioni
@@ -1745,8 +1747,9 @@ if nav == "Analisi - Fase 2":
             pdf.cell(0, 10, "Conclusioni:", ln=True)
             pdf.set_font("Arial", size=12)
             pdf.multi_cell(0, 10, dati_report['Conclusioni'])
+            pdf.ln(5)
 
-            # Inserimento visivo del grafico PNG nel PDF
+            # Inserimento visivo del grafico PNG nel PDF (Diagramma di Ishikawa)
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(0, 10, "Diagramma di Ishikawa:", ln=True)
             pdf.image(temp_img, w=180)
@@ -1767,8 +1770,41 @@ if nav == "Analisi - Fase 2":
             # 4. PNG (File immagine separato)
             st.session_state.png_bytes = png_bytes
 
+            # ==================================================================
+            # --- SALVATAGGIO AUTOMATICO NELLA CARTELLA "Analisi_Fase2" ---
+            # ==================================================================
+            dir_fase2 = os.path.join(os.path.dirname(__file__), "Analisi_Fase2")
+            os.makedirs(dir_fase2, exist_ok=True)
+
+            # Sanificazione stringa del riferimento evento per uso nei file
+            rif_sanitizzato = re.sub(r'[\\/*?:"<>|]', '_', scelta_rif).replace(' ', '_')
+            giorno_str = datetime.now().strftime("%Y-%m-%d")
+
+            # Nome file secondo la logica: "Giorno_riferimento_Analisi Fase 2"
+            base_filename = f"{giorno_str}_{rif_sanitizzato}_Analisi Fase 2"
+
+            # Salvataggio PDF
+            pdf_path = os.path.join(dir_fase2, f"{base_filename}.pdf")
+            with open(pdf_path, "wb") as f:
+                f.write(pdf_output)
+
+            # Salvataggio Immagine Ishikawa (PNG)
+            png_path = os.path.join(dir_fase2, f"{base_filename}_Ishikawa.png")
+            with open(png_path, "wb") as f:
+                f.write(png_bytes)
+
+            # Salvataggio Dati XLSX
+            xlsx_path = os.path.join(dir_fase2, f"{base_filename}.xlsx")
+            with open(xlsx_path, "wb") as f:
+                f.write(st.session_state.xlsx_bytes)
+
+            # Salvataggio Dati JSON
+            json_path = os.path.join(dir_fase2, f"{base_filename}.json")
+            with open(json_path, "wb") as f:
+                f.write(st.session_state.json_bytes)
+
             st.session_state.report_ready = True
-            st.success("Report generato con successo!")
+            st.success(f"Report generato e salvato automaticamente in 'Analisi_Fase2/{base_filename}'!")
 
         # Bottoni Download
         if st.session_state.get("report_ready"):
