@@ -2687,7 +2687,7 @@ if nav == "Piano Miglioramento":
                 opzioni_analisi = [f"Report #{idx+1} (Data/Ora: {df_an_f2.iloc[idx].get('Data/Ora', 'N/D')})" for idx in range(len(df_an_f2))]
                 scelta_analisi = st.selectbox("Seleziona il Report di Analisi - Fase 2 da consultare/collegare", opzioni_analisi, key="seleziona_report_analisi_s8")
                 
-                # Salviamo la scelta in session_state per renderla disponibile anche nell'altra sottosezione
+                # Salvataggio scelta in session_state
                 st.session_state.report_analisi_selezionato = scelta_analisi
                 
                 idx_selezionato = opzioni_analisi.index(scelta_analisi)
@@ -2711,7 +2711,6 @@ if nav == "Piano Miglioramento":
             st.markdown("### Tabella Dinamica di Valutazione del Rischio")
             st.markdown("I parametri numerici (**Probabilità**, **Gravità**, **Sensibilità**, **Controllo**) accettano esclusivamente numeri interi compresi tra **1 e 3**.")
             
-            # Inizializzazione DataFrame Valutazione Rischio in session_state se non presente
             try:
                 base_dir = os.path.dirname(os.path.abspath(__file__))
             except NameError:
@@ -2773,7 +2772,7 @@ if nav == "Piano Miglioramento":
             styled_df = edited_df.style.map(color_cells, subset=["Significatività"])
             st.dataframe(styled_df, use_container_width=True)
 
-            # --- Salvataggio e Download della Tabella Dinamica ---
+            # --- Salvataggio Locale + Remoto GitHub per la Valutazione del Rischio ---
             if 'edited_df' in locals() and not edited_df.empty:
                 try:
                     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -2795,7 +2794,7 @@ if nav == "Piano Miglioramento":
                 with open(full_path_dinamico, "w", encoding="utf-8") as f:
                     f.write(csv_data_dinamico)
                 
-                # Salvataggio Remoto su GitHub
+                # Salvataggio Remoto GitHub
                 github_path_vr = f"Piano_Miglioramento/{file_name_dinamico}"
                 salva_file_su_github(github_path_vr, csv_data_dinamico.encode("utf-8-sig"), f"Add Valutazione Rischio {file_name_dinamico}")
 
@@ -2806,7 +2805,7 @@ if nav == "Piano Miglioramento":
                     mime="text/csv",
                     use_container_width=True
                 )
-                st.success(f"File salvato e sincronizzato sia localmente che su GitHub in: `{github_path_vr}`")
+                st.success(f"File salvato localmente e sincronizzato su GitHub in: `{github_path_vr}`")
             else:
                 st.info("Compila o genera la tabella dinamica per abilitare il download e il salvataggio del file.")
             
@@ -2815,6 +2814,7 @@ if nav == "Piano Miglioramento":
         st.subheader("Azioni Piano di Miglioramento")
         st.markdown("Gestione delle azioni intraprese, delle tipologie di intervento e del relativo follow-up.")
 
+        # Gestione autenticazione
         if "auth_piano_m" not in st.session_state:
             st.session_state.auth_piano_m = False
             
@@ -2889,6 +2889,7 @@ if nav == "Piano Miglioramento":
                 },
                 key="editor_tipologie_interventi"
             )
+            # Sincronizzazione immediata session_state
             st.session_state.df_tipologie_session = edited_tipologie
         
             st.markdown("---")
@@ -2933,55 +2934,14 @@ if nav == "Piano Miglioramento":
                 },
                 key="editor_follow_up_azioni"
             )
+            # Sincronizzazione immediata session_state
             st.session_state.df_followup_session = edited_followup
 
-            # ---------------------------------------------------------
-            # PREPARAZIONE DATI ESPORTAZIONE ED UNIFICAZIONE
-            # ---------------------------------------------------------
-            df_export_azioni_rimedio = pd.DataFrame([{
-                "Sezione": "Azioni Immediate di Rimedio",
-                "Tipologia / Azione": "Descrizione",
-                "Dettaglio / Responsabile": st.session_state.get("azioni_immediate_txt", ""),
-                "Scadenza": "",
-                "Stato / Verifica": ""
-            }])
-
-            df_export_tipologie = st.session_state.get("df_tipologie_session", pd.DataFrame()).copy()
-            if not df_export_tipologie.empty:
-                df_export_tipologie["Sezione"] = "Tipologia Intervento"
-                df_export_tipologie = df_export_tipologie.rename(columns={
-                    "Tipologia di Intervento": "Tipologia / Azione",
-                    "Descrizione": "Dettaglio / Responsabile"
-                })
-                df_export_tipologie["Scadenza"] = ""
-                df_export_tipologie["Stato / Verifica"] = ""
-
-            df_export_followup = st.session_state.get("df_followup_session", pd.DataFrame()).copy()
-            if not df_export_followup.empty:
-                df_export_followup["Sezione"] = "Follow-up Azioni"
-                df_export_followup = df_export_followup.rename(columns={
-                    "Azione / Descrizione": "Tipologia / Azione",
-                    "Responsabile attuazione": "Dettaglio / Responsabile",
-                    "Entro il": "Scadenza",
-                    "Verifica attuazione": "Stato / Verifica"
-                })
-
-            cols_export = ["Sezione", "Tipologia / Azione", "Dettaglio / Responsabile", "Scadenza", "Stato / Verifica"]
-        
-            list_dfs = [df_export_azioni_rimedio[cols_export]]
-            if not df_export_tipologie.empty:
-                list_dfs.append(df_export_tipologie[cols_export])
-            if not df_export_followup.empty:
-                list_dfs.append(df_export_followup[cols_export])
-
-            df_completo_csv = pd.concat(list_dfs, ignore_index=True)
-            csv_bytes = df_completo_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
-        
             col_btn_salva, col_btn_down = st.columns(2)
 
             with col_btn_salva:
-                # PULSANTE DI SALVATAGGIO LOCALE E REMOTO SU GITHUB
                 st.markdown("---")
+                # PULSANTE UNICO PER IL SALVATAGGIO UNIFICATO DI TUTTE E 4 LE SOTTOSEZIONI
                 if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
                     try:
                         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -2994,69 +2954,105 @@ if nav == "Piano Miglioramento":
                     report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
                     nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
                     
-                    # Nome univoco per ogni record/evento collegato
+                    # Nomi univoci dei file per record/evento collegato
+                    nome_unificato_csv = f"Piano_Miglioramento_{nome_file_pulito}.csv"
                     nome_file_xlsx = f"{nome_file_pulito}_Piano_Miglioramento.xlsx"
-                    nome_followup_csv = f"Piano_Miglioramento_FollowUp_{nome_file_pulito}.csv"
-                    
+
+                    percorso_completo_csv = os.path.join(dir_dest, nome_unificato_csv)
                     percorso_completo_xlsx = os.path.join(dir_dest, nome_file_xlsx)
-                    percorso_followup_csv = os.path.join(dir_dest, nome_followup_csv)
 
-                    df_follow_to_save = st.session_state.get("df_followup_session", pd.DataFrame())
+                    # ------------------------------------------------------------------
+                    # COSTRUZIONE DEL SINGLE CSV UNIFICATO (CON TUTTE E 4 LE SOTTOSEZIONI)
+                    # ------------------------------------------------------------------
+                    # 1. Valutazione del Rischio
+                    df_vr_curr = st.session_state.get("df_vr_session", pd.DataFrame()).copy()
+                    df_vr_curr["Sezione Sottosezione"] = "1. Valutazione del Rischio"
+
+                    # 2. Azioni Immediate di Rimedio
+                    df_imm_curr = pd.DataFrame([{
+                        "Sezione Sottosezione": "2. Azioni Immediate di Rimedio",
+                        "Dettaglio / Descrizione": st.session_state.get("azioni_immediate_txt", "")
+                    }])
+
+                    # 3. Azioni di Miglioramento - Tipologia Intervento
+                    df_tip_curr = edited_tipologie.copy()
+                    df_tip_curr["Sezione Sottosezione"] = "3. Azioni di Miglioramento - Tipologia Intervento"
+
+                    # 4. Follow-up Azioni Intraprese
+                    df_fol_curr = edited_followup.copy()
+                    df_fol_curr["Sezione Sottosezione"] = "4. Follow UP Azioni Intraprese"
+
+                    # Unione sequenziale in un unico DataFrame unificato
+                    df_unificato_csv = pd.concat([df_vr_curr, df_imm_curr, df_tip_curr, df_fol_curr], ignore_index=True, sort=False)
                     
-                    # 1. Salvataggio CSV Follow-up Locale e GitHub
-                    csv_followup_bytes = df_follow_to_save.to_csv(index=False, sep=";").encode("utf-8-sig")
-                    with open(percorso_followup_csv, "wb") as f:
-                        f.write(csv_followup_bytes)
-                        
-                    github_csv_path = f"Piano_Miglioramento/{nome_followup_csv}"
-                    ok_github_csv = salva_file_su_github(github_csv_path, csv_followup_bytes, f"Update {nome_followup_csv}")
+                    # Esportazione in formato CSV (separatore ;)
+                    csv_unificato_bytes = df_unificato_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
 
-                    # 2. Generazione Excel e Salvataggio Locale e GitHub
-                    df_azioni_intraprese = pd.DataFrame({
-                        "Tipologia Contenuto": ["Azioni immediate di rimedio"],
-                        "Descrizione / Dettaglio": [st.session_state.get("azioni_immediate_txt", "")]
-                    })
-                
+                    # Salvataggio CSV Locale
+                    with open(percorso_completo_csv, "wb") as f:
+                        f.write(csv_unificato_bytes)
+                        
+                    # Salvataggio CSV Remoto su GitHub
+                    github_csv_path = f"Piano_Miglioramento/{nome_unificato_csv}"
+                    ok_github_csv = salva_file_su_github(github_csv_path, csv_unificato_bytes, f"Update Unificato {nome_unificato_csv}")
+
+                    # ------------------------------------------------------------------
+                    # COSTRUZIONE FILE EXCEL COMPLETO (CON FOGLI DISTINTI)
+                    # ------------------------------------------------------------------
                     try:
                         excel_buffer = io.BytesIO()
                         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                            df_vr_to_save = st.session_state.get("df_vr_session", pd.DataFrame())
-                            df_vr_to_save.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
-                        
-                            df_azioni_intraprese.to_excel(writer, sheet_name="Azioni intraprese", index=False)
-                        
-                            df_tip_to_save = st.session_state.get("df_tipologie_session", pd.DataFrame())
-                            df_tip_to_save.to_excel(writer, sheet_name="Tipologie intervento", index=False)
-                        
-                            df_follow_to_save.to_excel(writer, sheet_name="Follow-up azioni", index=False)
+                            df_vr_curr.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
+                            df_imm_curr.to_excel(writer, sheet_name="Azioni immediate", index=False)
+                            df_tip_curr.to_excel(writer, sheet_name="Tipologie intervento", index=False)
+                            df_fol_curr.to_excel(writer, sheet_name="Follow-up azioni", index=False)
 
                         xlsx_bytes = excel_buffer.getvalue()
 
-                        # Salva file excel su disco locale
+                        # Salva file Excel locale
                         with open(percorso_completo_xlsx, "wb") as f:
                             f.write(xlsx_bytes)
                             
-                        # Salva file excel su GitHub online
+                        # Salva file Excel remoto su GitHub
                         github_xlsx_path = f"Piano_Miglioramento/{nome_file_xlsx}"
-                        ok_github_xlsx = salva_file_su_github(github_xlsx_path, xlsx_bytes, f"Update {nome_file_xlsx}")
+                        ok_github_xlsx = salva_file_su_github(github_xlsx_path, xlsx_bytes, f"Update Excel {nome_file_xlsx}")
                     
                         st.success(
-                            f"✅ Dati salvati con successo!\n\n"
+                            f"✅ Tutti i dati delle 4 sottosezioni sono stati salvati in automatico con successo!\n\n"
                             f"**File Generati:**\n"
-                            f"- Excel: `Piano_Miglioramento/{nome_file_xlsx}`\n"
-                            f"- CSV Follow-up: `{github_csv_path}`\n\n"
-                            f"**Stato Sync GitHub Remoto:** {'Sincronizzato online ✅' if ok_github_xlsx and ok_github_csv else 'Salvataggio Remoto Non Riuscito (verificare Token) ⚠️'}"
+                            f"- CSV Unificato: `{github_csv_path}`\n"
+                            f"- Excel Completo: `{github_xlsx_path}`\n\n"
+                            f"**Sincronizzazione GitHub Remota:** {'Online ✅' if ok_github_csv and ok_github_xlsx else 'Salvataggio Remoto Non Riuscito (verificare credenziali) ⚠️'}"
                         )
                     except Exception as e:
-                        st.error(f"Errore durante il salvataggio dei file Excel/CSV: {e}")
+                        st.error(f"Errore durante la generazione dei file Excel/CSV: {e}")
 
             with col_btn_down:
                 report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-                nome_file_csv_down = f"{''.join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()}_Azioni_Piano_Miglioramento.csv"
+                nome_pulito_down = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()
+                nome_file_csv_down = f"Piano_Miglioramento_{nome_pulito_down}.csv"
             
+                # Preparazione del download al volo per il CSV unificato
+                df_vr_d = st.session_state.get("df_vr_session", pd.DataFrame()).copy()
+                df_vr_d["Sezione Sottosezione"] = "1. Valutazione del Rischio"
+
+                df_imm_d = pd.DataFrame([{
+                    "Sezione Sottosezione": "2. Azioni Immediate di Rimedio",
+                    "Dettaglio / Descrizione": st.session_state.get("azioni_immediate_txt", "")
+                }])
+
+                df_tip_d = st.session_state.get("df_tipologie_session", pd.DataFrame()).copy()
+                df_tip_d["Sezione Sottosezione"] = "3. Azioni di Miglioramento - Tipologia Intervento"
+
+                df_fol_d = st.session_state.get("df_followup_session", pd.DataFrame()).copy()
+                df_fol_d["Sezione Sottosezione"] = "4. Follow UP Azioni Intraprese"
+
+                df_down_unificato = pd.concat([df_vr_d, df_imm_d, df_tip_d, df_fol_d], ignore_index=True, sort=False)
+                bytes_down_unificato = df_down_unificato.to_csv(index=False, sep=";").encode("utf-8-sig")
+
                 st.download_button(
-                    label="📥 Scarica Azioni in CSV",
-                    data=csv_bytes,
+                    label="📥 Scarica Piano Miglioramento Unificato (.csv)",
+                    data=bytes_down_unificato,
                     file_name=nome_file_csv_down,
                     mime="text/csv",
                     use_container_width=True,
