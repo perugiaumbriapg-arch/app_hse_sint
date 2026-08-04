@@ -1771,41 +1771,59 @@ if nav == "Analisi - Fase 2":
             st.session_state.png_bytes = png_bytes
 
             # ==================================================================
-            # --- SALVATAGGIO AUTOMATICO NELLA CARTELLA "Analisi_Fase2" ---
+            # --- SALVATAGGIO AUTOMATICO SU GITHUB ONLINE ---
             # ==================================================================
-            dir_fase2 = os.path.join(os.path.dirname(__file__), "Analisi_Fase2")
-            os.makedirs(dir_fase2, exist_ok=True)
+            if GITHUB_TOKEN and REPO_NAME:
+                # Sanificazione stringa del riferimento evento per uso nei file
+                rif_sanitizzato = re.sub(r'[\\/*?:"<>|]', '_', scelta_rif).replace(' ', '_')
+                giorno_str = datetime.now().strftime("%Y-%m-%d")
 
-            # Sanificazione stringa del riferimento evento per uso nei file
-            rif_sanitizzato = re.sub(r'[\\/*?:"<>|]', '_', scelta_rif).replace(' ', '_')
-            giorno_str = datetime.now().strftime("%Y-%m-%d")
+                # Nome base: "Giorno della generazione_riferimento dell'evento_Analisi Fase 2"
+                base_filename = f"{giorno_str}_{rif_sanitizzato}_Analisi Fase 2"
 
-            # Nome file secondo la logica: "Giorno_riferimento_Analisi Fase 2"
-            base_filename = f"{giorno_str}_{rif_sanitizzato}_Analisi Fase 2"
+                # Dizionario dei file da caricare nella cartella "Analisi_Fase2"
+                files_to_upload = {
+                    f"Analisi_Fase2/{base_filename}.pdf": pdf_output,
+                    f"Analisi_Fase2/{base_filename}_Ishikawa.png": png_bytes,
+                    f"Analisi_Fase2/{base_filename}.xlsx": st.session_state.xlsx_bytes,
+                    f"Analisi_Fase2/{base_filename}.json": st.session_state.json_bytes
+                }
 
-            # Salvataggio PDF
-            pdf_path = os.path.join(dir_fase2, f"{base_filename}.pdf")
-            with open(pdf_path, "wb") as f:
-                f.write(pdf_output)
+                headers = {
+                    "Authorization": f"token {GITHUB_TOKEN}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
 
-            # Salvataggio Immagine Ishikawa (PNG)
-            png_path = os.path.join(dir_fase2, f"{base_filename}_Ishikawa.png")
-            with open(png_path, "wb") as f:
-                f.write(png_bytes)
+                caricamento_ok = True
+                for path_in_repo, content_bytes in files_to_upload.items():
+                    url = f"https://api.github.com/repos/{REPO_NAME}/contents/{path_in_repo}"
+                    
+                    # Controllo se il file esiste già per recuperare lo SHA (per sovrascrittura)
+                    res_get = requests.get(url, headers=headers)
+                    sha = res_get.json().get("sha") if res_get.status_code == 200 else None
 
-            # Salvataggio Dati XLSX
-            xlsx_path = os.path.join(dir_fase2, f"{base_filename}.xlsx")
-            with open(xlsx_path, "wb") as f:
-                f.write(st.session_state.xlsx_bytes)
+                    # Encoding del contenuto binario in Base64
+                    content_b64 = base64.b64encode(content_bytes).decode('utf-8')
 
-            # Salvataggio Dati JSON
-            json_path = os.path.join(dir_fase2, f"{base_filename}.json")
-            with open(json_path, "wb") as f:
-                f.write(st.session_state.json_bytes)
+                    payload = {
+                        "message": f"Auto-save report: {base_filename}",
+                        "content": content_b64
+                    }
+                    if sha:
+                        payload["sha"] = sha
+
+                    # Push su GitHub
+                    res_put = requests.put(url, json=payload, headers=headers)
+                    if res_put.status_code not in [200, 201]:
+                        caricamento_ok = False
+                        st.error(f"Errore nel salvataggio su GitHub per {path_in_repo}: {res_put.json().get('message')}")
+
+                if caricamento_ok:
+                    st.success(f"Report salvato automaticamente in 'Analisi_Fase2/' su GitHub!")
+            else:
+                st.warning("Variabili GITHUB_TOKEN o REPO_NAME non trovate. Impossibile salvare online.")
 
             st.session_state.report_ready = True
-            st.success(f"Report generato e salvato automaticamente in 'Analisi_Fase2/{base_filename}'!")
-
         # Bottoni Download
         if st.session_state.get("report_ready"):
             col_d1, col_d2, col_d3 = st.columns(3)
