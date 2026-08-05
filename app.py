@@ -194,48 +194,50 @@ def salva_normativa(chiave, titolo, url, descrizione):
 
 
 # ==================================================================
-# --- FUNZIONE HELPER: CALCOLO DATA DI SCADENZA (Formato IT & Rollover Anno) ---
+# --- FUNZIONE DI CALCOLO FORZATO SCADENZA ---
 # ==================================================================
-def calcola_data_scadenza(row):
+def applica_calcolo_scadenza_dataframe(df):
     """
-    Calcola la data di scadenza sommando i mesi indicati alla data in 'Rilasciato'.
-    Esegue il calcolo per tutte le righe gestendo il formato GG/MM/AAAA e il passaggio d'anno.
+    Scorre ogni singola riga del DataFrame e forza la sovrascrittura
+    della colonna 'Scadenza' calcolandola da 'Rilasciato' e 'In vigore durante (mesi)'.
     """
-    try:
-        val_rilasciato = str(row.get("Rilasciato", "")).strip()
-        val_mesi = row.get("In vigore durante (mesi)", 0)
+    if df is None or df.empty:
+        return df
         
+    def _calcola_singola_riga(row):
         try:
-            mesi_da_aggiungere = int(float(val_mesi))
-        except (ValueError, TypeError):
-            mesi_da_aggiungere = 0
+            val_rilasciato = str(row.get("Rilasciato", "")).strip()
+            val_mesi = row.get("In vigore durante (mesi)", 0)
+            
+            try:
+                mesi = int(float(val_mesi))
+            except (ValueError, TypeError):
+                mesi = 0
 
-        if not val_rilasciato or mesi_da_aggiungere <= 0:
+            if not val_rilasciato or mesi <= 0:
+                return ""
+
+            # Parsing data con priorità al formato italiano
+            dt = pd.to_datetime(val_rilasciato, dayfirst=True, errors='coerce')
+            if pd.isna(dt):
+                return ""
+
+            # Calcolo avanzamento mesi e cambio anno
+            tot_mesi = dt.month + mesi
+            nuovo_anno = dt.year + (tot_mesi - 1) // 12
+            nuovo_mese = (tot_mesi - 1) % 12 + 1
+
+            import calendar
+            max_giorni = calendar.monthrange(nuovo_anno, nuovo_mese)[1]
+            nuovo_giorno = min(dt.day, max_giorni)
+
+            return datetime(nuovo_anno, nuovo_mese, nuovo_giorno).strftime("%d/%m/%Y")
+        except Exception:
             return ""
 
-        # Parsing con priorità al formato giorno/mese/anno
-        data_rilascio = pd.to_datetime(val_rilasciato, dayfirst=True, errors='coerce')
-        if pd.isna(data_rilascio):
-            return ""
-
-        anno_corrente = data_rilascio.year
-        mese_corrente = data_rilascio.month
-        giorno_corrente = data_rilascio.day
-
-        # Somma dei mesi e calcolo rollover anno
-        totale_mesi = mese_corrente + mesi_da_aggiungere
-        nuovo_anno = anno_corrente + (totale_mesi - 1) // 12
-        nuovo_mese = (totale_mesi - 1) % 12 + 1
-
-        import calendar
-        max_giorni_nuovo_mese = calendar.monthrange(nuovo_anno, nuovo_mese)[1]
-        nuovo_giorno = min(giorno_corrente, max_giorni_nuovo_mese)
-
-        data_scadenza = datetime(nuovo_anno, nuovo_mese, nuovo_giorno)
-        return data_scadenza.strftime("%d/%m/%Y")
-
-    except Exception:
-        return ""
+    # Sovrascrive direttamente la colonna Scadenza riga per riga
+    df["Scadenza"] = df.apply(_calcola_singola_riga, axis=1)
+    return df
 
 def estrai_info_checklist(percorso_file):
     nome_base = os.path.basename(percorso_file)
@@ -844,7 +846,6 @@ if nav == "Scadenzario Adempimenti":
         
     correct_pwd_scad = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
 
-    # Helper function per la lettura da GitHub + CALCOLO AUTOMATICO SU TUTTE LE RIGHE
     def carica_da_github_scadenzario():
         file_path_repo = "scadenzario.xlsx"
         github_token = st.secrets.get("GITHUB_TOKEN", "")
@@ -858,34 +859,26 @@ if nav == "Scadenzario Adempimenti":
                 res = requests.get(url, headers=headers)
                 if res.status_code == 200:
                     df = pd.read_excel(io.BytesIO(res.content))
-            except Exception as e:
-                st.warning(f"Impossibile leggere da GitHub ({e}), tentativo da file locale...")
+            except Exception:
+                pass
         
-        # Fallback locale se GitHub non risponde
         if df is None:
             file_scad_target = FILE_SCADENZARIO if 'FILE_SCADENZARIO' in globals() else "scadenzario.xlsx"
             if os.path.exists(file_scad_target):
                 try:
                     df = pd.read_excel(file_scad_target)
-                except Exception as e:
-                    st.error(f"Errore lettura file locale: {e}")
+                except Exception:
                     df = pd.DataFrame(columns=COLONNE_SCADENZARIO)
             else:
                 df = pd.DataFrame(columns=COLONNE_SCADENZARIO)
 
-        # Normalizzazione colonne
         for col in COLONNE_SCADENZARIO:
             if col not in df.columns:
                 df[col] = ""
         df = df[COLONNE_SCADENZARIO].fillna("")
         
-        for col in df.columns:
-            df[col] = df[col].astype(str).replace(["nan", "None", "<NA>", "NaT"], "").str.strip()
-
-        # ---> ESECUZIONE CALCOLO SCADENZA SU OGNI RIGA DEL FILE GITHUB <---
-        if not df.empty and 'calcola_data_scadenza' in globals():
-            df["Scadenza"] = df.apply(calcola_data_scadenza, axis=1)
-
+        # FORZA IL CALCOLO SU TUTTE LE RIGHE DEL FILE SCARICATO DA GITHUB
+        df = applica_calcolo_scadenza_dataframe(df)
         return df
 
     if not st.session_state.autenticato_scadenze:
@@ -893,8 +886,6 @@ if nav == "Scadenzario Adempimenti":
         if st.button("Convalida Password Scadenzario", use_container_width=True):
             if pwd_scad == correct_pwd_scad:
                 st.session_state.autenticato_scadenze = True
-                
-                # Sincronizza ed esegue il calcolo per tutte le righe del file online
                 st.session_state.df_scadenzario_state = carica_da_github_scadenzario()
                 st.rerun()
             else:
@@ -905,7 +896,9 @@ if nav == "Scadenzario Adempimenti":
         st.markdown("---")
         
         st.subheader("1. Modifica ed Inserimento Dati")
-        df_editor_input = st.session_state.df_scadenzario_state.copy()
+        
+        # Garantiamo che i dati in ingresso nell'editor abbiano già le scadenze ricalcolate
+        df_editor_input = applica_calcolo_scadenza_dataframe(st.session_state.df_scadenzario_state.copy())
         
         df_modificato = st.data_editor(
             df_editor_input,
@@ -917,53 +910,54 @@ if nav == "Scadenzario Adempimenti":
         
         if st.button("Aggiorna Calcoli Automatici e Salva nel File Excel su GitHub", use_container_width=True):
             try:
-                df_elaborazione = df_modificato.copy()
-                df_elaborazione = df_elaborazione.fillna("")
-                for col in df_elaborazione.columns:
-                    df_elaborazione[col] = df_elaborazione[col].astype(str).replace(["nan", "None", "<NA>", "NaT"], "").str.strip()
+                # 1. Copia dei dati dall'editor
+                df_finale = df_modificato.copy().fillna("")
                 
-                # Calcolo per ogni riga prima di scrivere sul repository online
-                if 'calcola_data_scadenza' in globals():
-                    df_elaborazione["Scadenza"] = df_elaborazione.apply(calcola_data_scadenza, axis=1)
+                # 2. RICALCOLO FORZATO E TASSATIVO SU OGNI RIGA PRIMA DI CREARE L'EXCEL
+                df_finale = applica_calcolo_scadenza_dataframe(df_finale)
                 
-                if "In vigore durante (mesi)" in df_elaborazione.columns:
-                    df_elaborazione["In vigore durante (mesi)"] = pd.to_numeric(
-                        df_elaborazione["In vigore durante (mesi)"], errors='coerce'
+                # 3. Conversione numerica della colonna mesi per pulizia
+                if "In vigore durante (mesi)" in df_finale.columns:
+                    df_finale["In vigore durante (mesi)"] = pd.to_numeric(
+                        df_finale["In vigore durante (mesi)"], errors='coerce'
                     ).fillna(0).astype(int)
                 
+                # 4. Generazione file Excel binario con le colonne e i calcoli aggiornati
                 output_excel = io.BytesIO()
                 with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
-                    df_elaborazione.to_excel(writer, index=False)
+                    df_finale.to_excel(writer, index=False)
                 excel_bytes = output_excel.getvalue()
 
-                # Salvataggio Backup Locale
+                # 5. Salvataggio Locale Backup
                 file_scad_target = FILE_SCADENZARIO if 'FILE_SCADENZARIO' in globals() else "scadenzario.xlsx"
                 with open(file_scad_target, "wb") as f:
                     f.write(excel_bytes)
 
-                # Push su Repository GitHub
+                # 6. Push diretto su GitHub
                 salvato_gh = False
                 if 'save_to_github' in globals():
                     salvato_gh = save_to_github("scadenzario.xlsx", excel_bytes, "Aggiornamento scadenzario.xlsx")
                 
-                st.session_state.df_scadenzario_state = df_elaborazione
+                # 7. Aggiornamento dello stato interno
+                st.session_state.df_scadenzario_state = df_finale
                 
                 if salvato_gh:
-                    st.success("File Excel 'scadenzario.xlsx' salvato con successo sia in locale che su GitHub!")
+                    st.success("Tutte le righe sono state ricalcolate e il file 'scadenzario.xlsx' è stato aggiornato su GitHub!")
                 else:
-                    st.success("File Excel salvato in locale!")
+                    st.success("Calcoli aggiornati e salvati in locale!")
                     
-                time.sleep(0.4)
+                time.sleep(0.5)
                 st.rerun()
             except Exception as err:
                 st.error(f"Errore durante il salvataggio: {err}")
                 
         st.markdown("---")
         st.subheader("2. Registro Alert & Scadenze Effettive (Vista Finale)")
-        df_vista_alert = st.session_state.df_scadenzario_state.copy()
+        
+        # Ricalcolo di sicurezza anche per la vista finale
+        df_vista_alert = applica_calcolo_scadenza_dataframe(st.session_state.df_scadenzario_state.copy())
         
         if not df_vista_alert.empty:
-            # Formattazione condizionata basata sulle scadenze calcolate
             if 'evidenzia_righe_scadenza' in globals():
                 styler_colorato = df_vista_alert.style.apply(evidenzia_righe_scadenza, axis=1)
                 st.dataframe(styler_colorato, use_container_width=True, hide_index=True)
