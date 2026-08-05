@@ -194,6 +194,53 @@ def salva_normativa(chiave, titolo, url, descrizione):
 
 
 # ==================================================================
+# --- FUNZIONE HELPER: CALCOLO DATA DI SCADENZA (Aggiunta Mesi) SCADENZARIO ADDEMPIMENTI
+# ==================================================================
+def calcola_data_scadenza(row):
+    """
+    Calcola la nuova data di scadenza sommando i mesi indicati
+    nella colonna 'In vigore durante (mesi)' alla data presente in 'Rilasciato'.
+    """
+    try:
+        val_rilasciato = str(row.get("Rilasciato", "")).strip()
+        val_mesi = row.get("In vigore durante (mesi)", 0)
+        
+        # Pulizia e parsing del numero di mesi
+        try:
+            mesi_da_aggiungere = int(float(val_mesi))
+        except (ValueError, TypeError):
+            mesi_da_aggiungere = 0
+
+        if not val_rilasciato or mesi_da_aggiungere <= 0:
+            return ""
+
+        # Conversione della data di rilascio
+        data_rilascio = pd.to_datetime(val_rilasciato, errors='coerce')
+        if pd.isna(data_rilascio):
+            return ""
+
+        # Calcolo avanzamento mesi gestendo il cambio anno
+        anno_corrente = data_rilascio.year
+        mese_corrente = data_rilascio.month
+        giorno_corrente = data_rilascio.day
+
+        # Somma dei mesi
+        totale_mesi = mese_corrente + mesi_da_aggiungere
+        nuovo_anno = anno_corrente + (totale_mesi - 1) // 12
+        nuovo_mese = (totale_mesi - 1) % 12 + 1
+
+        # Gestione dei giorni limite del mese (es. 31 Gennaio + 1 Mese -> 28/29 Febbraio)
+        import calendar
+        max_giorni_nuovo_mese = calendar.monthrange(nuovo_anno, nuovo_mese)[1]
+        nuovo_giorno = min(giorno_corrente, max_giorni_nuovo_mese)
+
+        data_scadenza = datetime(nuovo_anno, nuovo_mese, nuovo_giorno)
+        return data_scadenza.strftime("%Y-%m-%d")
+
+    except Exception:
+        return ""
+
+# ==================================================================
 # --- 2. FUNZIONI DI SUPPORTO E CALCOLO AUTOMATICO SCADENZE ---
 # ==================================================================
 def estrai_testo_da_file(percorso_file):
