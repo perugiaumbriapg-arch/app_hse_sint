@@ -2679,7 +2679,7 @@ if nav == "Piano Miglioramento":
             return False
         return True
 
-    # UTILITY PER CARICAMENTO EVENTI (Estesa a manutenzione.csv)
+    # UTILITY PER CARICAMENTO EVENTI
     def load_events():
         events = []
         file_sources = [
@@ -2710,7 +2710,6 @@ if nav == "Piano Miglioramento":
         elif "(manutenzione)" in evento_str.lower():
             tipo = "manutenzione"
         
-        # Cerca una data nel testo (es. YYYY-MM-DD, DD/MM/YYYY, YYYYMMDD)
         match_date = re.search(r'(\d{4}[-/.]?\d{2}[-/.]?\d{2}|\d{2}[-/.]?\d{2}[-/.]?\d{4})', evento_str)
         if match_date:
             clean_date = re.sub(r'[-/.]', '', match_date.group(1))
@@ -2718,6 +2717,20 @@ if nav == "Piano Miglioramento":
             clean_date = datetime.now().strftime("%Y%m%d")
             
         return f"{clean_date}_{tipo}"
+
+    # UTILITY PER LEGGERE DATI VR DALLA CARTELLA SE NON IN SESSIONE
+    def get_existing_vr_data(short_event_prefix):
+        vr_folder = os.path.join("Piano_Miglioramento", "Valutazione_Rischio")
+        if os.path.exists(vr_folder):
+            try:
+                files = [f for f in os.listdir(vr_folder) if f.startswith(short_event_prefix) and f.endswith(".xlsx")]
+                if files:
+                    files.sort(reverse=True)  # Prende il file più recente
+                    latest_file = os.path.join(vr_folder, files[0])
+                    return pd.read_excel(latest_file, sheet_name="Valutazione Rischio")
+            except Exception:
+                pass
+        return pd.DataFrame(columns=["Rischio", "Probabilità", "Gravità", "Sensibilità", "Controllo", "Significatività"])
 
     # ------------------------------------------
     # SOTTOSEZIONE 2: Valutazione del Rischio (PRIVATA)
@@ -2783,13 +2796,19 @@ if nav == "Piano Miglioramento":
             styled_df = df_vr_calcolato.style.map(color_rows, subset=['Significatività'])
             st.dataframe(styled_df, use_container_width=True)
             
-            # Generazione nome file corto
+            # Generazione nome file corto e info evento
             now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
             short_event_vr = format_event_name_short(evento_selezionato_vr)
             excel_filename_vr = f"{short_event_vr}_{now_str}_Valutazione_Rischio.xlsx"
             
+            df_info_evento = pd.DataFrame([{
+                "Evento Collegato": evento_selezionato_vr,
+                "Data Creazione": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+            }])
+            
             buffer_vr = io.BytesIO()
             with pd.ExcelWriter(buffer_vr, engine='openpyxl') as writer:
+                df_info_evento.to_excel(writer, index=False, sheet_name="Info Evento")
                 df_vr_calcolato.to_excel(writer, index=False, sheet_name="Valutazione Rischio")
             excel_data_vr = buffer_vr.getvalue()
             
@@ -2865,33 +2884,42 @@ if nav == "Piano Miglioramento":
                 key="editor_followup"
             )
             
-            # Formattazione timestamp e nomi file accorciati
+            # Formattazione timestamp e nomi file
             now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
             short_event_am = format_event_name_short(evento_selezionato_am)
             
             csv_filename = f"{short_event_am}_{now_str}_Piano_Miglioramento.csv"
             report_excel_filename = f"{short_event_am}_{now_str}_Report.xlsx"
 
-            # Prepara il buffer CSV
+            # Buffer CSV interno
             csv_buffer = io.StringIO()
-            csv_buffer.write(f"# Evento: {evento_selezionato_am}\n")
+            csv_buffer.write(f"# Evento Collegato: {evento_selezionato_am}\n")
             csv_buffer.write(f"# Azioni Immediate:\n{azioni_immediate}\n\n")
             csv_buffer.write("# Tipologie Intervento:\n")
             edited_tipo_df.to_csv(csv_buffer, index=False)
             csv_buffer.write("\n# Follow Up:\n")
             edited_followup_df.to_csv(csv_buffer, index=False)
             
-            # --- GENERAZIONE EXCEL REPORT MULTI-FOGLIO ---
-            report_buffer = io.BytesIO()
+            # --- RECUPERO DATI VALUTAZIONE RISCHIO PER LO STESSO EVENTO ---
             df_vr_report = st.session_state.get("editor_vr", pd.DataFrame())
-            if isinstance(df_vr_report, pd.DataFrame) and not df_vr_report.empty:
+            if isinstance(df_vr_report, pd.DataFrame) and not df_vr_report.empty and df_vr_report.iloc[0].get("Rischio", "") != "":
                 df_vr_report = calcola_significativita(df_vr_report)
             else:
-                df_vr_report = pd.DataFrame(columns=["Rischio", "Probabilità", "Gravità", "Sensibilità", "Controllo", "Significatività"])
+                # Se vuoto o non compilato in sessione, cerca file salvato nella cartella Valutazione_Rischio
+                df_vr_report = get_existing_vr_data(short_event_am)
+
+            # Dataframe Info Evento
+            df_info_evento = pd.DataFrame([{
+                "Evento Collegato": evento_selezionato_am,
+                "Data Generazione Report": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+            }])
 
             df_imm_report = pd.DataFrame([{"Azioni Immediate": azioni_immediate}])
 
+            # --- GENERAZIONE EXCEL REPORT MULTI-FOGLIO ---
+            report_buffer = io.BytesIO()
             with pd.ExcelWriter(report_buffer, engine='openpyxl') as writer:
+                df_info_evento.to_excel(writer, index=False, sheet_name="Info Evento")
                 df_vr_report.to_excel(writer, index=False, sheet_name="Valutazione del rischio")
                 df_imm_report.to_excel(writer, index=False, sheet_name="Azioni immediate")
                 edited_tipo_df.to_excel(writer, index=False, sheet_name="Azioni di miglioramento")
@@ -2903,7 +2931,6 @@ if nav == "Piano Miglioramento":
             col_rep1, col_rep2 = st.columns(2)
             with col_rep1:
                 if st.button("💾 Salva Report Online", key="btn_save_report"):
-                    # Salvataggio sincronizzato sia del CSV di sezione che del Report Excel su GitHub
                     csv_repo_path = f"Piano_Miglioramento/Azioni_Piano_Miglioramento/{csv_filename}"
                     report_repo_path = f"Piano_Miglioramento/Report/{report_excel_filename}"
                     
@@ -2911,7 +2938,7 @@ if nav == "Piano Miglioramento":
                     saved_excel = save_to_github(report_repo_path, report_excel_data, f"Add {report_excel_filename}")
                     
                     if saved_csv and saved_excel:
-                        st.success(f"Report e dati salvati con successo su GitHub!")
+                        st.success("Report completo e dati del Piano di Miglioramento salvati su GitHub!")
 
             with col_rep2:
                 st.download_button(
