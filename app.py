@@ -396,7 +396,7 @@ tab_list = [
     "Analisi Segnalazioni Near Miss",
     "Skill Matrix",
     "Analisi - Fase 2",
-    "Piano Miglioramento",
+    "Piano di Miglioramento",
     "Stima Costo Economico",
     "Riconoscimento",
     "KPI",
