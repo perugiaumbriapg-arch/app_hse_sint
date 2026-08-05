@@ -2625,7 +2625,7 @@ if nav == "KPI":
 # SEZIONE 8: PIANO DI MIGLIORAMENTO
 # ==========================================
 if nav == "Piano Miglioramento":
-    st.title("Sezione 8: Piano di Miglioramento")
+    st.title("Piano di Miglioramento")
 
     # Inizializzazione Session State Autenticazione
     if "authenticated_sec8" not in st.session_state:
@@ -2679,12 +2679,13 @@ if nav == "Piano Miglioramento":
             return False
         return True
 
-    # UTILITY PER CARICAMENTO EVENTI
+    # UTILITY PER CARICAMENTO EVENTI (Inclusione sicura di manutenzione.csv)
     def load_events():
         events = []
         file_sources = [
             ("segnalazioni_near_miss.csv", "segnalazione"),
             ("analisi_near_miss.csv", "analisi"),
+            (os.path.join("Segnalazione_NM_Manutenzione", "manutenzione.csv"), "manutenzione"),
             (os.path.join("Segnalazioni_NM_Manutenzione", "manutenzione.csv"), "manutenzione")
         ]
         
