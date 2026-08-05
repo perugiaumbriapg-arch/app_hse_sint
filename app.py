@@ -194,18 +194,18 @@ def salva_normativa(chiave, titolo, url, descrizione):
 
 
 # ==================================================================
-# --- FUNZIONE HELPER: CALCOLO DATA DI SCADENZA (Aggiunta Mesi) SCADENZARIO ADDEMPIMENTI
+# --- FUNZIONE HELPER: CALCOLO DATA DI SCADENZA (Formato IT & Rollover Anno) SCADENZARIO ADEMPIMENTI
 # ==================================================================
 def calcola_data_scadenza(row):
     """
-    Calcola la nuova data di scadenza sommando i mesi indicati
-    nella colonna 'In vigore durante (mesi)' alla data presente in 'Rilasciato'.
+    Calcola la nuova data di scadenza sommando i mesi indicati alla data in 'Rilasciato'.
+    Gestisce il formato data italiano (GG/MM/AAAA) e l'incremento dell'anno se si supera Dicembre.
     """
     try:
         val_rilasciato = str(row.get("Rilasciato", "")).strip()
         val_mesi = row.get("In vigore durante (mesi)", 0)
         
-        # Pulizia e parsing del numero di mesi
+        # Pulizia e parsing dei mesi
         try:
             mesi_da_aggiungere = int(float(val_mesi))
         except (ValueError, TypeError):
@@ -214,28 +214,30 @@ def calcola_data_scadenza(row):
         if not val_rilasciato or mesi_da_aggiungere <= 0:
             return ""
 
-        # Conversione della data di rilascio
-        data_rilascio = pd.to_datetime(val_rilasciato, errors='coerce')
+        # Parsing con supporto prioritario al formato italiano GG/MM/AAAA (dayfirst=True)
+        data_rilascio = pd.to_datetime(val_rilasciato, dayfirst=True, errors='coerce')
         if pd.isna(data_rilascio):
             return ""
 
-        # Calcolo avanzamento mesi gestendo il cambio anno
         anno_corrente = data_rilascio.year
         mese_corrente = data_rilascio.month
         giorno_corrente = data_rilascio.day
 
-        # Somma dei mesi
+        # Aritmetica dei mesi e calcolo avanzamento anno
+        # Esempio: Agosto (Mese 8) + 10 mesi = 18 mesi -> (18-1)//12 = 1 Anno da aggiungere, Mese = (18-1)%12 + 1 = 6 (Giugno)
         totale_mesi = mese_corrente + mesi_da_aggiungere
         nuovo_anno = anno_corrente + (totale_mesi - 1) // 12
         nuovo_mese = (totale_mesi - 1) % 12 + 1
 
-        # Gestione dei giorni limite del mese (es. 31 Gennaio + 1 Mese -> 28/29 Febbraio)
+        # Controllo giorni limite del mese (es. 31 Gennaio -> 28/29 Febbraio)
         import calendar
         max_giorni_nuovo_mese = calendar.monthrange(nuovo_anno, nuovo_mese)[1]
         nuovo_giorno = min(giorno_corrente, max_giorni_nuovo_mese)
 
         data_scadenza = datetime(nuovo_anno, nuovo_mese, nuovo_giorno)
-        return data_scadenza.strftime("%Y-%m-%d")
+        
+        # Restituisce nel formato italiano GG/MM/AAAA (oppure %Y-%m-%d se preferisci il formato ISO)
+        return data_scadenza.strftime("%d/%m/%Y")
 
     except Exception:
         return ""
