@@ -327,6 +327,75 @@ def evidenzia_righe_scadenza(row):
         pass
     return [''] * len(row)
 
+# ==================================================================
+# --- FUNZIONE HELPER: RICERCA NEI DOCUMENTI (Fix NameError) CONSULTAZIONE
+# ==================================================================
+def cerca_nei_documenti(query, cartella_target):
+    """
+    Effettua una ricerca testuale basata su parole chiave nei file
+    presenti nella cartella indicata. Supporta file .pdf, .docx, .txt, .csv.
+    """
+    query_pulita = query.strip().lower()
+    if len(query_pulita) < 3:
+        return "specifica"
+
+    risultati = []
+    
+    if not os.path.exists(cartella_target):
+        return risultati
+
+    parole_chiave = query_pulita.split()
+
+    for nome_file in os.listdir(cartella_target):
+        percorso_completo = os.path.join(cartella_target, nome_file)
+        if not os.path.isfile(percorso_completo):
+            continue
+
+        testo_estratto = ""
+        ext = os.path.splitext(nome_file)[1].lower()
+
+        try:
+            # Lettura basata sul tipo di file
+            if ext == ".txt":
+                with open(percorso_completo, "r", encoding="utf-8", errors="ignore") as f:
+                    testo_estratto = f.read()
+            elif ext == ".csv":
+                df_temp = pd.read_csv(percorso_completo, errors="ignore")
+                testo_estratto = df_temp.to_string()
+            elif ext == ".docx":
+                import docx
+                doc = docx.Document(percorso_completo)
+                testo_estratto = "\n".join([p.text for p in doc.paragraphs])
+            elif ext == ".pdf":
+                try:
+                    import pypdf
+                    reader = pypdf.PdfReader(percorso_completo)
+                    testo_estratto = "\n".join([page.extract_text() or "" for page in reader.pages])
+                except Exception:
+                    pass
+        except Exception:
+            continue
+
+        if not testo_estratto.strip():
+            continue
+
+        testo_lower = testo_estratto.lower()
+        corrispondenze = sum(1 for pk in parole_chiave if pk in testo_lower)
+
+        if corrispondenze > 0:
+            score = int((corrispondenze / len(parole_chiave)) * 100)
+            risultati.append({
+                "fonte": nome_file,
+                "nome_file": nome_file,
+                "percorso_completo": percorso_completo,
+                "score": score,
+                "testo": testo_estratto
+            })
+
+    # Ordina i risultati per rilevanza (score decrescente)
+    risultati.sort(key=lambda x: x["score"], reverse=True)
+    return risultati
+
 # Funzione nativa per la generazione di QR Code (Ritorna un'immagine PIL)
 def genera_qr_nativo(data):
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
