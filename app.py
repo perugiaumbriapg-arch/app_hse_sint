@@ -49,7 +49,7 @@ MANSIONI_DPI = {
     "Addetto carrellisti magazzino bobine": ["boots", "gloves", "googles", "no-vest", "vest"],
 }
 
-# Gestione libreria PyGithub per il salvataggio su repository GitHub remota
+# Gestione libreria PyGithub per il salvataggio remoto su repository GitHub
 try:
     from github import Github
     GITHUB_AVAILABLE = True
@@ -59,18 +59,18 @@ except ImportError:
 
 def salva_file_su_github(path_repo, contenuto_bytes, messaggio_commit):
     """
-    Funzione helper per salvare o aggiornare un file direttamente sulla repository GitHub remota.
-    Richiede st.secrets["GITHUB_TOKEN"] e st.secrets["REPO_NAME"] oppure le relative variabili d'ambiente.
+    Salva o aggiorna un file direttamente sulla repository GitHub remota.
+    Richiede st.secrets["GITHUB_TOKEN"] e st.secrets["REPO_NAME"] (o variabili d'ambiente).
     """
     token = st.secrets.get("GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
     repo_name = st.secrets.get("REPO_NAME") or os.environ.get("REPO_NAME")
 
     if not token or not repo_name:
-        st.warning("⚠️ GITHUB_TOKEN o REPO_NAME non configurati nei secrets/variabili d'ambiente. Salvataggio locale eseguito.")
+        st.warning("⚠️ GITHUB_TOKEN o REPO_NAME non configurati nei Secrets/variabili d'ambiente. Salvataggio su GitHub non eseguito.")
         return False
 
     if not GITHUB_AVAILABLE:
-        st.error("❌ Libreria 'PyGithub' non installata. Aggiungi 'PyGithub' al file requirements.txt.")
+        st.error("❌ Libreria 'PyGithub' non trovata. Aggiungi 'PyGithub' al file requirements.txt.")
         return False
 
     try:
@@ -78,7 +78,7 @@ def salva_file_su_github(path_repo, contenuto_bytes, messaggio_commit):
         repo = g.get_repo(repo_name)
 
         try:
-            # Se il file esiste già sulla repository, lo aggiorniamo
+            # Aggiornamento se il file esiste già su GitHub
             contents = repo.get_contents(path_repo)
             repo.update_file(
                 path=path_repo,
@@ -87,7 +87,7 @@ def salva_file_su_github(path_repo, contenuto_bytes, messaggio_commit):
                 sha=contents.sha
             )
         except Exception:
-            # Se il file non esiste, lo creiamo
+            # Creazione nuovo file su GitHub se non esiste
             repo.create_file(
                 path=path_repo,
                 message=messaggio_commit,
@@ -95,7 +95,7 @@ def salva_file_su_github(path_repo, contenuto_bytes, messaggio_commit):
             )
         return True
     except Exception as e:
-        st.error(f"Errore durante la connessione/scrittura su GitHub: {e}")
+        st.error(f"Errore durante la connessione o scrittura su GitHub: {e}")
         return False
 
 # ==================================================================
