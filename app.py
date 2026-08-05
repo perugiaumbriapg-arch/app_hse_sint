@@ -413,6 +413,76 @@ def decodifica_qr_opencv(image_file):
 
     return valore if valore else None
 
+# ==================================================================
+# --- FUNZIONI HELPER: ESTRAZIONE TESTO E CHECKLIST (Fix NameError) ---
+# ==================================================================
+def estrai_testo_da_file(percorso_file):
+    """
+    Estrae il contenuto testuale da file .pdf, .docx, .txt, .csv, .xlsx.
+    """
+    if not os.path.exists(percorso_file):
+        return ""
+
+    ext = os.path.splitext(percorso_file)[1].lower()
+    testo = ""
+
+    try:
+        if ext == ".txt":
+            with open(percorso_file, "r", encoding="utf-8", errors="ignore") as f:
+                testo = f.read()
+        elif ext == ".csv":
+            df = pd.read_csv(percorso_file, errors="ignore")
+            testo = df.to_string()
+        elif ext in [".xlsx", ".xls"]:
+            df = pd.read_excel(percorso_file)
+            testo = df.to_string()
+        elif ext == ".docx":
+            import docx
+            doc = docx.Document(percorso_file)
+            testo = "\n".join([p.text for p in doc.paragraphs])
+        elif ext == ".pdf":
+            import pypdf
+            reader = pypdf.PdfReader(percorso_file)
+            testo = "\n".join([page.extract_text() or "" for page in reader.pages])
+    except Exception:
+        testo = ""
+
+    return testo
+
+
+def estrai_info_checklist(percorso_file):
+    """
+    Analizza il file e ne estrae i metadati principali per la check-list.
+    """
+    nome_base = os.path.basename(percorso_file)
+    testo = estrai_testo_da_file(percorso_file)
+    
+    # Titolo derivato dal nome del file
+    titolo = os.path.splitext(nome_base)[0].replace("_", " ").title()
+    
+    # Valori di default
+    regolamento = "D.Lgs. 81/08 / Normativa HSE"
+    doc_produrre = "Verifica documentale e registro aggiornato"
+    settore_aziendale = "Generale / Sicurezza sul Lavoro"
+
+    testo_lower = testo.lower()
+
+    # Logica di riconoscimento semplice basata sul contenuto
+    if "antincendio" in testo_lower or "vigili del fuoco" in testo_lower:
+        settore_aziendale = "Antincendio & Emergenze"
+        regolamento = "D.M. 02/09/2021 / D.P.R. 151/11"
+        doc_produrre = "CPI / Attestazione Rinnovo Periodico"
+    elif "rifiuti" in testo_lower or "ambiente" in testo_lower or "scarichi" in testo_lower:
+        settore_aziendale = "Ambiente & Ecologia"
+        regolamento = "D.Lgs. 152/2006 (Testo Unico Ambiente)"
+        doc_produrre = "MUD / Formulari FIR / Registro Carico Scarico"
+    elif "medico" in testo_lower or "sorveglianza sanitaria" in testo_lower:
+        settore_aziendale = "Medicina del Lavoro"
+        regolamento = "D.Lgs. 81/08 Art. 41"
+        doc_produrre = "Giudizi di Idoneità / Piano Sanitario"
+
+    return titolo, regolamento, doc_produrre, settore_aziendale
+
 # Aggiornamento Classificazione Riconoscimento
 def get_riconoscimenti_data():
     """Recupera i dati dei riconoscimenti dallo stato di sessione o dal file CSV."""
