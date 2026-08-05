@@ -2029,11 +2029,11 @@ if nav == "Consultazione":
                 st.subheader("Confronto Legislativo & Stato Conformità")
             
                 with st.expander("Aggiungi nuova norma al database interno"):
-                    k = st.text_input("Parola chiave (es: rifiuti):")
-                    t = st.text_input("Titolo:")
-                    u = st.text_input("URL ufficiale:")
-                    d = st.text_area("Descrizione della norma:")
-                    if st.button("Salva nel database"): 
+                    k = st.text_input("Parola chiave (es: rifiuti):", key="txt_norma_key_unique")
+                    t = st.text_input("Titolo:", key="txt_norma_titolo_unique")
+                    u = st.text_input("URL ufficiale:", key="txt_norma_url_unique")
+                    d = st.text_area("Descrizione della norma:", key="txt_norma_desc_unique")
+                    if st.button("Salva nel database", key="btn_salva_norma_unique"): 
                         if 'salva_normativa' in globals():
                             salva_normativa(k, t, u, d)
                             st.success("Norma salvata nel database!")
