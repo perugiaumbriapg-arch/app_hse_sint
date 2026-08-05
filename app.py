@@ -98,6 +98,47 @@ def salva_file_su_github(path_repo, contenuto_bytes, messaggio_commit):
         st.error(f"Errore durante la connessione o scrittura su GitHub: {e}")
         return False
 
+#================================================================
+# --- UTILITY GITHUB ---
+def save_to_github(file_path_in_repo, file_content, commit_message):
+    """Salva o aggiorna un file (bytes o str) direttamente sul repository GitHub."""
+    try:
+        token = st.secrets.get("GITHUB_TOKEN")
+        repo_name = st.secrets.get("REPO_NAME")
+        if not token or not repo_name:
+            st.error("Credenziali GitHub non configurate correttamente nei secrets.")
+            return False
+        
+        g = Github(token)
+        repo = g.get_repo(repo_name)
+        
+        try:
+            contents = repo.get_contents(file_path_in_repo)
+            repo.update_file(contents.path, commit_message, file_content, contents.sha)
+        except GithubException as e:
+            if e.status == 404:
+                repo.create_file(file_path_in_repo, commit_message, file_content)
+            else:
+                raise e
+        return True
+    except Exception as e:
+        st.error(f"Errore durante il salvataggio su GitHub: {e}")
+        return False
+
+# --- UTILITY PER DATEDATAFRAME ---
+def load_events():
+    """Carica gli eventi dai file CSV se presenti."""
+    events = []
+    for filename in ["segnalazioni_near_miss.csv", "analisi_near_miss.csv"]:
+        if os.path.exists(filename):
+            try:
+                df = pd.read_csv(filename)
+                events.extend(df.iloc[:, 0].dropna().astype(str).tolist())
+            except Exception:
+                pass
+    return sorted(list(set(events))) if events else ["Nessun evento disponibile"]
+
+
 # ==================================================================
 # --- 1. CONFIGURAZIONI INIZIALI E DATABASE LOCALI ---
 # ==================================================================
@@ -2580,470 +2621,249 @@ if nav == "KPI":
                                 )
                         st.rerun()
         render_sezione_kpi()
-# ==================================================================
-# --- SEZIONE 8: Piano di Miglioramento ---
-# ==================================================================
-if nav == "Piano Miglioramento":
-    st.header("Piano di Miglioramento HSE")
-    
-    # Sottosezioni della Sezione 8
-    sotto_sec = st.radio(
-        "Seleziona Sottosezione", 
-        ["Documentazione di Riferimento", "Valutazione del rischio", "Azioni Piano di Miglioramento"], 
-        horizontal=True, 
-        key="radio_sotto_sec_8"
-    )
-    
-    if sotto_sec == "Documentazione di Riferimento":
-        st.subheader("Consultazione Istruzione Operativa")
-        st.markdown("Consulta o scarica il documento PDF ufficiale relativo al piano di miglioramento.")
-        
-        try:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-        except NameError:
-            base_dir = os.getcwd()
-            
-        file_pdf_path = os.path.join(base_dir, "Piano_Miglioramento", "Istruzione_Piano_Miglioramento.pdf")
-        
-        if not os.path.exists(file_pdf_path):
-            percorsi_alternativi = [
-                os.path.join("Piano_Miglioramento", "Istruzione_Piano_Miglioramento.pdf"),
-                os.path.join("APP HSE", "Piano_Miglioramento", "Istruzione_Piano_Miglioramento.pdf")
-            ]
-            for p in percorsi_alternativi:
-                if os.path.exists(p):
-                    file_pdf_path = os.path.abspath(p)
-                    break
-        
-        if os.path.exists(file_pdf_path):
-            with open(file_pdf_path, "rb") as f:
-                pdf_bytes = f.read()
-            
-            st.download_button(
-                label="📥 Scarica / Apri Istruzione Piano di Miglioramento (.pdf)",
-                data=pdf_bytes,
-                file_name="Istruzione_Piano_Miglioramento.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-            
-            try:
-                import base64
-                base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>'
-                st.markdown(pdf_display, unsafe_allow_html=True)
-            except Exception as e:
-                st.info("Utilizza il pulsante di download sopra per consultare il documento nel lettore PDF del tuo computer.")
-        else:
-            st.error("Il file PDF 'Istruzione_Piano_Miglioramento.pdf' non è stato trovato.")
-                
-    # --- 2. SOTTOSEZIONI RISERVATE (AUTENTICAZIONE UNICA) ---
-    else:
-        # Inizializzazione dello stato di autenticazione UNICO per la Sezione 8
-        if "auth_sezione_8" not in st.session_state:
-            st.session_state.auth_sezione_8 = False
-
-        # Se l'utente non è ancora autenticato, mostriamo la maschera di login unica
-        if not st.session_state.auth_sezione_8:
-            st.warning("🔒 Area Riservata: Inserisci la password per accedere alla gestione del Piano di Miglioramento.")
-            pwd_s8 = st.text_input("Inserisci Password d'accesso:", type="password", key="pwd_sezione_8_input")
-            
-            if st.button("Sblocca Area Riservata", use_container_width=True):
-                if pwd_s8 == "hse2026":
-                    st.session_state.auth_sezione_8 = True
-                    st.success("Accesso autorizzato!")
-                    st.rerun()
-                else:
-                    st.error("Password errata. Riprova.")
-    else:  
-          if sotto_sec == "Valutazione del rischio":
-              st.markdown("---")
-              st.markdown("### 🔗 Area di Collegamento con 'Analisi - Fase 2'")
-              st.markdown("Seleziona e visualizza i dettagli del report di analisi e il Near Miss collegato prima di procedere con la valutazione.")
-  
-              # Caricamento e unione dati per dropdown
-              opzioni = ["Nessuna (Nuova analisi)"]
-                                  
-              # Leggi Near Miss
-              if os.path.exists(FILE_NEAR_MISS):
-                  df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
-                  for idx, r in df_nm.iterrows():
-                      opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
-                                  
-              # Leggi Analisi già fatte
-              if os.path.exists(FILE_ANALISI_NM):
-                  df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
-                  for idx, r in df_an.iterrows():
-                      opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
-                                  
-              scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
+# ==========================================
+# SEZIONE 8: PIANO DI MIGLIORAMENTO
+# ==========================================
+if nav == "Piano di Miglioramento":
+      st.title("Piano di Miglioramento")
+      
+      # Inizializzazione Session State Autenticazione
+      if "authenticated_sec8" not in st.session_state:
+          st.session_state["authenticated_sec8"] = False
+      
+      tabs = st.tabs(["Documentazione di riferimento", "Valutazione del Rischio", "Azioni Piano di Miglioramento"])
+      
+      # ------------------------------------------
+      # SOTTOSEZIONE 1: Documentazione di riferimento (PUBBLICA)
+      # ------------------------------------------
+      with tabs[0]:
+          st.subheader("Documentazione di Riferimento")
+          pdf_path = os.path.join("Piano_Miglioramento", "Istruzione_Piano_Miglioramento.pdf")
+          
+          if os.path.exists(pdf_path):
+              with open(pdf_path, "rb") as f:
+                  pdf_data = f.read()
               
-              file_analisi_target = globals().get("FILE_ANALISI_NM", "analisi_fase_2.csv")
-              file_near_miss_target = globals().get("FILE_NEAR_MISS", "near_miss.csv")
-              
-              df_an_f2 = pd.read_csv(file_analisi_target, sep=";") if os.path.exists(file_analisi_target) else pd.DataFrame()
-              df_nm = pd.read_csv(file_near_miss_target, sep=";") if os.path.exists(file_near_miss_target) else pd.DataFrame()
-              
-              if not df_an_f2.empty:
-                  opzioni_analisi = [f"Report #{idx+1} (Data/Ora: {df_an_f2.iloc[idx].get('Data/Ora', 'N/D')})" for idx in range(len(df_an_f2))]
-                  scelta_analisi = st.selectbox("Seleziona il Report di Analisi - Fase 2 da consultare/collegare", opzioni_analisi, key="seleziona_report_analisi_s8")
-                  
-                  # Salvataggio scelta in session_state
-                  st.session_state.report_analisi_selezionato = scelta_analisi
-                  
-                  idx_selezionato = opzioni_analisi.index(scelta_analisi)
-                  riga_selezionata = df_an_f2.iloc[idx_selezionato]
-                  
-                  col_info1, col_info2 = st.columns(2)
-                  with col_info1:
-                      st.info(f"**Data e Ora Elaborazione Report:** {riga_selezionata.get('Data/Ora', 'Non disponibile')}")
-                  with col_info2:
-                      st.info(f"**Analisi Segnalazione Near Miss:** {riga_selezionata.get('Analisi RSPP', riga_selezionata.iloc[1] if len(riga_selezionata) > 1 else 'N/D')}")
-                  
-                  if "ID Near Miss" in riga_selezionata and not df_nm.empty:
-                      id_nm = riga_selezionata["ID Near Miss"]
-                      st.markdown(f"**Dettaglio Near Miss Collegato (ID: {id_nm}):**")
-                      st.write(riga_selezionata.to_dict())
-              else:
-                  st.warning("Nessun report di 'Analisi - Fase 2' trovato nei sistemi operativi.")
-                  st.session_state.report_analisi_selezionato = "Report_Generico"
-                  
-              st.markdown("---")
-              st.markdown("### Tabella Dinamica di Valutazione del Rischio")
-              st.markdown("I parametri numerici (**Probabilità**, **Gravità**, **Sensibilità**, **Controllo**) accettano esclusivamente numeri interi compresi tra **1 e 3**.")
-              
-              try:
-                  base_dir = os.path.dirname(os.path.abspath(__file__))
-              except NameError:
-                  base_dir = os.getcwd()
-  
-              dir_pm_path = os.path.join(base_dir, "Piano_Miglioramento")
-              os.makedirs(dir_pm_path, exist_ok=True)
-              file_excel_vr = os.path.join(dir_pm_path, "valutazione_rischio.xlsx")
-  
-              if "df_vr_session" not in st.session_state:
-                  if os.path.exists(file_excel_vr):
-                      st.session_state.df_vr_session = pd.read_excel(file_excel_vr)
-                  else:
-                      st.session_state.df_vr_session = pd.DataFrame(columns=[
-                          "Rischio", "Probabilità", "Gravità", "Sensibilità", "Controllo", "Significatività"
-                      ])
-                      st.session_state.df_vr_session.loc[0] = ["Esempio rischio infortuni", 2, 2, 2, 2, 4]
-                  
-              for col in ["Probabilità", "Gravità", "Sensibilità", "Controllo"]:
-                  if col in st.session_state.df_vr_session.columns:
-                      st.session_state.df_vr_session[col] = pd.to_numeric(st.session_state.df_vr_session[col], errors='coerce').fillna(1).astype(int)
-              
-              st.session_state.df_vr_session["Significatività"] = ((st.session_state.df_vr_session["Gravità"] * st.session_state.df_vr_session["Probabilità"] * st.session_state.df_vr_session["Sensibilità"]) / st.session_state.df_vr_session["Controllo"].replace(0, 1)).round().astype(int)
-              
-              edited_df = st.data_editor(
-                  st.session_state.df_vr_session,
-                  num_rows="dynamic",
-                  use_container_width=True,
-                  column_config={
-                      "Rischio": st.column_config.TextColumn("Rischio", required=True),
-                      "Probabilità": st.column_config.NumberColumn("Probabilità", min_value=1, max_value=3, step=1, format="%d"),
-                      "Gravità": st.column_config.NumberColumn("Gravità", min_value=1, max_value=3, step=1, format="%d"),
-                      "Sensibilità": st.column_config.NumberColumn("Sensibilità", min_value=1, max_value=3, step=1, format="%d"),
-                      "Controllo": st.column_config.NumberColumn("Controllo", min_value=1, max_value=3, step=1, format="%d"),
-                      "Significatività": st.column_config.NumberColumn("Significatività", disabled=True, format="%d")
-                  },
-                  key="editor_valutazione_rischio"
+              st.download_button(
+                  label="📄 Scarica Istruzione Piano Miglioramento (PDF)",
+                  data=pdf_data,
+                  file_name="Istruzione_Piano_Miglioramento.pdf",
+                  mime="application/pdf"
               )
               
-              edited_df["Significatività"] = ((edited_df["Probabilità"] * edited_df["Gravità"] * edited_df["Sensibilità"]) / edited_df["Controllo"].replace(0, 1)).round().astype(int)
-              st.session_state.df_vr_session = edited_df
+              # Rendering PDF via iframe HTML
+              import base64
+              base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+              pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+              st.markdown(pdf_display, unsafe_allow_html=True)
+          else:
+              st.warning(f"Il file '{pdf_path}' non è stato trovato sul server.")
+      
+      # ------------------------------------------
+      # GESTIONE AUTENTICAZIONE SEZIONI PRIVATE
+      # ------------------------------------------
+      def check_auth():
+          if not st.session_state["authenticated_sec8"]:
+              st.warning("🔒 Quest'area è riservata. Inserisci la password per accedere.")
+              pwd_input = st.text_input("Password di accesso", type="password", key="pwd_sec8")
+              if st.button("Sblocca Sezioni Private"):
+                  correct_pwd = st.secrets.get("PASSWORD_SEZIONE", "admin")
+                  if pwd_input == correct_pwd:
+                      st.session_state["authenticated_sec8"] = True
+                      st.rerun()
+                  else:
+                      st.error("Password errata.")
+              return False
+          return True
+      
+      # ------------------------------------------
+      # SOTTOSEZIONE 2: Valutazione del Rischio (PRIVATA)
+      # ------------------------------------------
+      with tabs[1]:
+          if check_auth():
+              st.subheader("Valutazione del Rischio")
               
-              st.markdown("### Vista Consolidata con Indicatori di Rischio Colorati")
-              st.markdown("Legenda colori Significatività: **Verde** (1-3) | **Giallo** (4-6) | **Rosso** (7-9)")
+              lista_eventi = load_events()
+              evento_selezionato_vr = st.selectbox("Seleziona Evento Near Miss", lista_eventi, key="sb_vr")
               
-              def color_cells(val):
-                  try:
-                      v = int(val)
-                      if 1 <= v <= 3:
-                          return 'background-color: #d4edda; color: #155724; font-weight: bold;'
-                      elif 4 <= v <= 6:
-                          return 'background-color: #fff3cd; color: #856404; font-weight: bold;'
-                      elif 7 <= v <= 9:
-                          return 'background-color: #f8d7da; color: #721c24; font-weight: bold;'
-                  except:
-                      pass
+              # Dataframe di default per la valutazione rischi
+              default_vr_data = pd.DataFrame([
+                  {"Rischio": "", "Probabilità": 1, "Gravità": 1, "Sensibilità": 1, "Controllo": 1}
+              ])
+              
+              st.write("Compila la tabella di Valutazione del Rischio:")
+              edited_vr_df = st.data_editor(
+                  default_vr_data,
+                  num_rows="dynamic",
+                  column_config={
+                      "Rischio": st.column_config.TextColumn("Rischio", required=True),
+                      "Probabilità": st.column_config.NumberColumn("Probabilità", min_value=1, max_value=3, step=1),
+                      "Gravità": st.column_config.NumberColumn("Gravità", min_value=1, max_value=3, step=1),
+                      "Sensibilità": st.column_config.NumberColumn("Sensibilità", min_value=1, max_value=3, step=1),
+                      "Controllo": st.column_config.NumberColumn("Controllo", min_value=1, max_value=3, step=1),
+                  },
+                  key="editor_vr"
+              )
+              
+              # Calcolo dinamico colonna Significatività e formattazione
+              def calcola_significativita(df):
+                  df_calc = df.copy()
+                  # Calcolo formula: (Gravità * Probabilità * Sensibilità) / Controllo
+                  df_calc["Significatività"] = (
+                      (df_calc["Gravità"] * df_calc["Probabilità"] * df_calc["Sensibilità"]) / df_calc["Controllo"]
+                  ).round(2)
+                  return df_calc
+      
+              df_vr_calcolato = calcola_significativita(edited_vr_df)
+              
+              # Evidenziazione colore riga in base al risultato
+              def color_rows(val):
+                  if pd.isna(val):
+                      return ''
+                  if 1 <= val <= 3:
+                      return 'background-color: #d4edda; color: #155724;'  # Verde
+                  elif 4 <= val <= 6:
+                      return 'background-color: #fff3cd; color: #856404;'  # Giallo
+                  elif 7 <= val <= 9:
+                      return 'background-color: #f8d7da; color: #721c24;'  # Rosso
                   return ''
-  
-              styled_df = edited_df.style.map(color_cells, subset=["Significatività"])
+      
+              styled_df = df_vr_calcolato.style.map(color_rows, subset=['Significatività'])
               st.dataframe(styled_df, use_container_width=True)
-  
-              # --- Salvataggio Locale + Remoto GitHub per la Valutazione del Rischio ---
-              if 'edited_df' in locals() and not edited_df.empty:
-                  try:
-                      base_dir = os.path.dirname(os.path.abspath(__file__))
-                  except NameError:
-                      base_dir = os.getcwd()
-          
-                  target_val_rischio_dir = os.path.join(base_dir, "Piano_Miglioramento")
-                  os.makedirs(target_val_rischio_dir, exist_ok=True)
-      
-                  timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-                  report_sel_vr = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-                  nome_pulito_vr = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_vr]).strip()
-                  file_name_dinamico = f"Valutazione_Rischio_{nome_pulito_vr}_{timestamp_str}.csv"
-                  full_path_dinamico = os.path.join(target_val_rischio_dir, file_name_dinamico)
-      
-                  csv_data_dinamico = edited_df.to_csv(index=False, sep=";")
-      
-                  # Salvataggio Locale
-                  with open(full_path_dinamico, "w", encoding="utf-8") as f:
-                      f.write(csv_data_dinamico)
-                  
-                  # Salvataggio Remoto GitHub
-                  github_path_vr = f"Piano_Miglioramento/{file_name_dinamico}"
-                  salva_file_su_github(github_path_vr, csv_data_dinamico.encode("utf-8-sig"), f"Add Valutazione Rischio {file_name_dinamico}")
-  
+              
+              # Preparazione esportazione Excel
+              now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+              safe_evento = evento_selezionato_vr.replace(" ", "_").replace("/", "_")
+              excel_filename = f"{safe_evento}_{now_str}_Valutazione del rischio.xlsx"
+              
+              buffer_vr = io.BytesIO()
+              with pd.ExcelWriter(buffer_vr, engine='openpyxl') as writer:
+                  df_vr_calcolato.to_excel(writer, index=False, sheet_name="Valutazione Rischio")
+              excel_data_vr = buffer_vr.getvalue()
+              
+              col_btn1, col_btn2 = st.columns(2)
+              with col_btn1:
+                  if st.button("💾 Salva nuovamente su GitHub", key="btn_gh_vr"):
+                      repo_path = f"Piano_Miglioramento/Valutazione_Rischio/{excel_filename}"
+                      if save_to_github(repo_path, excel_data_vr, f"Add {excel_filename}"):
+                          st.success(f"File salvato con successo su GitHub in: {repo_path}")
+              
+              with col_btn2:
                   st.download_button(
-                      label="📥 Scarica Tabella Dinamica in formato CSV (.csv)",
-                      data=csv_data_dinamico,
-                      file_name=file_name_dinamico,
-                      mime="text/csv",
-                      use_container_width=True
+                      label="📥 Scarica Tabella Dinamica (Excel)",
+                      data=excel_data_vr,
+                      file_name=excel_filename,
+                      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   )
-                  st.success(f"File salvato localmente e sincronizzato su GitHub in: `{github_path_vr}`")
+      
+      # ------------------------------------------
+      # SOTTOSEZIONE 3: Azioni Piano di Miglioramento (PRIVATA)
+      # ------------------------------------------
+      with tabs[2]:
+          if check_auth():
+              st.subheader("Azioni Piano di Miglioramento")
+              
+              lista_eventi = load_events()
+              evento_selezionato_am = st.selectbox("Seleziona Evento Collegato", lista_eventi, key="sb_am")
+              
+              st.markdown("### Azioni Intraprese")
+              azioni_immediate = st.text_area("Azioni immediate", height=120)
+              
+              st.write("Azioni di miglioramento (correttive o preventive) - Tipologia di intervento")
+              tipologie = [
+                  "Tecnico", "Formazione/Addestramento", "Informazione/Comunicazione/Partecipazione",
+                  "Definizione/revisione delle procedure e istruzioni lavorative",
+                  "Verifica applicazione procedure, istruzioni, comportamenti", "Altro"
+              ]
+              
+              default_tipo_df = pd.DataFrame([{"Tipologia d'azione": tipologie[0], "Descrizione": ""}])
+              edited_tipo_df = st.data_editor(
+                  default_tipo_df,
+                  num_rows="dynamic",
+                  column_config={
+                      "Tipologia d'azione": st.column_config.SelectboxColumn("Tipologia d'azione", options=tipologie, required=True),
+                      "Descrizione": st.column_config.TextColumn("Descrizione / Testo libero", required=True)
+                  },
+                  key="editor_tipologie"
+              )
+              
+              st.markdown("### Follow up Azioni Intraprese")
+              default_followup_df = pd.DataFrame([{
+                  "Azioni di miglioramento (correttive o preventive)": "",
+                  "Responsabile attuazione": "",
+                  "Accountable Attuazione": "",
+                  "Entro il": datetime.date.today(),
+                  "Firma presa in carico": "",
+                  "Data attuazione": datetime.date.today(),
+                  "Verifica attuazione Data": datetime.date.today(),
+                  "Verifica attuazione Firma": ""
+              }])
+              
+              edited_followup_df = st.data_editor(
+                  default_followup_df,
+                  num_rows="dynamic",
+                  column_config={
+                      "Entro il": st.column_config.DateColumn("Entro il", format="DD-MM-YYYY"),
+                      "Data attuazione": st.column_config.DateColumn("Data attuazione", format="DD-MM-YYYY"),
+                      "Verifica attuazione Data": st.column_config.DateColumn("Verifica attuazione Data", format="DD-MM-YYYY")
+                  },
+                  key="editor_followup"
+              )
+              
+              # Auto-Salvataggio CSV sincronizzato su GitHub (Stato interno/Struttura)
+              now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+              safe_evento_am = evento_selezionato_am.replace(" ", "_").replace("/", "_")
+              csv_filename = f"{safe_evento_am}_{now_str}_Azioni Piano di miglioramento.csv"
+              
+              # Generazione CSV unificato per la sottosezione
+              csv_buffer = io.StringIO()
+              csv_buffer.write(f"# Evento: {evento_selezionato_am}\n")
+              csv_buffer.write(f"# Azioni Immediate:\n{azioni_immediate}\n\n")
+              csv_buffer.write("# Tipologie Intervento:\n")
+              edited_tipo_df.to_csv(csv_buffer, index=False)
+              csv_buffer.write("\n# Follow Up:\n")
+              edited_followup_df.to_csv(csv_buffer, index=False)
+              
+              # Salvataggio CSV automatico su GitHub ad ogni modifica
+              csv_repo_path = f"Piano_Miglioramento/Azioni_Piano_Miglioramento/{csv_filename}"
+              save_to_github(csv_repo_path, csv_buffer.getvalue().encode('utf-8'), f"Auto-save CSV {csv_filename}")
+              
+              # --- GENERAZIONE EXCEL REPORT MULTI-FOGLIO ---
+              report_excel_filename = f"{safe_evento_am}_{now_str}_Report Piano di Miglioramento.xlsx"
+              report_buffer = io.BytesIO()
+              
+              # Recupero dati VR correnti per lo stesso evento
+              df_vr_report = st.session_state.get("editor_vr", pd.DataFrame())
+              if isinstance(df_vr_report, pd.DataFrame) and not df_vr_report.empty:
+                  df_vr_report = calcola_significativita(df_vr_report)
               else:
-                  st.info("Compila o genera la tabella dinamica per abilitare il download e il salvataggio del file.")
-            
-                
-        elif sotto_sec == "Azioni Piano di Miglioramento":
-            st.subheader("Azioni Piano di Miglioramento")
-            st.markdown("Gestione delle azioni intraprese, delle tipologie di intervento e del relativo follow-up.")
-            opzioni = ["Nessuna (Nuova analisi)"]
-                
-            if os.path.exists(FILE_NEAR_MISS):
-            df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
-            for idx, r in df_nm.iterrows():
-                opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
-                
-            if os.path.exists(FILE_ANALISI_NM):
-            df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
-            for idx, r in df_an.iterrows():
-                opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
-                
-            scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
-            
-            st.markdown("---")
-            st.markdown("### 1. AZIONI INTRAPRESE")
-            
-            st.markdown("#### Azioni immediate di rimedio")
-            st.markdown("*Confronto con campo “Valutazioni / azioni / proposte di miglioramento” in modulo segnalazione*")
-            
-            if "azioni_immediate_txt" not in st.session_state:
-            st.session_state.azioni_immediate_txt = ""
-            
-            azioni_immediate = st.text_area(
-            "Descrivi le azioni immediate di rimedio", 
-            value=st.session_state.azioni_immediate_txt,
-            key="txt_azioni_immediate_rimedio_input", 
-            placeholder="Inserisci la descrizione delle azioni immediate..."
-            )
-            st.session_state.azioni_immediate_txt = azioni_immediate
-            
-            st.markdown("#### Azioni di miglioramento (correttive, preventive) - Tipologia intervento")
-            st.markdown("Utilizza la tabella sottostante per aggiungere le righe e selezionare la tipologia di intervento e la descrizione.")
-            
-            lista_tipologie = [
-            "Tecnico",
-            "Formazione / Addestramento",
-            "Informazione / Comunicazione / Partecipazione",
-            "Definizione / revisione delle procedure e istruzioni lavorative",
-            "Verifica applicazione procedure / istruzioni / comportamenti",
-            "Altro (specificare)"
-            ]
-            
-            if "df_tipologie_session" not in st.session_state:
-            st.session_state.df_tipologie_session = pd.DataFrame(columns=["Tipologia di Intervento", "Descrizione"])
-            st.session_state.df_tipologie_session.loc[0] = ["Tecnico", "Esempio intervento tecnico correttivo"]
-            
-            edited_tipologie = st.data_editor(
-            st.session_state.df_tipologie_session,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Tipologia di Intervento": st.column_config.SelectboxColumn(
-                    "Tipologia di Intervento",
-                    options=lista_tipologie,
-                    required=True
-                ),
-                "Descrizione": st.column_config.TextColumn("Descrizione", required=True)
-            },
-            key="editor_tipologie_interventi"
-            )
-            # Sincronizzazione immediata session_state
-            st.session_state.df_tipologie_session = edited_tipologie
-            
-            st.markdown("---")
-            st.markdown("### 2. FOLLOW UP AZIONI INTRAPRESE")
-            st.markdown("Tabella di monitoraggio, pianificazione e verifica delle azioni correttive e preventive.")
-            
-            if "df_followup_session" not in st.session_state:
-            st.session_state.df_followup_session = pd.DataFrame(columns=[
-                "Azione / Descrizione",
-                "Responsabile attuazione",
-                "Accountable attuazione",
-                "Entro il",
-                "Firma presa in carico",
-                "Data attuazione",
-                "Verifica attuazione",
-                "Data e firma"
-            ])
-            st.session_state.df_followup_session.loc[0] = [
-                "1° - Esempio azione correttiva",
-                "Mario Rossi",
-                "Luigi Verdi",
-                "2026-12-31",
-                "Presa in carico",
-                "2026-06-15",
-                "Verificato e conforme",
-                "2026-06-20 - M. Rossi"
-            ]
-            
-            edited_followup = st.data_editor(
-            st.session_state.df_followup_session,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Azione / Descrizione": st.column_config.TextColumn("Azione / Descrizione", required=True),
-                "Responsabile attuazione": st.column_config.TextColumn("Responsabile attuazione"),
-                "Accountable attuazione": st.column_config.TextColumn("Accountable attuazione"),
-                "Entro il": st.column_config.TextColumn("Entro il (Scadenza)"),
-                "Firma presa in carico": st.column_config.TextColumn("Firma presa in carico"),
-                "Data attuazione": st.column_config.TextColumn("Data attuazione"),
-                "Verifica attuazione": st.column_config.TextColumn("Verifica attuazione"),
-                "Data e firma": st.column_config.TextColumn("Data e firma")
-            },
-            key="editor_follow_up_azioni"
-            )
-            # Sincronizzazione immediata session_state
-            st.session_state.df_followup_session = edited_followup
-            
-            col_btn_salva, col_btn_down = st.columns(2)
-            
-            with col_btn_salva:
-            st.markdown("---")
-            # PULSANTE UNICO PER IL SALVATAGGIO UNIFICATO DI TUTTE E 4 LE SOTTOSEZIONI
-            if st.button("💾 Aggiorna e Salva Tutti i Dati del Piano di Miglioramento", use_container_width=True):
-                try:
-                    base_dir = os.path.dirname(os.path.abspath(__file__))
-                except NameError:
-                    base_dir = os.getcwd()
-            
-                dir_dest = os.path.join(base_dir, "Piano_Miglioramento")
-                os.makedirs(dir_dest, exist_ok=True)
-            
-                report_sel = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-                nome_file_pulito = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel]).strip()
-                
-                # Nomi univoci dei file per record/evento collegato
-                nome_unificato_csv = f"Piano_Miglioramento_{nome_file_pulito}.csv"
-                nome_file_xlsx = f"{nome_file_pulito}_Piano_Miglioramento.xlsx"
-            
-                percorso_completo_csv = os.path.join(dir_dest, nome_unificato_csv)
-                percorso_completo_xlsx = os.path.join(dir_dest, nome_file_xlsx)
-            
-                # ------------------------------------------------------------------
-                # COSTRUZIONE DEL SINGLE CSV UNIFICATO (CON TUTTE E 4 LE SOTTOSEZIONI)
-                # ------------------------------------------------------------------
-                # 1. Valutazione del Rischio
-                df_vr_curr = st.session_state.get("df_vr_session", pd.DataFrame()).copy()
-                df_vr_curr["Sezione Sottosezione"] = "1. Valutazione del Rischio"
-            
-                # 2. Azioni Immediate di Rimedio
-                df_imm_curr = pd.DataFrame([{
-                    "Sezione Sottosezione": "2. Azioni Immediate di Rimedio",
-                    "Dettaglio / Descrizione": st.session_state.get("azioni_immediate_txt", "")
-                }])
-            
-                # 3. Azioni di Miglioramento - Tipologia Intervento
-                df_tip_curr = edited_tipologie.copy()
-                df_tip_curr["Sezione Sottosezione"] = "3. Azioni di Miglioramento - Tipologia Intervento"
-            
-                # 4. Follow-up Azioni Intraprese
-                df_fol_curr = edited_followup.copy()
-                df_fol_curr["Sezione Sottosezione"] = "4. Follow UP Azioni Intraprese"
-            
-                # Unione sequenziale in un unico DataFrame unificato
-                df_unificato_csv = pd.concat([df_vr_curr, df_imm_curr, df_tip_curr, df_fol_curr], ignore_index=True, sort=False)
-                
-                # Esportazione in formato CSV (separatore ;)
-                csv_unificato_bytes = df_unificato_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
-            
-                # Salvataggio CSV Locale
-                with open(percorso_completo_csv, "wb") as f:
-                    f.write(csv_unificato_bytes)
-                    
-                # Salvataggio CSV Remoto su GitHub
-                github_csv_path = f"Piano_Miglioramento/{nome_unificato_csv}"
-                ok_github_csv = salva_file_su_github(github_csv_path, csv_unificato_bytes, f"Update Unificato {nome_unificato_csv}")
-            
-                # ------------------------------------------------------------------
-                # COSTRUZIONE FILE EXCEL COMPLETO (CON FOGLI DISTINTI)
-                # ------------------------------------------------------------------
-                try:
-                    excel_buffer = io.BytesIO()
-                    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                        df_vr_curr.to_excel(writer, sheet_name="Valutazione del rischio", index=False)
-                        df_imm_curr.to_excel(writer, sheet_name="Azioni immediate", index=False)
-                        df_tip_curr.to_excel(writer, sheet_name="Tipologie intervento", index=False)
-                        df_fol_curr.to_excel(writer, sheet_name="Follow-up azioni", index=False)
-            
-                    xlsx_bytes = excel_buffer.getvalue()
-            
-                    # Salva file Excel locale
-                    with open(percorso_completo_xlsx, "wb") as f:
-                        f.write(xlsx_bytes)
-                        
-                    # Salva file Excel remoto su GitHub
-                    github_xlsx_path = f"Piano_Miglioramento/{nome_file_xlsx}"
-                    ok_github_xlsx = salva_file_su_github(github_xlsx_path, xlsx_bytes, f"Update Excel {nome_file_xlsx}")
-                
-                    st.success(
-                        f"✅ Tutti i dati delle 4 sottosezioni sono stati salvati in automatico con successo!\n\n"
-                        f"**File Generati:**\n"
-                        f"- CSV Unificato: `{github_csv_path}`\n"
-                        f"- Excel Completo: `{github_xlsx_path}`\n\n"
-                        f"**Sincronizzazione GitHub Remota:** {'Online ✅' if ok_github_csv and ok_github_xlsx else 'Salvataggio Remoto Non Riuscito (verificare credenziali) ⚠️'}"
-                    )
-                except Exception as e:
-                    st.error(f"Errore durante la generazione dei file Excel/CSV: {e}")
-            
-            with col_btn_down:
-            report_sel_down = st.session_state.get("report_analisi_selezionato", "Report_Generico")
-            nome_pulito_down = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in report_sel_down]).strip()
-            nome_file_csv_down = f"Piano_Miglioramento_{nome_pulito_down}.csv"
-            
-            # Preparazione del download al volo per il CSV unificato
-            df_vr_d = st.session_state.get("df_vr_session", pd.DataFrame()).copy()
-            df_vr_d["Sezione Sottosezione"] = "1. Valutazione del Rischio"
-            
-            df_imm_d = pd.DataFrame([{
-                "Sezione Sottosezione": "2. Azioni Immediate di Rimedio",
-                "Dettaglio / Descrizione": st.session_state.get("azioni_immediate_txt", "")
-            }])
-            
-            df_tip_d = st.session_state.get("df_tipologie_session", pd.DataFrame()).copy()
-            df_tip_d["Sezione Sottosezione"] = "3. Azioni di Miglioramento - Tipologia Intervento"
-            
-            df_fol_d = st.session_state.get("df_followup_session", pd.DataFrame()).copy()
-            df_fol_d["Sezione Sottosezione"] = "4. Follow UP Azioni Intraprese"
-            
-            df_down_unificato = pd.concat([df_vr_d, df_imm_d, df_tip_d, df_fol_d], ignore_index=True, sort=False)
-            bytes_down_unificato = df_down_unificato.to_csv(index=False, sep=";").encode("utf-8-sig")
-            
-            st.download_button(
-                label="📥 Scarica Piano Miglioramento Unificato (.csv)",
-                data=bytes_down_unificato,
-                file_name=nome_file_csv_down,
-                mime="text/csv",
-                use_container_width=True,
-                key="btn_download_azioni_csv_miglioramento"
-            )
+                  df_vr_report = pd.DataFrame(columns=["Rischio", "Probabilità", "Gravità", "Sensibilità", "Controllo", "Significatività"])
+      
+              df_imm_report = pd.DataFrame([{"Azioni Immediate": azioni_immediate}])
+      
+              with pd.ExcelWriter(report_buffer, engine='openpyxl') as writer:
+                  df_vr_report.to_excel(writer, index=False, sheet_name="Valutazione del rischio")
+                  df_imm_report.to_excel(writer, index=False, sheet_name="Azioni immediate")
+                  edited_tipo_df.to_excel(writer, index=False, sheet_name="Azioni di miglioramento")
+                  edited_followup_df.to_excel(writer, index=False, sheet_name="Follow up azioni di miglioramento")
+                  
+              report_excel_data = report_buffer.getvalue()
+              report_repo_path = f"Piano_Miglioramento/Report/{report_excel_filename}"
+              
+              st.markdown("---")
+              col_rep1, col_rep2 = st.columns(2)
+              with col_rep1:
+                  if st.button("💾 Salva Report Online", key="btn_save_report"):
+                      if save_to_github(report_repo_path, report_excel_data, f"Add {report_excel_filename}"):
+                          st.success(f"Report salvato su GitHub in: {report_repo_path}")
+      
+              with col_rep2:
+                  st.download_button(
+                      label="📥 Scarica Report (Excel)",
+                      data=report_excel_data,
+                      file_name=report_excel_filename,
+                      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  )
 # ==================================================================
 # --- SEZIONE 9: Stima Costo Economico ---
 # ==================================================================
