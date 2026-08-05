@@ -1582,10 +1582,10 @@ if nav == "Consultazione":
     if "autenticato_upload_legale" not in st.session_state:
         st.session_state.autenticato_upload_legale = False
         
-    correct_pwd_legale = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
+    correct_pwd_legale = st.secrets.get("PASSWORD_SEZIONE", "")
     github_token = st.secrets.get("GITHUB_TOKEN", "")
     repo_name = st.secrets.get("REPO_NAME", "")
-    folder_repo_conformita = "documenti_conformità"
+    folder_repo_conformita = "documenti_conformita"
 
     # Helper function per recuperare la lista dei file su GitHub
     def elenca_file_github_conformita():
