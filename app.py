@@ -2621,8 +2621,11 @@ if nav == "KPI":
                                 )
                         st.rerun()
         render_sezione_kpi()
+# ==========================================
+# SEZIONE 8: PIANO DI MIGLIORAMENTO
+# ==========================================
 if nav == "Piano Miglioramento":
-    st.title("Sezione 8: Piano di Miglioramento")
+    st.title("Piano di Miglioramento")
 
     # Inizializzazione Session State Autenticazione
     if "authenticated_sec8" not in st.session_state:
@@ -2647,7 +2650,8 @@ if nav == "Piano Miglioramento":
                 label="📄 Scarica Istruzione Piano Miglioramento (PDF)",
                 data=pdf_data,
                 file_name="Istruzione_Piano_Miglioramento.pdf",
-                mime="application/pdf"
+                mime="application/pdf",
+                key="btn_download_pdf_sec8"
             )
             
             # Rendering PDF via iframe HTML
@@ -2659,13 +2663,13 @@ if nav == "Piano Miglioramento":
             st.warning(f"Il file '{pdf_path}' non è stato trovato sul server.")
 
     # ------------------------------------------
-    # GESTIONE AUTENTICAZIONE SEZIONI PRIVATE
+    # GESTIONE AUTENTICAZIONE DINAMICA PER SEZIONI PRIVATE
     # ------------------------------------------
-    def check_auth():
+    def render_auth_form(section_prefix="sec8"):
         if not st.session_state["authenticated_sec8"]:
             st.warning("🔒 Quest'area è riservata. Inserisci la password per accedere.")
-            pwd_input = st.text_input("Password di accesso", type="password", key="pwd_sec8")
-            if st.button("Sblocca Sezioni Private"):
+            pwd_input = st.text_input("Password di accesso", type="password", key=f"pwd_{section_prefix}")
+            if st.button("Sblocca Sezioni Private", key=f"btn_auth_{section_prefix}"):
                 correct_pwd = st.secrets.get("PASSWORD_SEZIONE", "admin")
                 if pwd_input == correct_pwd:
                     st.session_state["authenticated_sec8"] = True
@@ -2679,7 +2683,7 @@ if nav == "Piano Miglioramento":
     # SOTTOSEZIONE 2: Valutazione del Rischio (PRIVATA)
     # ------------------------------------------
     with tabs[1]:
-        if check_auth():
+        if render_auth_form(section_prefix="vr"):
             st.subheader("Valutazione del Rischio")
             
             lista_eventi = load_events()
@@ -2752,21 +2756,22 @@ if nav == "Piano Miglioramento":
                     label="📥 Scarica Tabella Dinamica (Excel)",
                     data=excel_data_vr,
                     file_name=excel_filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="btn_dl_excel_vr"
                 )
 
     # ------------------------------------------
     # SOTTOSEZIONE 3: Azioni Piano di Miglioramento (PRIVATA)
     # ------------------------------------------
     with tabs[2]:
-        if check_auth():
+        if render_auth_form(section_prefix="am"):
             st.subheader("Azioni Piano di Miglioramento")
             
             lista_eventi = load_events()
             evento_selezionato_am = st.selectbox("Seleziona Evento Collegato", lista_eventi, key="sb_am")
             
             st.markdown("### Azioni Intraprese")
-            azioni_immediate = st.text_area("Azioni immediate", height=120)
+            azioni_immediate = st.text_area("Azioni immediate", height=120, key="ta_azioni_immediate")
             
             st.write("Azioni di miglioramento (correttive o preventive) - Tipologia di intervento")
             tipologie = [
@@ -2858,7 +2863,8 @@ if nav == "Piano Miglioramento":
                     label="📥 Scarica Report (Excel)",
                     data=report_excel_data,
                     file_name=report_excel_filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="btn_dl_report_excel"
                 )
 # ==================================================================
 # --- SEZIONE 9: Stima Costo Economico ---
