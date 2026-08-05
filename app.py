@@ -2949,7 +2949,7 @@ if nav == "Piano Miglioramento":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="btn_dl_report_excel"
                 )
-==================================================================
+# ==================================================================
 # --- SEZIONE 9: Stima Costo Economico ---
 # ==================================================================
 if nav == "Stima Costo Economico":
