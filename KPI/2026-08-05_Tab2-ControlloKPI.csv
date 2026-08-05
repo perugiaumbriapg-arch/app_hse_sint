@@ -1,0 +1,17 @@
+Stato_Colore,ID_KPI,Nome_KPI,Categoria,Unita_Misura,Cadenza,Prossima_Data,Formula,Baseline,Stato_Testo
+🔴,NM-01,Numero Totale Near Miss Segnalati,Volume,Numero,Settimanale,2026-08-03,Conteggio assoluto segnalazioni validate,Media storica di riferimento: 10,Scaduto
+🔴,NM-02,Tasso di Risoluzione Near Miss,Efficacia,%,Settimanale,2026-08-03,(Parametro_1 / Parametro_2) * 100,Target minimo aziendale: 75%,Scaduto
+🟢,NM-03,Tempo Medio di Presa in Carico,Reattività,Giorni,Bisettimanale,2026-08-12,Parametro_1 / Parametro_2,Target massimo accettabile: 2 giorni,Regolare
+🟢,NM-04,Addestramento-Formazione,Prevenzione,%,Annuale,2027-07-27,(Parametro_1 - Parametro_2 / Parametro_1) / Parametro_3 * 100,Nessuna baseline storica precedente.,Regolare
+🟢,NM-05,Verifica disponibilità PDI,Prevenzione,%,Settimanale,2026-08-12,(Parametro_1 / Parametro_2 ) / Parametro_3 * 100,Nessuna baseline storica precedente.,Regolare
+🟢,NM-06,Ispezione Periodica DPI,Prevenzione,%,Settimanale,2026-08-12,(Parametro_1 / Parametro_2) * 100,Nessuna baseline storica precedente.,Regolare
+🟢,NM-07,Formazione DPI,Prevenzione,%,Settimanale,2026-08-12,(Parametro_1 / Parametro_2) * 100,Nessuna baseline storica precedente.,Regolare
+🟢,NM-08,Totale infortunio,Efficacia,Numero,Annuale,2026-08-12,Parametro_1 +  Parametro_2 + Parametro_3,Nessuna baseline storica precedente.,Regolare
+🟢,NM-09,Totale infortunio passati a malattia,Efficacia,Numero,Annuale,2026-08-12,Parametro_1 +  Parametro_2 ,Nessuna baseline storica precedente.,Regolare
+🟢,NM-10,Tasso Frequenza Osservazioni Sicurezza (SOFR),Efficacia,Numero,Annuale,2026-08-12,Parametro_1 / Parametro_2 *1000,Nessuna baseline storica precedente.,Regolare
+🟢,NM-12,Tasso Frequenza Infortuni a tempo perso (LTIFR),Efficacia,Numero,Annuale,2026-08-12,Parametro_1  * 200.000 / 1.000.000 + Parametro_2,Nessuna baseline storica precedente.,Regolare
+🟢,NM-13,Tasso Frequenza Near Miss/NC a tempo perso,Efficacia,Numero,Annuale,2026-08-12,Parametro_1  * 200.000 / 1.000.000 + Parametro_2,Nessuna baseline storica precedente.,Regolare
+🟢,NM-14,Percentuale Safe (e uso DPI),Efficacia,%,Annuale,2026-08-12,Parametro_1  / Parametro_2 * 100,Nessuna baseline storica precedente.,Regolare
+🟢,NM-15,Tasso medio di ore straordinarie realizzate,Efficacia,%,Annuale,2026-08-12,Parametro_1  / Parametro_2 * 1000,Nessuna baseline storica precedente.,Regolare
+🟢,NM-16,Percentuale Segnalazioni analizzate,Efficacia,%,Semestrale,2026-08-12,Parametro_1  / Parametro_2 * 1000,Nessuna baseline storica precedente.,Regolare
+🟢,NM-17,Controllo cassetta primo soccorso,Prevenzione,%,Bisettimanale,2026-08-12,Parametro_1  / Parametro_2 * 100,Nessuna baseline storica precedente.,Regolare
