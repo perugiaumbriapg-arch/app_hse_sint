@@ -2949,21 +2949,36 @@ if nav == "Piano Miglioramento":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="btn_dl_report_excel"
                 )
-# ==================================================================
+==================================================================
 # --- SEZIONE 9: Stima Costo Economico ---
 # ==================================================================
 if nav == "Stima Costo Economico":
     st.header("Stima Costo Economico del Near Miss")
     
-    # Gestione autenticazione per la Sezione 9
+    # Helper function per formattazione in valuta italiana (es. 1.234,56 €)
+    def format_euro(valore):
+        try:
+            return f"{valore:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        except Exception:
+            return "0,00 €"
+
+    # Helper function per formattare numeri float con virgola per export CSV
+    def format_csv_number(valore):
+        try:
+            return f"{float(valore):.2f}".replace(".", ",")
+        except Exception:
+            return "0,00"
+
+    # Gestione autenticazione per la Sezione 9 tramite Streamlit Secrets
     if "auth_stima_economico" not in st.session_state:
         st.session_state.auth_stima_economico = False
         
     if not st.session_state.auth_stima_economico:
-        st.markdown("Inserisci la password per accedere all'area di stima del costo economico.")
+        st.markdown("🔒 Inserisci la password per accedere all'area di stima del costo economico.")
         pwd_sec9 = st.text_input("Password Sezione 9", type="password", key="pwd_sec9_input")
         if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_sec9"):
-            if pwd_sec9 == "hse2026":
+            correct_pwd = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
+            if pwd_sec9 == correct_pwd:
                 st.session_state.auth_stima_economico = True
                 st.success("Accesso autorizzato!")
                 st.rerun()
@@ -2979,6 +2994,9 @@ if nav == "Stima Costo Economico":
             key="radio_sotto_sec_9"
         )
         
+        # --------------------------------------------------
+        # SOTTOSEZIONE: Documentazione di Riferimento
+        # --------------------------------------------------
         if sotto_sec_9 == "Documentazione di Riferimento":
             st.subheader("Consultazione Documento Stima Economica")
             st.markdown("Consulta o scarica il documento PDF ufficiale relativo alla stima economica del near miss.")
@@ -2988,12 +3006,14 @@ if nav == "Stima Costo Economico":
             except NameError:
                 base_dir = os.getcwd()
                 
-            file_pdf_path = os.path.join(base_dir, "stima_economica", "Stima Economica del Near Miss.pdf")
+            # Ricerca file PDF nella cartella Stima_Economica al livello di app.py
+            file_pdf_path = os.path.join(base_dir, "Stima_Economica", "Stima Economica del Near Miss.pdf")
             
             if not os.path.exists(file_pdf_path):
                 percorsi_alternativi = [
+                    os.path.join("Stima_Economica", "Stima Economica del Near Miss.pdf"),
                     os.path.join("stima_economica", "Stima Economica del Near Miss.pdf"),
-                    os.path.join("APP HSE", "stima_economica", "Stima Economica del Near Miss.pdf")
+                    os.path.join(base_dir, "stima_economica", "Stima Economica del Near Miss.pdf")
                 ]
                 for p in percorsi_alternativi:
                     if os.path.exists(p):
@@ -3020,26 +3040,34 @@ if nav == "Stima Costo Economico":
                 except Exception as e:
                     st.info("Utilizza il pulsante di download sopra per consultare il documento nel lettore PDF del tuo computer.")
             else:
-                st.error("Il file PDF 'Stima Economica del Near Miss.pdf' non è stato trovato nella cartella 'stima_economica'.")
+                st.error("Il file PDF 'Stima Economica del Near Miss.pdf' non è stato trovato nella cartella 'Stima_Economica'.")
                 
+        # --------------------------------------------------
+        # SOTTOSEZIONE: Calcolo Economico NM
+        # --------------------------------------------------
         elif sotto_sec_9 == "Calcolo economico NM":
             st.subheader("Calcolo economico NM - Tabella Dinamica e Parametri")
             st.markdown("Configura i parametri di inquadramento (Manodopera) e il fatturato dell'anno precedente (Vendite e Reputazione) per i calcoli automatici.")
-
-            # Caricamento e unione dati per dropdown
+            
             opzioni = ["Nessuna (Nuova analisi)"]
                                             
             # Leggi Near Miss
-            if os.path.exists(FILE_NEAR_MISS):
-                df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
-                for idx, r in df_nm.iterrows():
-                    opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
+            if 'FILE_NEAR_MISS' in globals() and os.path.exists(FILE_NEAR_MISS):
+                try:
+                    df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
+                    for idx, r in df_nm.iterrows():
+                        opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
+                except Exception:
+                    pass
                                             
             # Leggi Analisi già fatte
-            if os.path.exists(FILE_ANALISI_NM):
-                df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
-                for idx, r in df_an.iterrows():
-                    opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
+            if 'FILE_ANALISI_NM' in globals() and os.path.exists(FILE_ANALISI_NM):
+                try:
+                    df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
+                    for idx, r in df_an.iterrows():
+                        opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
+                except Exception:
+                    pass
                                             
             scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
             
@@ -3079,7 +3107,7 @@ if nav == "Stima Costo Economico":
             else:
                 ral_mansione_calc = valore_inquadramento
 
-            # Parametri specifici per Vendite e Reputazione (Fatturato Anno Precedente)
+            # Parametri specifici per Vendite e Reputazione
             st.markdown("#### Configurazione Condizioni Aree Vendite e Reputazione")
             col_v1, col_v2 = st.columns(2)
             with col_v1:
@@ -3091,11 +3119,9 @@ if nav == "Stima Costo Economico":
                 rep_10pct = st.selectbox("Diminuzione fatturato 10% (Reputazione)", ["No", "Sì"], key="rep_10_sel")
                 rep_15pct = st.selectbox("Diminuzione fatturato 15% (Reputazione)", ["No", "Sì"], key="rep_15_sel")
 
-            # Calcoli condizionali Vendite
+            # Calcoli condizionali Vendite e Reputazione
             val_vendite_1 = fatturato_vendite * (1.0 / 100.0) if vendite_1pct == "Sì" else 0.0
             val_vendite_5 = fatturato_vendite * (5.0 / 100.0) if vendite_5pct == "Sì" else 0.0
-
-            # Calcoli condizionali Reputazione
             val_rep_10 = fatturato_reputazione * (10.0 / 100.0) if rep_10pct == "Sì" else 0.0
             val_rep_15 = fatturato_reputazione * (15.0 / 100.0) if rep_15pct == "Sì" else 0.0
 
@@ -3148,7 +3174,7 @@ if nav == "Stima Costo Economico":
             df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 10% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_10
             df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 15% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_15
             
-            # Editor della tabella dinamica
+            # Editor della tabella dinamica con formattazione numerica in euro e virgola per i decimali
             edited_ce = st.data_editor(
                 df_ce,
                 use_container_width=True,
@@ -3156,14 +3182,19 @@ if nav == "Stima Costo Economico":
                 column_config={
                     "Area d'impatto": st.column_config.TextColumn("Area d'impatto", disabled=True),
                     "Sottocategoria": st.column_config.TextColumn("Sottocategoria", disabled=True),
-                    "Stima costo (€)": st.column_config.NumberColumn("Valore / Costo (€ o %)", min_value=0.0, step=10.0, format="%.2f")
+                    "Stima costo (€)": st.column_config.NumberColumn(
+                        "Valore / Costo (€ o %)", 
+                        min_value=0.0, 
+                        step=10.0, 
+                        format="%.2f €"
+                    )
                 },
                 key="editor_calcolo_economico_nm"
             )
             
             st.session_state.df_calcolo_economico_nm = edited_ce
             
-            # Esclusione della riga "Percentuale di indennità" dal calcolo dei costi economici monetari
+            # Esclusione della riga "Percentuale di indennità" dal calcolo dei costi monetari
             df_costi_monetari = edited_ce[edited_ce["Sottocategoria"] != "Percentuale di indennità"]
             
             # Calcolo automatico del totale generale e per area
@@ -3173,35 +3204,34 @@ if nav == "Stima Costo Economico":
             
             col_tot1, col_tot2 = st.columns(2)
             with col_tot1:
-                st.metric(label="💰 STIMA ECONOMICA TOTALE", value=f"€ {totale_generale:,.2f}")
+                st.metric(label="💰 STIMA ECONOMICA TOTALE", value=format_euro(totale_generale))
                 
             with col_tot2:
                 riepilogo_aree = df_costi_monetari.groupby("Area d'impatto")["Stima costo (€)"].sum()
                 st.markdown("**Totali parziali per Area (esclusa % indennità):**")
                 for area, val in riepilogo_aree.items():
-                    st.text(f"- {area}: € {val:,.2f}")
+                    st.text(f"- {area}: {format_euro(val)}")
             
             st.markdown("---")
             
-            # Preparazione del DataFrame da esportare in CSV con l'evento/analisi collegata inclusa
+            # Preparazione del DataFrame per l'esportazione con formattazione decimale con la virgola
             df_export = edited_ce.copy()
             df_export.insert(0, "Evento / Analisi Collegata", scelta_rif)
             
-            riga_totale = pd.DataFrame([[scelta_rif, "TOTALE GENERALE", "SOMMA TUTTI I COSTI", totale_generale]], columns=df_export.columns)
+            # Conversione dei costi in stringhe formattate con la virgola per i decimali
+            df_export["Stima costo (€)"] = df_export["Stima costo (€)"].apply(format_csv_number)
+            
+            # Aggiunta riga del totale
+            riga_totale = pd.DataFrame([[scelta_rif, "TOTALE GENERALE", "SOMMA TUTTI I COSTI", format_csv_number(totale_generale)]], columns=df_export.columns)
             df_export = pd.concat([df_export, riga_totale], ignore_index=True)
             
-            # Definizione del percorso di salvataggio nella cartella richiesta: APP HSE / Stima_Economica / Report_Stima_Economica
+            # Cartella di salvataggio del report su GitHub / File System
             try:
                 base_dir = os.path.dirname(os.path.abspath(__file__))
             except NameError:
                 base_dir = os.getcwd()
                 
             target_report_dir = os.path.join(base_dir, "Stima_Economica", "Report_Stima_Economica")
-            if not os.path.exists(target_report_dir):
-                target_report_dir_alt = os.path.join(base_dir, "APP HSE", "Stima_Economica", "Report_Stima_Economica")
-                if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
-                    target_report_dir = target_report_dir_alt
-            
             os.makedirs(target_report_dir, exist_ok=True)
             
             # Generazione del nome file dinamico pulito
@@ -3212,13 +3242,13 @@ if nav == "Stima Costo Economico":
             
             full_file_path = os.path.join(target_report_dir, file_name_export)
             
-            # Salvataggio automatico del file CSV nella cartella dedicata
+            # Salvataggio CSV locale / server con separatore ";" e virgola per decimali
             df_export.to_csv(full_file_path, index=False, sep=";")
             
-            csv_data_ce = df_export.to_csv(index=False, sep=";")
+            csv_bytes = df_export.to_csv(index=False, sep=";").encode("utf-8")
             st.download_button(
-                label="Scarica Tabella Calcolo Economico NM con Totale in formato CSV (.csv)",
-                data=csv_data_ce,
+                label="📥 Scarica Tabella Calcolo Economico NM con Totale in formato CSV (.csv)",
+                data=csv_bytes,
                 file_name=file_name_export,
                 mime="text/csv",
                 use_container_width=True
