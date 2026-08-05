@@ -15,4 +15,3 @@ NM-14,Percentuale Safe (e uso DPI),Efficacia,%,Annuale,Parametro_1  / Parametro_
 NM-15,Tasso medio di ore straordinarie realizzate,Efficacia,%,Annuale,Parametro_1  / Parametro_2 * 1000,N. Totale ore straordinarie per mansione,N. Totale persone per mansione ,,Nessuna baseline storica precedente.
 NM-16,Percentuale Segnalazioni analizzate,Efficacia,%,Semestrale,Parametro_1  / Parametro_2 * 1000,N. Totale Analisi Fase 2 Near Miss,N. Totale Segnalazioni Near Miss,,Nessuna baseline storica precedente.
 NM-17,Controllo cassetta primo soccorso,Prevenzione,%,Bisettimanale,Parametro_1  / Parametro_2 * 100,N. Totale Controllo cassetta PS/anno (24),N. Totale Controlli Cassetta PS realizzati,,Nessuna baseline storica precedente.
-NM-25,Prova,Volume,%,Settimanale,(Parametro_1 / Parametro_2) * 100,Valore Numeratore,Valore Denominatore,,Nessuna baseline storica precedente.
