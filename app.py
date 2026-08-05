@@ -3849,7 +3849,6 @@ if nav == "Skill Matrix":
     if "auth_skill_matrix" not in st.session_state:
         st.session_state.auth_skill_matrix = False
 
-    # Scelta della sottosezione (visibile a tutti)
     sotto_sec_sm = st.radio(
         "Seleziona Sottosezione",
         ["Autovalutazione Skill Matrix", "Skill Matrix"],
@@ -3869,6 +3868,10 @@ if nav == "Skill Matrix":
         if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
             skill_matrix_dir = skill_matrix_dir_alt
 
+    # Credentials GitHub dai Secrets
+    token = st.secrets.get("GITHUB_TOKEN", "")
+    repo_name = st.secrets.get("REPO_NAME", "")
+
     # =========================================================
     # 1. SOTTOSEZIONE PUBBLICA - AUTOVALUTAZIONE SKILL MATRIX
     # =========================================================
@@ -3876,31 +3879,45 @@ if nav == "Skill Matrix":
         st.subheader("Autovalutazione Skill Matrix")
         st.markdown("Consulta o scarica il documento PDF di autovalutazione e compila il form sottostante.")
         
-        # Definizione percorsi locali per la lettura del PDF
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
+        pdf_filename = "Skill Matrix Autovalutazione.pdf"
+        file_pdf_sm = os.path.join(skill_matrix_dir, pdf_filename)
+        github_pdf_path = f"Skill_Matrix/{pdf_filename}"
         
-        # Download / Visualizzazione PDF "Skill Matrix Autovalutazione.pdf"
-        file_pdf_sm = os.path.join(skill_matrix_dir, "Skill Matrix Autovalutazione.pdf")
-        
-        if os.path.exists(file_pdf_sm):
-            with open(file_pdf_sm, "rb") as f:
-                pdf_bytes = f.read()
-            
+        pdf_bytes = None
+
+        # Tentativo 1: Lettura da GitHub
+        if token and repo_name:
+            try:
+                g = Github(token)
+                repo = g.get_repo(repo_name)
+                file_content_gh = repo.get_contents(github_pdf_path)
+                pdf_bytes = base64.b64decode(file_content_gh.content)
+            except Exception:
+                pdf_bytes = None
+
+        # Tentativo 2: Fallback su File System Locale
+        if pdf_bytes is None and os.path.exists(file_pdf_sm):
+            try:
+                with open(file_pdf_sm, "rb") as f:
+                    pdf_bytes = f.read()
+            except Exception:
+                pdf_bytes = None
+
+        if pdf_bytes:
             st.download_button(
-                label="Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
+                label="📥 Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
                 data=pdf_bytes,
-                file_name="Skill Matrix Autovalutazione.pdf",
+                file_name=pdf_filename,
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                key="btn_download_pdf_autoval"
             )
         else:
-            st.warning("Il file PDF 'Skill Matrix Autovalutazione.pdf' non è stato trovato nella cartella 'Skill_Matrix'.")
+            st.warning("⚠️ Il file PDF 'Skill Matrix Autovalutazione.pdf' non è stato trovato sia su GitHub che in locale.")
         
         st.markdown("---")
         st.markdown("#### Form di Autovalutazione")
         
-        # Form di compilazione
         with st.form("form_autovalutazione_skill"):
             col_f1, col_f2 = st.columns(2)
             with col_f1:
@@ -3932,11 +3949,11 @@ if nav == "Skill Matrix":
             q9 = st.slider("Valuta le tue capacità comunicative", 1, 5, 3, key="q9")
             q10 = st.slider("Sei una persona precisa nel lavoro che svolge?", 1, 5, 3, key="q10")
             q11 = st.slider("Riesci a persuadere agli altri per svolgere delle attività o fare cambiamenti?", 1, 5, 3, key="q11")
-            q12 = st.slider("Hai un’analisi critico del contesto lavorativo? (sai cosa funzione e cosa si potrebbe migliorare)", 1, 5, 3, key="q12")
-            q13 = st.slider("Sei a conoscenza delle turnazioni di lavoro, come vengono comunicate e le dinamiche lavorative all’interno di ogni turno?", 1, 5, 3, key="q13")
+            q12 = st.slider("Hai un’analisi critica del contesto lavorativo?", 1, 5, 3, key="q12")
+            q13 = st.slider("Sei a conoscenza delle turnazioni di lavoro e delle dinamiche di turno?", 1, 5, 3, key="q13")
             q14 = st.slider("Ci sono altre persone sotto la tua responsabilità o supervisione?", 1, 5, 3, key="q14")
             
-            submitted_form = st.form_submit_button("Invia e Salva Autovalutazione", use_container_width=True)
+            submitted_form = st.form_submit_button("💾 Invia e Salva Autovalutazione", use_container_width=True)
             
             if submitted_form:
                 if not nome_utente.strip() or not cognome_utente.strip():
@@ -3946,7 +3963,8 @@ if nav == "Skill Matrix":
                     clean_date = re.sub(r'[\\/*?:"<>|]', "", str(data_compilazione))
                     file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
                     
-                    # Costruiamo il percorso del file su GitHub
+                    autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
+                    local_save_path = os.path.join(autoval_dir, file_name_csv)
                     github_path = f"Skill_Matrix/Autovalutazione/{file_name_csv}"
                     
                     dati_form = {
@@ -3965,18 +3983,21 @@ if nav == "Skill Matrix":
                     df_res = pd.DataFrame(dati_form)
                     csv_content = df_res.to_csv(index=False, sep=";")
                     
-                    # Salvataggio tramite API GitHub
+                    # 1. Salvataggio Locale
                     try:
-                        token = st.secrets.get("GITHUB_TOKEN", "")
-                        repo_name = st.secrets.get("REPO_NAME", "")
-                        
-                        if not token or not repo_name:
-                            st.error("⚠️ GITHUB_TOKEN o REPO_NAME mancanti nei secrets di Streamlit.")
-                        else:
+                        os.makedirs(autoval_dir, exist_ok=True)
+                        with open(local_save_path, "w", encoding="utf-8") as f:
+                            f.write(csv_content)
+                    except Exception as e:
+                        st.warning(f"Impossibile salvare in locale: {e}")
+
+                    # 2. Salvataggio via API GitHub
+                    if not token or not repo_name:
+                        st.error("⚠️ GITHUB_TOKEN o REPO_NAME mancanti nei secrets di Streamlit. Salvataggio limitato alla sessione.")
+                    else:
+                        try:
                             g = Github(token)
                             repo = g.get_repo(repo_name)
-                            
-                            # Controlla se il file esiste già su GitHub per aggiornarlo o crearlo
                             try:
                                 file_existing = repo.get_contents(github_path)
                                 repo.update_file(
@@ -3991,23 +4012,22 @@ if nav == "Skill Matrix":
                                     message=f"Aggiunta nuova autovalutazione: {file_name_csv}",
                                     content=csv_content
                                 )
-                                
-                            st.success(f"Autovalutazione salvata permanentemente su GitHub nel percorso: `{github_path}`")
-                        
-                    except Exception as e:
-                        st.error(f"Errore nel salvataggio su GitHub: {e}")
+                            st.success(f"✅ Autovalutazione salvata permanentemente su GitHub nel percorso: `{github_path}`")
+                        except Exception as e:
+                            st.error(f"Errore durante il salvataggio su GitHub: {e}")
 
     # =========================================================
-    # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX (Lettura da PDF)
+    # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX
     # =========================================================
     elif sotto_sec_sm == "Skill Matrix":
+        # Autenticazione PASSWORD_SEZIONE
+        password_secrets = st.secrets.get("PASSWORD_SEZIONE", st.secrets.get("SKILL_MATRIX_PASSWORD", "hse2026"))
+        
         if not st.session_state.auth_skill_matrix:
             st.markdown("Inserisci la password per accedere alla sezione Skill Matrix.")
             pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
             
             if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_skill"):
-                password_secrets = st.secrets.get("PASSWORD_SEZIONE", st.secrets.get("SKILL_MATRIX_PASSWORD", "hse2026"))
-                
                 if pwd_skill and pwd_skill == password_secrets:
                     st.session_state.auth_skill_matrix = True
                     st.success("Accesso autorizzato!")
@@ -4015,112 +4035,142 @@ if nav == "Skill Matrix":
                 else:
                     st.error("Password errata o non valida.")
         else:
-            if st.button("Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
+            if st.button("🚪 Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
                 st.session_state.auth_skill_matrix = False
                 st.rerun()
                 
             st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
-            st.markdown(
-                "A ogni competenza si attribuirà un punteggio dal 1 al 5. "
-                "Le persone saranno classificate anche a seconda dell'area lavorativa d'appartenenza."
-            )
+            st.markdown("Visualizza e modifica direttamente i dati estratti dalle autovalutazioni inserite dal personale.")
             st.markdown("---")
-            st.markdown("La tabella sottostante viene aggiornata automaticamente scansionando tutti i report PDF di autovalutazione.")
                 
-            # Percorsi cartelle
-            skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
             autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
             file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
             master_local_path = os.path.join(skill_matrix_dir, file_name_master)
             github_master_path = f"Skill_Matrix/{file_name_master}"
-
+            
             lista_righe_tabella = []
 
-            # --- PARSING AUTOMATICO DI TUTTI I PDF IN AUTOVALUTAZIONE ---
+            # --- ESTRAZIONE E UNIFICAZIONE SORGENTI (PDF & CSV) ---
             if os.path.exists(autoval_dir):
-                files_pdf = [f for f in os.listdir(autoval_dir) if f.lower().endswith(".pdf")]
+                files_in_folder = os.listdir(autoval_dir)
                 
-                for f_pdf in files_pdf:
-                    pdf_path = os.path.join(autoval_dir, f_pdf)
-                    testo_completo = ""
+                for f_item in files_in_folder:
+                    f_path = os.path.join(autoval_dir, f_item)
                     
-                    # 1. Estrazione del testo con pypdf / PyPDF2
-                    try:
-                        import pypdf
-                        reader = pypdf.PdfReader(pdf_path)
-                        for page in reader.pages:
-                            t = page.extract_text()
-                            if t:
-                                testo_completo += t + "\n"
-                    except Exception:
+                    # A) GESTIONE FILE CSV
+                    if f_item.lower().endswith(".csv"):
                         try:
-                            import PyPDF2
-                            reader = PyPDF2.PdfReader(pdf_path)
+                            df_temp = pd.read_csv(f_path, sep=";")
+                            if "Campo" in df_temp.columns and "Valore" in df_temp.columns:
+                                def get_csv_val(c_str, def_val):
+                                    res = df_temp.loc[df_temp["Campo"] == c_str, "Valore"]
+                                    return res.values[0] if not res.empty else def_val
+                                
+                                def get_csv_num(c_str, def_val=3.0):
+                                    v = get_csv_val(c_str, def_val)
+                                    try:
+                                        return float(v)
+                                    except ValueError:
+                                        return float(def_val)
+
+                                lista_righe_tabella.append({
+                                    "Nome": str(get_csv_val("Nome", "N/D")),
+                                    "Cognome": str(get_csv_val("Cognome", "N/D")),
+                                    "Inquadramento-Mansione": str(get_csv_val("Inquadramento-Mansione", "")),
+                                    "Ambito lavorativo": str(get_csv_val("Ambito lavorativo", "Produzione")),
+                                    "Data Autovalutazione": str(get_csv_val("Data Autovalutazione", "")),
+                                    "Processi produttivi mansione": get_csv_num("Processi produttivi mansione"),
+                                    "Rapporto colleghi": get_csv_num("Rapporto colleghi"),
+                                    "Interfaccia fornitori-clienti": get_csv_num("Interfaccia fornitori-clienti"),
+                                    "Processi cartone-scatole": get_csv_num("Processi cartone-scatole"),
+                                    "Processo pallettizzazione": get_csv_num("Processo pallettizzazione"),
+                                    "Competenze legali-tecniche": get_csv_num("Competenze legali-tecniche"),
+                                    "Individuazione rischi-fabbisogni": get_csv_num("Individuazione rischi-fabbisogni"),
+                                    "Capacità d'adattamento": get_csv_num("Capacità d'adattamento"),
+                                    "Capacità comunicative": get_csv_num("Capacità comunicative"),
+                                    "Precisione lavoro": get_csv_num("Precisione lavoro"),
+                                    "Persuasione": get_csv_num("Persuasione"),
+                                    "Analisi critica contesto": get_csv_num("Analisi critica contesto"),
+                                    "Turnazioni": get_csv_num("Turnazioni"),
+                                    "Responsabilità supervisione": get_csv_num("Responsabilità supervisione"),
+                                    "File Sorgente": f_item
+                                })
+                        except Exception:
+                            pass
+
+                    # B) GESTIONE FILE PDF
+                    elif f_item.lower().endswith(".pdf"):
+                        testo_completo = ""
+                        try:
+                            import pypdf
+                            reader = pypdf.PdfReader(f_path)
                             for page in reader.pages:
                                 t = page.extract_text()
                                 if t:
                                     testo_completo += t + "\n"
                         except Exception:
-                            pass
-
-                    # 2. Parsing Robusto Flessibile (Mappa Chiave-Valore)
-                    dati_pdf = {}
-                    if testo_completo.strip():
-                        for line in testo_completo.split("\n"):
-                            line_clean = line.strip()
-                            if ":" in line_clean:
-                                parti = line_clean.split(":", 1)
-                                k = parti[0].strip().lower()
-                                v = parti[1].strip()
-                                dati_pdf[k] = v
-
-                    # Helper function per ricerca flessibile
-                    def get_val_flex(kw_list, default_val):
-                        for k, v in dati_pdf.items():
-                            for kw in kw_list:
-                                if kw.lower() in k:
-                                    return v
-                        return default_val
-
-                    def get_num_flex(kw_list, default_val=3.0):
-                        raw_v = get_val_flex(kw_list, None)
-                        if raw_v is not None:
                             try:
-                                num_str = re.sub(r'[^0-9.]', '', raw_v.replace(',', '.'))
-                                return float(num_str)
-                            except ValueError:
+                                import PyPDF2
+                                reader = PyPDF2.PdfReader(f_path)
+                                for page in reader.pages:
+                                    t = page.extract_text()
+                                    if t:
+                                        testo_completo += t + "\n"
+                            except Exception:
                                 pass
-                        return float(default_val)
 
-                    # Estrazione Nome e Cognome anche dal nome del file se non trovati nel testo
-                    nome_default = f_pdf.split("_")[0] if "_" in f_pdf else "N/D"
-                    cognome_default = f_pdf.split("_")[1] if "_" in f_pdf and len(f_pdf.split("_")) > 1 else "N/D"
+                        dati_pdf = {}
+                        if testo_completo.strip():
+                            for line in testo_completo.split("\n"):
+                                line_clean = line.strip()
+                                if ":" in line_clean:
+                                    parti = line_clean.split(":", 1)
+                                    dati_pdf[parti[0].strip().lower()] = parti[1].strip()
 
-                    riga = {
-                        "Nome": str(get_val_flex(["nome"], nome_default)),
-                        "Cognome": str(get_val_flex(["cognome"], cognome_default)),
-                        "Inquadramento-Mansione": str(get_val_flex(["inquadramento", "mansione"], "")),
-                        "Ambito lavorativo": str(get_val_flex(["ambito"], "Produzione")),
-                        "Data Autovalutazione": str(get_val_flex(["data"], "")),
-                        "Processi produttivi mansione": get_num_flex(["processi produttivi mansione", "processi produttivi"]),
-                        "Rapporto colleghi": get_num_flex(["rapporto colleghi"]),
-                        "Interfaccia fornitori-clienti": get_num_flex(["fornitori", "clienti", "interfaccia"]),
-                        "Processi cartone-scatole": get_num_flex(["cartone", "scatole"]),
-                        "Processo pallettizzazione": get_num_flex(["pallettizzazione"]),
-                        "Competenze legali-tecniche": get_num_flex(["legali", "tecniche", "competenze"]),
-                        "Individuazione rischi-fabbisogni": get_num_flex(["rischi", "fabbisogni", "individuazione"]),
-                        "Capacità d'adattamento": get_num_flex(["adattamento"]),
-                        "Capacità comunicative": get_num_flex(["comunicative"]),
-                        "Precisione lavoro": get_num_flex(["precisione"]),
-                        "Persuasione": get_num_flex(["persuasione"]),
-                        "Analisi critica contesto": get_num_flex(["analisi critica", "contesto"]),
-                        "Turnazioni": get_num_flex(["turnazioni"]),
-                        "Responsabilità supervisione": get_num_flex(["supervisione", "responsabilità"]),
-                        "File Sorgente": f_pdf
-                    }
-                    lista_righe_tabella.append(riga)
+                        def get_pdf_flex(kw_list, def_val):
+                            for k, v in dati_pdf.items():
+                                for kw in kw_list:
+                                    if kw.lower() in k:
+                                        return v
+                            return def_val
 
-            # Costruzione DataFrame globale
+                        def get_pdf_num(kw_list, def_val=3.0):
+                            raw_v = get_pdf_flex(kw_list, None)
+                            if raw_v is not None:
+                                try:
+                                    num_str = re.sub(r'[^0-9.]', '', raw_v.replace(',', '.'))
+                                    return float(num_str)
+                                except ValueError:
+                                    pass
+                            return float(def_val)
+
+                        nome_def = f_item.split("_")[0] if "_" in f_item else "N/D"
+                        cognome_def = f_item.split("_")[1] if "_" in f_item and len(f_item.split("_")) > 1 else "N/D"
+
+                        lista_righe_tabella.append({
+                            "Nome": str(get_pdf_flex(["nome"], nome_def)),
+                            "Cognome": str(get_pdf_flex(["cognome"], cognome_def)),
+                            "Inquadramento-Mansione": str(get_pdf_flex(["inquadramento", "mansione"], "")),
+                            "Ambito lavorativo": str(get_pdf_flex(["ambito"], "Produzione")),
+                            "Data Autovalutazione": str(get_pdf_flex(["data"], "")),
+                            "Processi produttivi mansione": get_pdf_num(["processi produttivi mansione", "processi produttivi"]),
+                            "Rapporto colleghi": get_pdf_num(["rapporto colleghi"]),
+                            "Interfaccia fornitori-clienti": get_pdf_num(["fornitori", "clienti", "interfaccia"]),
+                            "Processi cartone-scatole": get_pdf_num(["cartone", "scatole"]),
+                            "Processo pallettizzazione": get_pdf_num(["pallettizzazione"]),
+                            "Competenze legali-tecniche": get_pdf_num(["legali", "tecniche", "competenze"]),
+                            "Individuazione rischi-fabbisogni": get_pdf_num(["rischi", "fabbisogni", "individuazione"]),
+                            "Capacità d'adattamento": get_pdf_num(["adattamento"]),
+                            "Capacità comunicative": get_pdf_num(["comunicative"]),
+                            "Precisione lavoro": get_pdf_num(["precisione"]),
+                            "Persuasione": get_pdf_num(["persuasione"]),
+                            "Analisi critica contesto": get_pdf_num(["analisi critica", "contesto"]),
+                            "Turnazioni": get_pdf_num(["turnazioni"]),
+                            "Responsabilità supervisione": get_pdf_num(["supervisione", "responsabilità"]),
+                            "File Sorgente": f_item
+                        })
+
+            # Costruzione DataFrame Master
             if lista_righe_tabella:
                 df_master_sm = pd.DataFrame(lista_righe_tabella)
             else:
@@ -4132,10 +4182,10 @@ if nav == "Skill Matrix":
                 else:
                     df_master_sm = pd.DataFrame()
 
-            # --- VISUALIZZAZIONE ED EDITING TABELLA ---
+            # --- VISUALIZZAZIONE ED EDITING TABELLA DINAMICA ---
             if not df_master_sm.empty:
                 st.markdown("#### Tabella Panoramica Modificabile")
-                st.info(f"Trovati e analizzati **{len(df_master_sm)}** report PDF. Clicca sui pulsanti in basso per salvare o scaricare la tabella aggiornata.")
+                st.info(f"Trovate **{len(df_master_sm)}** autovalutazioni. Puoi modificare la tabella manualmente prima di salvarla.")
                     
                 edited_master_sm = st.data_editor(
                     df_master_sm,
@@ -4151,26 +4201,32 @@ if nav == "Skill Matrix":
                     },
                     key="editor_skill_matrix_generale"
                 )
-                    
-                col_btn1, col_btn2 = st.columns(2)
+                
+                # Generazione dati di export (CSV & Excel)
                 csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
                 
-                with col_btn1:
-                    if st.button("Salva Modifiche Tabella Skill Matrix", use_container_width=True, key="btn_save_master_sm"):
-                        # 1. Salvataggio locale
+                excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                    edited_master_sm.to_excel(writer, index=False, sheet_name="Skill Matrix")
+                excel_master_data = excel_buffer.getvalue()
+
+                # --- AZIONI SALVATAGGIO E EXPORT ---
+                st.markdown("---")
+                col_b1, col_b2, col_b3 = st.columns(3)
+                
+                # Button 1: Salvataggio nel file CSV (Locale + GitHub)
+                with col_b1:
+                    if st.button("💾 Salva Modifiche (CSV Master)", use_container_width=True, key="btn_save_master_sm"):
+                        salvati_local = False
                         try:
                             os.makedirs(skill_matrix_dir, exist_ok=True)
                             with open(master_local_path, "w", encoding="utf-8") as f:
                                 f.write(csv_master_data)
                             salvati_local = True
                         except Exception as e:
-                            st.error(f"Errore nel salvataggio locale: {e}")
-                            salvati_local = False
+                            st.error(f"Errore salvataggio locale: {e}")
 
-                        # 2. Salvataggio ed invio su GitHub
-                        token = st.secrets.get("GITHUB_TOKEN", "")
-                        repo_name = st.secrets.get("REPO_NAME", "")
-                        if token and repo_name and salvati_local:
+                        if token and repo_name:
                             try:
                                 g = Github(token)
                                 repo = g.get_repo(repo_name)
@@ -4178,34 +4234,47 @@ if nav == "Skill Matrix":
                                     file_existing = repo.get_contents(github_master_path)
                                     repo.update_file(
                                         path=github_master_path,
-                                        message=f"Aggiornata panoramica generale Skill Matrix da PDF: {file_name_master}",
+                                        message=f"Aggiornata tabella Skill_Matrix_Panoramica_Generale.csv",
                                         content=csv_master_data,
                                         sha=file_existing.sha
                                     )
                                 except GithubException:
                                     repo.create_file(
                                         path=github_master_path,
-                                        message=f"Creata panoramica generale Skill Matrix da PDF: {file_name_master}",
+                                        message=f"Creata tabella Skill_Matrix_Panoramica_Generale.csv",
                                         content=csv_master_data
                                     )
-                                st.success(f"✅ Dati aggiornati salvati con successo su GitHub in `{github_master_path}`!")
+                                st.success("✅ Tabella salvata con successo su GitHub e Locale!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Errore durante il salvataggio su GitHub: {e}")
+                                st.error(f"Errore aggiornamento GitHub: {e}")
                         else:
-                            st.warning("⚠️ Credentials GitHub assenti nei secrets. File salvato solo in locale.")
-                                
-                with col_btn2:
+                            if salvati_local:
+                                st.warning("⚠️ Credentials GitHub non configurate. Salvato solo in locale.")
+
+                # Button 2: Download CSV
+                with col_b2:
                     st.download_button(
-                        label="📥 Scarica Tabella Master in formato CSV",
+                        label="📥 Scarica CSV Master",
                         data=csv_master_data,
                         file_name="Skill_Matrix_Panoramica_Generale.csv",
                         mime="text/csv",
                         use_container_width=True,
-                        key="btn_download_master_sm_csv"
+                        key="btn_download_master_csv"
+                    )
+
+                # Button 3: Download Excel
+                with col_b3:
+                    st.download_button(
+                        label="📊 Scarica Excel (.xlsx)",
+                        data=excel_master_data,
+                        file_name="Skill_Matrix_Panoramica_Generale.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key="btn_download_master_excel"
                     )
             else:
-                st.info("Nessun report PDF valido trovato nella cartella 'Skill_Matrix/Autovalutazione'.")
+                st.info("Nessuna autovalutazione trovata nella cartella 'Skill_Matrix/Autovalutazione'.")
 #------------------------------------------------------------------------------------------------------------------
 # SEZIONE 12: RICONOSCIMENTO SEGNALANTI NEAR MISS
 #------------------------------------------------------------------------------------------------------------------
