@@ -23,7 +23,10 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 import csv
 from github import Github, GithubException
 import requests
-
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 # Import per l'estrazione del testo dai file locali
 from pypdf import PdfReader
 from docx import Document
@@ -691,6 +694,65 @@ def genera_piano_adeguamento_e_gap(chiave, info_norma, testo_link):
         ]
 
     return doc_necessari, azioni_da_fare
+
+# ======================================================================================
+# NOTIFICA EMAIL PER CONTROLLO DPI
+# ======================================================================================
+def invia_email_notifica_dpi(mansione, dpi_rilevati, mancanti, esito_conforme, img_bytes=None):
+    """
+    Invia una e-mail di notifica contenente il testo dell'esito
+    e l'immagine con i rilievi YOLO allegata.
+    """
+    email_destinatario = st.secrets.get("EMAIL", "")
+    if not email_destinatario:
+        return False, "Nessun indirizzo 'EMAIL' configurato in st.secrets."
+
+    # Configurazione server SMTP da secrets
+    smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = st.secrets.get("SMTP_PORT", 587)
+    smtp_user = st.secrets.get("SMTP_USER", email_destinatario)
+    smtp_password = st.secrets.get("SMTP_PASSWORD", "")
+
+    oggetto = f"[{'CONFORME' if esito_conforme else 'ALLERTA NON CONFORME'}] Verifica DPI - Mansione: {mansione}"
+    
+    testo_corpo = f"""
+    Notifica di verifica controllo DPI tramite IA (YOLO)
+
+    - Data e Ora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+    - Mansione analizzata: {mansione}
+    - DPI Rilevati: {', '.join(dpi_rilevati) if dpi_rilevati else 'Nessuno'}
+    - Stato Conformità: {'✅ CONFORME' if esito_conforme else '❌ NON CONFORME'}
+    """
+    
+    if not esito_conforme:
+        testo_corpo += f"\n- DPI Mancanti Obbligatori: {', '.join(mancanti)}\n"
+
+    testo_corpo += "\nIn allegato trovi l'immagine analizzata dal modello YOLO."
+
+    msg = MIMEMultipart()
+    msg['From'] = smtp_user if smtp_user else email_destinatario
+    msg['To'] = email_destinatario
+    msg['Subject'] = oggetto
+    msg.attach(MIMEText(testo_corpo, 'plain'))
+
+    # Allegato dell'immagine elaborata da YOLO
+    if img_bytes:
+        try:
+            img_mime = MIMEImage(img_bytes, name=f"yolo_dpi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+            msg.attach(img_mime)
+        except Exception as e_img:
+            st.warning(f"Impossibile allegare l'immagine alla mail: {e_img}")
+
+    try:
+        server = smtplib.SMTP(smtp_server, int(smtp_port))
+        server.starttls()
+        if smtp_password:
+            server.login(smtp_user, smtp_password)
+        server.sendmail(msg['From'], email_destinatario, msg.as_string())
+        server.quit()
+        return True, "Email inviata con successo con allegato"
+    except Exception as e:
+        return False, str(e)
 
 # Aggiornamento Classificazione Riconoscimento
 def get_riconoscimenti_data():
@@ -4313,12 +4375,19 @@ if nav == "Controllo DPI":
         st.image(img_pil, caption="Immagine Acquisita", use_container_width=True)
         
         if st.button("Avvia Analisi DPI con YOLO", use_container_width=True, key="btn_run_yolo_dpi"):
-            with st.spinner("Elaborazione rilevamento DPI in corso..."):
+            with st.spinner("Elaborazione rilevamento DPI e invio notifica e-mail in corso..."):
                 try:
                     results = model(img_np)
-                    res_plotted = results[0].plot()
+                    res_plotted = results[0].plot() # Immagine BGR/RGB con bounding box
+                    
                     st.image(res_plotted, caption="Risultato Rilevamento YOLO", use_container_width=True)
                     
+                    # Conversione dell'immagine con i box YOLO in byte JPEG per l'e-mail
+                    img_res_pil = Image.fromarray(res_plotted)
+                    buffer_img = io.BytesIO()
+                    img_res_pil.save(buffer_img, format="JPEG")
+                    img_bytes_yolo = buffer_img.getvalue()
+
                     boxes = results[0].boxes
                     class_indices = boxes.cls.cpu().numpy() if len(boxes) > 0 else []
                     class_names = results[0].names
@@ -4328,11 +4397,27 @@ if nav == "Controllo DPI":
                     st.write(f"**DPI rilevati dal sistema:** {list(set(rilievi_oggetti)) if rilievi_oggetti else 'Nessun DPI riconosciuto'}")
                     
                     mancanti = [dpi for dpi in dpi_richiesti if not any(dpi.lower() in r.lower() for r in rilievi_oggetti)]
+                    esito_conforme = len(mancanti) == 0
                     
-                    if not mancanti:
+                    if esito_conforme:
                         st.success("✅ **CONFORME:** Tutti i DPI obbligatori per la mansione sono indossati correttamente.")
                     else:
                         st.error(f"❌ **NON CONFORME:** Mancano i seguenti DPI obbligatori: {', '.join(mancanti)}")
+
+                    # Invio e-mail automatico completo di immagine allegata
+                    esito_mail, msg_mail = invia_email_notifica_dpi(
+                        mansione=mansione_scelta,
+                        dpi_rilevati=list(set(rilievi_oggetti)),
+                        mancanti=mancanti,
+                        esito_conforme=esito_conforme,
+                        img_bytes=img_bytes_yolo
+                    )
+                    
+                    if esito_mail:
+                        st.info(f"📧 Notifica e-mail con immagine YOLO inviata con successo a `{st.secrets.get('EMAIL', '')}`.")
+                    else:
+                        st.warning(f"⚠️ Impossibile inviare l'e-mail: {msg_mail}")
+
                 except Exception as e:
                     st.error(f"Errore durante l'esecuzione del modello YOLO: {e}")
 
