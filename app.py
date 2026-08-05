@@ -971,7 +971,7 @@ if nav == "Home Dashboard":
                 st.metric("🥉 3° Posto", f"{df_home_ric.iloc[2][col_nom]}", f"{pts_3} Pts" if pts_3 != "" else "")
     
         st.markdown("---")
-        st.subheader("📋 Tabella di Classificazione Completa")
+        st.subheader("Tabella di Classificazione Completa")
     
         # Prepara il DataFrame aggiungendo la posizione in classifica
         df_classifica_completa = df_home_ric.copy()
@@ -990,7 +990,7 @@ if nav == "Home Dashboard":
     # 3. VISUALIZZAZIONE FLOWCHART SEGNALAZIONE NEAR MISS (.PDF)
     # ---------------------------------------------------------
     st.markdown("---")
-    st.subheader("📄 Flowchart Segnalazione Near Miss")
+    st.subheader("Flowchart Segnalazione Near Miss")
     
     file_pdf_path = os.path.join(base_dir, "documenti_conformita", "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
     
@@ -1012,7 +1012,7 @@ if nav == "Home Dashboard":
                 pdf_bytes = f.read()
                 
             st.download_button(
-                label="📥 Scarica Flowchart Segnalazione Near Miss (.pdf)",
+                label="📥 Scarica Flowchart Segnalazione Near Miss",
                 data=pdf_bytes,
                 file_name="FLOWCHART SEGNALAZIONE NEAR MISS.pdf",
                 mime="application/pdf",
@@ -2703,7 +2703,7 @@ if nav == "KPI":
             # TAB 1: DEFINIZIONE MASTER KPI
             # ==========================================
             if st.session_state.kpi_main_nav == "📊 Definizione Master KPI":
-                st.subheader("📋 Gestione Master dei KPI, Formule e Parametri")
+                st.subheader("Gestione Master dei KPI, Formule e Parametri")
                 st.markdown(
                     "I KPI inseriti o modificati qui vengono riconosciuti e sincronizzati"
                     " automaticamente nella `tab_kpi_2`."
@@ -2729,12 +2729,12 @@ if nav == "KPI":
                 csv_t1 = st.session_state.t1_kpi_definitions.to_csv(index=False, encoding='utf-8').encode('utf-8')
                 col_exp_1, col_exp_2 = st.columns(2)
                 with col_exp_1:
-                    if st.button("📁 Salva in cartella 'KPI' e GitHub (Tab 1)", key="btn_save_folder_t1", use_container_width=True):
+                    if st.button("Salva in cartella 'KPI' e GitHub (Tab 1)", key="btn_save_folder_t1", use_container_width=True):
                         salva_su_github_kpi(path_t1, st.session_state.t1_kpi_definitions, f"Salvataggio {nome_file_t1}")
                         st.success(f"Salvato con successo in: {path_t1} e nel repository GitHub!")
                 with col_exp_2:
                     st.download_button(
-                        label="⬇️ Scarica CSV Master KPI",
+                        label="Scarica CSV Master KPI",
                         data=csv_t1,
                         file_name=nome_file_t1,
                         mime="text/csv",
@@ -2744,7 +2744,7 @@ if nav == "KPI":
                 st.markdown("---")
                 
                 # --- ELIMINAZIONE PROTETTA MASTER KPI ---
-                st.markdown("##### 🗑️ Eliminazione Master KPI (Richiede Password)")
+                st.markdown("##### Eliminazione Master KPI (Richiede Password)")
                 with st.form("form_elimina_master_kpi"):
                     kpi_list_names = st.session_state.t1_kpi_definitions["Nome_KPI"].tolist() if not st.session_state.t1_kpi_definitions.empty else []
                     kpi_da_eliminare = st.selectbox("Seleziona KPI da eliminare permanentemente", kpi_list_names, key="sel_kpi_del")
@@ -2833,13 +2833,13 @@ if nav == "KPI":
                     )
                 # --- SOTTO-NAVIGAZIONE STABILE PER IL MONITORAGGIO ---
                 if "kpi_sub_nav" not in st.session_state:
-                    st.session_state.kpi_sub_nav = "📈 Dashboard & Grafici"
+                    st.session_state.kpi_sub_nav = "Dashboard & Grafici"
                 st.session_state.kpi_sub_nav = st.radio(
                     "Seleziona Sottosezione Monitoraggio",
                     [
-                        "📈 Dashboard & Grafici",
-                        "🕒 Registra Nuovo Monitoraggio",
-                        "🛠️ Aggiungi Nuovo KPI & Configurazione",
+                        "Dashboard & Grafici",
+                        "Registra Nuovo Monitoraggio",
+                        "Aggiungi Nuovo KPI & Configurazione",
                     ],
                     horizontal=True,
                     key="radio_kpi_sub_nav_selector"
@@ -2847,7 +2847,7 @@ if nav == "KPI":
                 st.markdown("---")
                 
                 # --- SOTTO-TAB 1: MONITORAGGIO E GRAFICI ---
-                if st.session_state.kpi_sub_nav == "📈 Dashboard & Grafici":
+                if st.session_state.kpi_sub_nav == "Dashboard & Grafici":
                     if not df_kpi_master.empty:
                         scadenze_critiche_t2 = df_kpi_master[
                             df_kpi_master["Giorni_Rimasti"] <= 3
@@ -2896,12 +2896,12 @@ if nav == "KPI":
                         csv_controllo = df_controllo_display.to_csv(index=False, encoding='utf-8').encode('utf-8')
                         col_c1, col_c2 = st.columns(2)
                         with col_c1:
-                            if st.button("📁 Salva in cartella 'KPI' e GitHub (Controllo KPI)", key="btn_save_folder_ctrl", use_container_width=True):
+                            if st.button("Salva in cartella 'KPI' e GitHub (Controllo KPI)", key="btn_save_folder_ctrl", use_container_width=True):
                                 salva_su_github_kpi(path_controllo, df_controllo_display, f"Salvataggio {nome_file_controllo}")
                                 st.success(f"Salvato con successo in: {path_controllo} e su GitHub!")
                         with col_c2:
                             st.download_button(
-                                label="⬇️ Scarica CSV Controllo KPI",
+                                label="Scarica CSV Controllo KPI",
                                 data=csv_controllo,
                                 file_name=nome_file_controllo,
                                 mime="text/csv",
@@ -2909,7 +2909,7 @@ if nav == "KPI":
                                 use_container_width=True
                             )
                         st.markdown("---")
-                        st.markdown("#### 📊 Evoluzione Storica dei KPI")
+                        st.markdown("#### Evoluzione Storica dei KPI")
                         kpi_selezionato_storico = st.selectbox(
                             "Seleziona KPI per visualizzare il grafico temporale:",
                             df_kpi_master["Nome_KPI"],
@@ -2930,9 +2930,9 @@ if nav == "KPI":
                         st.info("Nessun KPI presente.")
                         
                 # --- SOTTO-TAB 2: REGISTRA NUOVO MONITORAGGIO PERIODICO ---
-                elif st.session_state.kpi_sub_nav == "🕒 Registra Nuovo Monitoraggio":
+                elif st.session_state.kpi_sub_nav == "Registra Nuovo Monitoraggio":
                     st.markdown(
-                        "#### 🕒 Aggiungi Nuovo Monitoraggio (Nuova Riga nello Storico)"
+                        "#### Aggiungi Nuovo Monitoraggio (Nuova Riga nello Storico)"
                     )
                     st.markdown(
                         "I KPI sottostanti sono riconosciuti direttamente da quelli definiti"
@@ -3031,7 +3031,7 @@ if nav == "KPI":
                                 f" **{prossima_scadenza_calc.strftime('%d/%m/%Y')}**"
                             )
                         if st.button(
-                            "💾 Registra Nuovo Monitoraggio nello Storico",
+                            "Registra Nuovo Monitoraggio nello Storico",
                             key="t2_btn_registra_storico",
                         ):
                             nuova_riga_storico = pd.DataFrame([{
@@ -3059,18 +3059,18 @@ if nav == "KPI":
                         st.dataframe(df_storico_display, use_container_width=True)
                         
                         # Esportazione Tabella Storico Monitoraggi (Sottosezione Tab2 - Storico)
-                        st.markdown("##### 📥 Esportazione Tabella Storico Monitoraggi")
+                        st.markdown("##### Esportazione Tabella Storico Monitoraggi")
                         nome_file_storico = f"{data_str}_Tab2-StoricoMisure.csv"
                         path_storico = os.path.join("KPI", nome_file_storico)
                         csv_storico = df_storico_display.to_csv(index=False, encoding='utf-8').encode('utf-8')
                         col_s1, col_s2 = st.columns(2)
                         with col_s1:
-                            if st.button("📁 Salva in cartella 'KPI' e GitHub (Storico Misure)", key="btn_save_folder_storico", use_container_width=True):
+                            if st.button("Salva in cartella 'KPI' e GitHub (Storico Misure)", key="btn_save_folder_storico", use_container_width=True):
                                 salva_su_github_kpi(path_storico, df_storico_display, f"Salvataggio {nome_file_storico}")
                                 st.success(f"Salvato con successo in: {path_storico} e su GitHub!")
                         with col_s2:
                             st.download_button(
-                                label="⬇️ Scarica CSV Storico Misure",
+                                label="Scarica CSV Storico Misure",
                                 data=csv_storico,
                                 file_name=nome_file_storico,
                                 mime="text/csv",
@@ -3081,7 +3081,7 @@ if nav == "KPI":
                         st.markdown("---")
                         
                         # --- ELIMINAZIONE PROTETTA REGISTRO STORICO ---
-                        st.markdown("##### 🗑️ Eliminazione Registro di Monitoraggio (Richiede Password)")
+                        st.markdown("##### Eliminazione Registro di Monitoraggio (Richiede Password)")
                         if not st.session_state.t2_storico_misure.empty:
                             storico_temp_del = st.session_state.t2_storico_misure.copy()
                             storico_temp_del["Etichetta_Riga"] = (
@@ -3119,7 +3119,7 @@ if nav == "KPI":
                         
                 # --- SOTTO-TAB 3: AGGIUNGI NUOVO KPI & CONFIGURAZIONE ---
                 else:
-                    st.markdown("#### 🛠️ Aggiungi un Nuovo KPI (Sincronizzato con Tab 1)")
+                    st.markdown("#### Aggiungi un Nuovo KPI (Sincronizzato con Tab 1)")
                     st.markdown(
                         "I KPI inseriti qui saranno aggiunti all'archivio comune e visibili"
                         " in entrambe le tab."
@@ -3236,7 +3236,7 @@ if nav == "Piano Miglioramento":
                 pdf_data = f.read()
             
             st.download_button(
-                label="📄 Scarica Istruzione Piano Miglioramento (PDF)",
+                label="Scarica Istruzione Piano Miglioramento (PDF)",
                 data=pdf_data,
                 file_name="Istruzione_Piano_Miglioramento.pdf",
                 mime="application/pdf",
@@ -3404,14 +3404,14 @@ if nav == "Piano Miglioramento":
             
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
-                if st.button("💾 Salva nuovamente su GitHub", key="btn_gh_vr"):
+                if st.button("💾 Salva Online", key="btn_gh_vr"):
                     repo_path = f"Piano_Miglioramento/Valutazione_Rischio/{excel_filename_vr}"
                     if save_to_github(repo_path, excel_data_vr, f"Add {excel_filename_vr}"):
                         st.success(f"File salvato con successo su GitHub in: {repo_path}")
             
             with col_btn2:
                 st.download_button(
-                    label="📥 Scarica Tabella Dinamica (Excel)",
+                    label= "Scarica Tabella Dinamica",
                     data=excel_data_vr,
                     file_name=excel_filename_vr,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -3520,7 +3520,7 @@ if nav == "Piano Miglioramento":
             st.markdown("---")
             col_rep1, col_rep2 = st.columns(2)
             with col_rep1:
-                if st.button("💾 Salva Report Online", key="btn_save_report"):
+                if st.button("Salva Report Online", key="btn_save_report"):
                     csv_repo_path = f"Piano_Miglioramento/Azioni_Piano_Miglioramento/{csv_filename}"
                     report_repo_path = f"Piano_Miglioramento/Report/{report_excel_filename}"
                     
@@ -3532,7 +3532,7 @@ if nav == "Piano Miglioramento":
 
             with col_rep2:
                 st.download_button(
-                    label="📥 Scarica Report (Excel)",
+                    label="Scarica Report (Excel)",
                     data=report_excel_data,
                     file_name=report_excel_filename,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -3824,7 +3824,7 @@ if nav == "Stima Costo Economico":
             
             col_save1, col_save2 = st.columns(2)
             with col_save1:
-                if st.button("💾 Salva Report su GitHub", key="btn_save_stima_gh"):
+                if st.button("Salva Report Online", key="btn_save_stima_gh"):
                     if 'save_to_github' in globals():
                         if save_to_github(github_repo_path, csv_bytes, f"Add {file_name_export}"):
                             st.success(f"Report salvato con successo su GitHub in: `{github_repo_path}`")
@@ -3833,7 +3833,7 @@ if nav == "Stima Costo Economico":
             
             with col_save2:
                 st.download_button(
-                    label="📥 Scarica Report CSV (.csv)",
+                    label="Scarica Report CSV",
                     data=csv_bytes,
                     file_name=file_name_export,
                     mime="text/csv",
@@ -3888,7 +3888,7 @@ if nav == "Skill Matrix":
                 pdf_bytes = f.read()
             
             st.download_button(
-                label="📥 Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
+                label="Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
                 data=pdf_bytes,
                 file_name="Skill Matrix Autovalutazione.pdf",
                 mime="application/pdf",
@@ -4087,7 +4087,7 @@ if nav == "Skill Matrix":
                           
                       col_btn1, col_btn2 = st.columns(2)
                       with col_btn1:
-                          if st.button("💾 Salva Modifiche Tabella Skill Matrix", use_container_width=True, key="btn_save_master_sm"):
+                          if st.button("Salva Modifiche Tabella Skill Matrix", use_container_width=True, key="btn_save_master_sm"):
                               # 1. Definizione file e percorsi per la Panoramica Generale
                               file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
                               master_local_path = os.path.join(skill_matrix_dir, file_name_master)
@@ -4138,7 +4138,7 @@ if nav == "Skill Matrix":
                       with col_btn2:
                           csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
                           st.download_button(
-                              label="📥 Scarica Tabella Master in formato CSV",
+                              label="Scarica Tabella Master in formato CSV",
                               data=csv_master_data,
                               file_name="Skill_Matrix_Panoramica_Generale.csv",
                               mime="text/csv",
@@ -4366,7 +4366,7 @@ if nav == "Riconoscimento":
             col_sav1, col_sav2 = st.columns(2)
             
             with col_sav1:
-                if st.button("💾 Salva Assegnazione Punteggi su GitHub", use_container_width=True, key="btn_save_riconoscimenti"):
+                if st.button("Salva Assegnazione Punteggi Online", use_container_width=True, key="btn_save_riconoscimenti"):
                     # Ordina prima di salvare
                     df_edited = df_edited.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
                     
@@ -4389,7 +4389,7 @@ if nav == "Riconoscimento":
             with col_sav2:
                 csv_ric_data = df_edited.to_csv(index=False, sep=";").encode('utf-8')
                 st.download_button(
-                    label="📥 Scarica Classifica Riconoscimenti (CSV)",
+                    label="Scarica Classifica Riconoscimenti (CSV)",
                     data=csv_ric_data,
                     file_name="Riconoscimento_Partecipazione_NM.csv",
                     mime="text/csv",
@@ -4795,7 +4795,7 @@ if nav == "Segnalazione Manutenzione":
         buffer.close()
 
         st.download_button(
-            label="📄 Scarica Risposta Compilata in PDF",
+            label="Scarica Risposta Compilata in PDF",
             data=pdf_data,
             file_name=f"Segnalazione_Manutenzione_{dati_pdf['Data Ora Invio'].replace(':', '-').replace(' ', '_')}.pdf",
             mime="application/pdf",
