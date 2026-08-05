@@ -1935,13 +1935,18 @@ if nav == "Analisi - Fase 2":
 if nav == "KPI":
     st.header("KPI & Indicatori di Performance HSE")
     
+    # ---------------------------------------------------------
+    # Autenticazione Password Sezione KPI tramite Secrets
+    # ---------------------------------------------------------
     if "autenticato_kpi" not in st.session_state:
         st.session_state.autenticato_kpi = False
+        
+    correct_pwd_kpi = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
         
     if not st.session_state.autenticato_kpi:
         pwd_kpi = st.text_input("Inserisci la Password di Accesso per la sezione KPI", type="password", key="pwd_kpi_sec")
         if st.button("Convalida Accesso KPI", use_container_width=True):
-            if pwd_kpi == "hse2026":
+            if pwd_kpi == correct_pwd_kpi:
                 st.session_state.autenticato_kpi = True
                 st.rerun()
             else:
@@ -1955,16 +1960,28 @@ if nav == "KPI":
                 " sicurezza sul lavoro."
             )
             st.markdown("---")
-
             oggi = datetime.today().date()
             data_str = oggi.strftime('%Y-%m-%d')
-
-            # Creazione della cartella KPI se non esiste
+            
+            # Creazione della cartella KPI locale se non esiste
             os.makedirs("KPI", exist_ok=True)
-
+            
             # Percorsi per la persistenza automatica dei dati tra i refresh
             path_master_pers = os.path.join("KPI", "master_kpi_definitions.csv")
             path_storico_pers = os.path.join("KPI", "storico_misure.csv")
+            
+            # Helper function per il salvataggio su GitHub sicuro
+            def salva_su_github_kpi(rel_path, df_to_save, commit_msg):
+                try:
+                    os.makedirs(os.path.dirname(rel_path), exist_ok=True)
+                    df_to_save.to_csv(rel_path, index=False, encoding='utf-8')
+                    csv_bytes = df_to_save.to_csv(index=False, encoding='utf-8').encode('utf-8')
+                    if 'save_to_github' in globals():
+                        return save_to_github(rel_path, csv_bytes, commit_msg)
+                    return True
+                except Exception as e:
+                    st.error(f"Errore durante il salvataggio: {e}")
+                    return False
 
             # ==========================================
             # ARCHIVIO CONDIVISO UNICO (PRESENTE IN ENTRAMBE LE TAB)
@@ -2014,7 +2031,7 @@ if nav == "KPI":
                             "Baseline": "Target massimo accettabile: 2 giorni",
                         },
                     ])
-                    st.session_state.t1_kpi_definitions.to_csv(path_master_pers, index=False, encoding='utf-8')
+                    salva_su_github_kpi(path_master_pers, st.session_state.t1_kpi_definitions, "Inizializzazione master_kpi_definitions.csv")
 
             # Storico delle misurazioni periodiche nel tempo
             if "t2_storico_misure" not in st.session_state:
@@ -2056,12 +2073,11 @@ if nav == "KPI":
                             "Dettaglio_Fattori": "Near Miss Chiusi: 47.0 / Near Miss Totali: 60.0",
                         },
                     ])
-                    st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
+                    salva_su_github_kpi(path_storico_pers, st.session_state.t2_storico_misure, "Inizializzazione storico_misure.csv")
 
             # --- NAVIGAZIONE PRINCIPALE STABILE (PERSISTENTE) ---
             if "kpi_main_nav" not in st.session_state:
                 st.session_state.kpi_main_nav = "📊 Definizione Master KPI"
-
             st.session_state.kpi_main_nav = st.radio(
                 "Seleziona Sezione Principale KPI",
                 ["📊 Definizione Master KPI", "⚙️ Strumento di Monitoraggio & Storico"],
@@ -2080,31 +2096,29 @@ if nav == "KPI":
                     " automaticamente nella `tab_kpi_2`."
                 )
                 st.markdown("---")
-
                 edited_t1_kpi = st.data_editor(
                     st.session_state.t1_kpi_definitions,
                     num_rows="dynamic",
                     key="t1_kpi_editor",
                     use_container_width=True,
                 )
-
                 if st.button("💾 Salva Modifiche Master (Tab 1)", key="t1_save_btn"):
                     st.session_state.t1_kpi_definitions = edited_t1_kpi.copy()
-                    st.success("Definizioni e parametri sincronizzati con successo!")
+                    salva_su_github_kpi(path_master_pers, st.session_state.t1_kpi_definitions, "Aggiornamento Master KPI Definizioni")
+                    st.success("Definizioni e parametri sincronizzati con successo sia in locale che su GitHub!")
                     st.rerun()
-
                 st.markdown("---")
+                
                 # Sezione Download e Salvataggio Tab 1
                 st.markdown("##### 📥 Esportazione Tabella Master KPI")
                 nome_file_t1 = f"{data_str}_Tab1-MasterKPI.csv"
                 path_t1 = os.path.join("KPI", nome_file_t1)
-                csv_t1 = st.session_state.t1_kpi_definitions.to_csv(index=False).encode('utf-8')
-
+                csv_t1 = st.session_state.t1_kpi_definitions.to_csv(index=False, encoding='utf-8').encode('utf-8')
                 col_exp_1, col_exp_2 = st.columns(2)
                 with col_exp_1:
-                    if st.button("📁 Salva in cartella 'KPI' (Tab 1)", key="btn_save_folder_t1", use_container_width=True):
-                        st.session_state.t1_kpi_definitions.to_csv(path_t1, index=False, encoding='utf-8')
-                        st.success(f"Salvato con successo in: {path_t1}")
+                    if st.button("📁 Salva in cartella 'KPI' e GitHub (Tab 1)", key="btn_save_folder_t1", use_container_width=True):
+                        salva_su_github_kpi(path_t1, st.session_state.t1_kpi_definitions, f"Salvataggio {nome_file_t1}")
+                        st.success(f"Salvato con successo in: {path_t1} e nel repository GitHub!")
                 with col_exp_2:
                     st.download_button(
                         label="⬇️ Scarica CSV Master KPI",
@@ -2114,7 +2128,6 @@ if nav == "KPI":
                         key="dl_btn_t1",
                         use_container_width=True
                     )
-
                 st.markdown("---")
                 
                 # --- ELIMINAZIONE PROTETTA MASTER KPI ---
@@ -2125,7 +2138,7 @@ if nav == "KPI":
                     pwd_del_kpi = st.text_input("Inserisci la password di sezione per confermare l'eliminazione", type="password", key="pwd_del_kpi_field")
                     
                     if st.form_submit_button("Conferma ed Elimina Master KPI", use_container_width=True):
-                        if pwd_del_kpi == "hse2026":
+                        if pwd_del_kpi == correct_pwd_kpi:
                             if kpi_da_eliminare:
                                 # Rimuovi da Master KPI
                                 st.session_state.t1_kpi_definitions = st.session_state.t1_kpi_definitions[
@@ -2135,15 +2148,13 @@ if nav == "KPI":
                                 st.session_state.t2_storico_misure = st.session_state.t2_storico_misure[
                                     st.session_state.t2_storico_misure["Nome_KPI"] != kpi_da_eliminare
                                 ]
-                                # Aggiorna i file persistenti su disco
-                                st.session_state.t1_kpi_definitions.to_csv(path_master_pers, index=False, encoding='utf-8')
-                                st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
-
+                                # Aggiorna i file sia in locale che su GitHub
+                                salva_su_github_kpi(path_master_pers, st.session_state.t1_kpi_definitions, f"Eliminazione Master KPI: {kpi_da_eliminare}")
+                                salva_su_github_kpi(path_storico_pers, st.session_state.t2_storico_misure, f"Pulizia storico per eliminazione KPI: {kpi_da_eliminare}")
                                 st.success(f"KPI '{kpi_da_eliminare}' eliminato con successo!")
                                 st.rerun()
                         else:
                             st.error("Password errata. Impossibile procedere con l'eliminazione.")
-
                 st.markdown("---")
                 st.metric(
                     "KPI Attivi nel Sistema", len(st.session_state.t1_kpi_definitions)
@@ -2162,10 +2173,8 @@ if nav == "KPI":
                     " tempo."
                 )
                 st.markdown("---")
-
                 # Acquisizione diretta degli stessi KPI della Tab 1
                 df_kpi_master = st.session_state.t1_kpi_definitions.copy()
-
                 def calcola_prossima_data_approssimata(row):
                     storico_kpi = st.session_state.t2_storico_misure[
                         st.session_state.t2_storico_misure["ID_KPI"] == row["ID_KPI"]
@@ -2195,7 +2204,6 @@ if nav == "KPI":
                     df_kpi_master["Prossima_Data"] = df_kpi_master.apply(
                         calcola_prossima_data_approssimata, axis=1
                     )
-
                     def calcola_stato_t2(row):
                         delta = (row["Prossima_Data"] - oggi).days
                         if delta < 0:
@@ -2204,18 +2212,15 @@ if nav == "KPI":
                             return "In Scadenza", "🟡"
                         else:
                             return "Regolare", "🟢"
-
                     df_kpi_master["Stato_Testo"], df_kpi_master["Stato_Colore"] = zip(
                         *df_kpi_master.apply(calcola_stato_t2, axis=1)
                     )
                     df_kpi_master["Giorni_Rimasti"] = df_kpi_master["Prossima_Data"].apply(
                         lambda x: (x - oggi).days
                     )
-
                 # --- SOTTO-NAVIGAZIONE STABILE PER IL MONITORAGGIO ---
                 if "kpi_sub_nav" not in st.session_state:
                     st.session_state.kpi_sub_nav = "📈 Dashboard & Grafici"
-
                 st.session_state.kpi_sub_nav = st.radio(
                     "Seleziona Sottosezione Monitoraggio",
                     [
@@ -2227,14 +2232,13 @@ if nav == "KPI":
                     key="radio_kpi_sub_nav_selector"
                 )
                 st.markdown("---")
-
+                
                 # --- SOTTO-TAB 1: MONITORAGGIO E GRAFICI ---
                 if st.session_state.kpi_sub_nav == "📈 Dashboard & Grafici":
                     if not df_kpi_master.empty:
                         scadenze_critiche_t2 = df_kpi_master[
                             df_kpi_master["Giorni_Rimasti"] <= 3
                         ]
-
                         if not scadenze_critiche_t2.empty:
                             st.warning(
                                 f"⚠️ Attenzione: {len(scadenze_critiche_t2)} KPI richiedono un"
@@ -2242,9 +2246,7 @@ if nav == "KPI":
                             )
                         else:
                             st.success("Tutti i KPI condivisi sono regolari.")
-
                         st.markdown("#### Tabella di Controllo KPI Sincronizzati")
-
                         def color_status_t2(val):
                             if val == "Scaduto":
                                 return (
@@ -2256,7 +2258,6 @@ if nav == "KPI":
                                 )
                             else:
                                 return "background-color: #d4edda; color: #155724;"
-
                         df_controllo_display = df_kpi_master[[
                                 "Stato_Colore",
                                 "ID_KPI",
@@ -2279,13 +2280,12 @@ if nav == "KPI":
                         st.markdown("##### 📥 Esportazione Tabella di Controllo KPI")
                         nome_file_controllo = f"{data_str}_Tab2-ControlloKPI.csv"
                         path_controllo = os.path.join("KPI", nome_file_controllo)
-                        csv_controllo = df_controllo_display.to_csv(index=False).encode('utf-8')
-
+                        csv_controllo = df_controllo_display.to_csv(index=False, encoding='utf-8').encode('utf-8')
                         col_c1, col_c2 = st.columns(2)
                         with col_c1:
-                            if st.button("📁 Salva in cartella 'KPI' (Controllo KPI)", key="btn_save_folder_ctrl", use_container_width=True):
-                                df_controllo_display.to_csv(path_controllo, index=False, encoding='utf-8')
-                                st.success(f"Salvato con successo in: {path_controllo}")
+                            if st.button("📁 Salva in cartella 'KPI' e GitHub (Controllo KPI)", key="btn_save_folder_ctrl", use_container_width=True):
+                                salva_su_github_kpi(path_controllo, df_controllo_display, f"Salvataggio {nome_file_controllo}")
+                                st.success(f"Salvato con successo in: {path_controllo} e su GitHub!")
                         with col_c2:
                             st.download_button(
                                 label="⬇️ Scarica CSV Controllo KPI",
@@ -2295,7 +2295,6 @@ if nav == "KPI":
                                 key="dl_btn_ctrl",
                                 use_container_width=True
                             )
-
                         st.markdown("---")
                         st.markdown("#### 📊 Evoluzione Storica dei KPI")
                         kpi_selezionato_storico = st.selectbox(
@@ -2307,7 +2306,6 @@ if nav == "KPI":
                             st.session_state.t2_storico_misure["Nome_KPI"]
                             == kpi_selezionato_storico
                         ]
-
                         if not df_storico_filtrato.empty:
                             df_chart = df_storico_filtrato.set_index("Data_Monitoraggio")[
                                 ["Valore_Registrato"]
@@ -2315,8 +2313,9 @@ if nav == "KPI":
                             st.line_chart(df_chart)
                         else:
                             st.info("Nessuno storico registrato per questo KPI.")
+                    else:
                         st.info("Nessun KPI presente.")
-
+                        
                 # --- SOTTO-TAB 2: REGISTRA NUOVO MONITORAGGIO PERIODICO ---
                 elif st.session_state.kpi_sub_nav == "🕒 Registra Nuovo Monitoraggio":
                     st.markdown(
@@ -2326,14 +2325,12 @@ if nav == "KPI":
                         "I KPI sottostanti sono riconosciuti direttamente da quelli definiti"
                         " nella `tab_kpi_1`."
                     )
-
                     if not df_kpi_master.empty:
                         kpi_sel_upd = st.selectbox(
                             "Seleziona KPI Riconosciuto",
                             df_kpi_master["Nome_KPI"],
                             key="t2_sel_kpi_storico",
                         )
-
                         kpi_row = df_kpi_master[
                             df_kpi_master["Nome_KPI"] == kpi_sel_upd
                         ].iloc[0]
@@ -2343,17 +2340,14 @@ if nav == "KPI":
                         p1_nome = str(kpi_row["Parametro_1"])
                         p2_nome = str(kpi_row["Parametro_2"])
                         p3_nome = str(kpi_row["Parametro_3"])
-
                         st.info(
                             f"**Formula:** `{formula_corrente}` | **Baseline:**"
                             f" `{kpi_row['Baseline']}`"
                         )
-
                         col_f1, col_f2 = st.columns(2)
                         with col_f1:
                             valori_fattori = []
                             dettagli_lista = []
-
                             if p1_nome and p1_nome.lower() != "nan" and p1_nome.strip() != "":
                                 v1 = st.number_input(
                                     f"Parametro 1: {p1_nome}",
@@ -2363,7 +2357,6 @@ if nav == "KPI":
                                 )
                                 valori_fattori.append(v1)
                                 dettagli_lista.append(f"{p1_nome}: {v1}")
-
                             if p2_nome and p2_nome.lower() != "nan" and p2_nome.strip() != "":
                                 v2 = st.number_input(
                                     f"Parametro 2: {p2_nome}",
@@ -2373,7 +2366,6 @@ if nav == "KPI":
                                 )
                                 valori_fattori.append(v2)
                                 dettagli_lista.append(f"{p2_nome}: {v2}")
-
                             if p3_nome and p3_nome.lower() != "nan" and p3_nome.strip() != "":
                                 v3 = st.number_input(
                                     f"Parametro 3: {p3_nome}",
@@ -2383,7 +2375,6 @@ if nav == "KPI":
                                 )
                                 valori_fattori.append(v3)
                                 dettagli_lista.append(f"{p3_nome}: {v3}")
-
                             if len(valori_fattori) >= 2 and valori_fattori[1] > 0:
                                 if "%" in str(kpi_row["Unita_Misura"]):
                                     valore_calcolato = round(
@@ -2400,19 +2391,15 @@ if nav == "KPI":
                                     "Valore Misurato", value=0.0, format="%.2f", key="t2_fallback_v"
                                 )
                                 dettagli_lista.append(f"Valore Assoluto: {valore_calcolato}")
-
                         dettaglio_fattori_str = " / ".join(dettagli_lista)
-
                         st.metric(
                             "Valore Risultante Calcolato",
                             f"{valore_calcolato} {kpi_row['Unita_Misura']}",
                         )
-
                         with col_f2:
                             data_monitoraggio = st.date_input(
                                 "Data monitoraggio", value=oggi, key="t2_data_mon_input"
                             )
-
                             if "Settimanale" in cadenza_corrente:
                                 gg_agg = 7
                             elif "Bisettimanale" in cadenza_corrente:
@@ -2425,13 +2412,11 @@ if nav == "KPI":
                                 gg_agg = 180
                             else:
                                 gg_agg = 365
-
                             prossima_scadenza_calc = data_monitoraggio + timedelta(days=gg_agg)
                             st.write(
                                 f"📅 **Cadenza:** {cadenza_corrente} -> Nuova scadenza stimata:"
                                 f" **{prossima_scadenza_calc.strftime('%d/%m/%Y')}**"
                             )
-
                         if st.button(
                             "💾 Registra Nuovo Monitoraggio nello Storico",
                             key="t2_btn_registra_storico",
@@ -2447,32 +2432,29 @@ if nav == "KPI":
                                 [st.session_state.t2_storico_misure, nuova_riga_storico],
                                 ignore_index=True,
                             )
-                            # Salva permanentemente su disco
-                            st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
-
+                            # Salva permanentemente sia in locale che su GitHub
+                            salva_su_github_kpi(path_storico_pers, st.session_state.t2_storico_misure, f"Nuovo monitoraggio per KPI {id_kpi_corrente}")
                             st.success(
-                                "Nuovo monitoraggio aggiunto con successo nello storico!"
+                                "Nuovo monitoraggio aggiunto con successo nello storico e salvato su GitHub!"
                             )
                             st.rerun()
-
                         st.markdown("---")
                         st.markdown("#### Tabella Storico Monitoraggi")
                         df_storico_display = st.session_state.t2_storico_misure.sort_values(
                             by="Data_Monitoraggio", ascending=False
                         )
                         st.dataframe(df_storico_display, use_container_width=True)
-
+                        
                         # Esportazione Tabella Storico Monitoraggi (Sottosezione Tab2 - Storico)
                         st.markdown("##### 📥 Esportazione Tabella Storico Monitoraggi")
                         nome_file_storico = f"{data_str}_Tab2-StoricoMisure.csv"
                         path_storico = os.path.join("KPI", nome_file_storico)
-                        csv_storico = df_storico_display.to_csv(index=False).encode('utf-8')
-
+                        csv_storico = df_storico_display.to_csv(index=False, encoding='utf-8').encode('utf-8')
                         col_s1, col_s2 = st.columns(2)
                         with col_s1:
-                            if st.button("📁 Salva in cartella 'KPI' (Storico Misure)", key="btn_save_folder_storico", use_container_width=True):
-                                df_storico_display.to_csv(path_storico, index=False, encoding='utf-8')
-                                st.success(f"Salvato con successo in: {path_storico}")
+                            if st.button("📁 Salva in cartella 'KPI' e GitHub (Storico Misure)", key="btn_save_folder_storico", use_container_width=True):
+                                salva_su_github_kpi(path_storico, df_storico_display, f"Salvataggio {nome_file_storico}")
+                                st.success(f"Salvato con successo in: {path_storico} e su GitHub!")
                         with col_s2:
                             st.download_button(
                                 label="⬇️ Scarica CSV Storico Misure",
@@ -2506,14 +2488,13 @@ if nav == "KPI":
                                 pwd_del_storico = st.text_input("Inserisci la password di sezione per confermare l'eliminazione", type="password", key="pwd_del_storico_field")
                                 
                                 if st.form_submit_button("Conferma ed Elimina Registro", use_container_width=True):
-                                    if pwd_del_storico == "hse2026":
+                                    if pwd_del_storico == correct_pwd_kpi:
                                         idx_da_rimuovere = storico_temp_del[
                                             storico_temp_del["Etichetta_Riga"] == riga_selezionata_del
                                         ].index
                                         st.session_state.t2_storico_misure = st.session_state.t2_storico_misure.drop(idx_da_rimuovere).reset_index(drop=True)
-                                        # Aggiorna il file persistente su disco
-                                        st.session_state.t2_storico_misure.to_csv(path_storico_pers, index=False, encoding='utf-8')
-
+                                        # Aggiorna il file sia in locale che su GitHub
+                                        salva_su_github_kpi(path_storico_pers, st.session_state.t2_storico_misure, "Eliminazione registro dallo storico misure")
                                         st.success("Registro di monitoraggio eliminato con successo!")
                                         st.rerun()
                                     else:
@@ -2522,7 +2503,7 @@ if nav == "KPI":
                             st.info("Nessun registro di monitoraggio disponibile per l'eliminazione.")
                     else:
                         st.info("Nessun KPI disponibile.")
-
+                        
                 # --- SOTTO-TAB 3: AGGIUNGI NUOVO KPI & CONFIGURAZIONE ---
                 else:
                     st.markdown("#### 🛠️ Aggiungi un Nuovo KPI (Sincronizzato con Tab 1)")
@@ -2530,7 +2511,6 @@ if nav == "KPI":
                         "I KPI inseriti qui saranno aggiunti all'archivio comune e visibili"
                         " in entrambe le tab."
                     )
-
                     with st.form("t2_form_nuovo_kpi"):
                         c_a1, c_a2 = st.columns(2)
                         with c_a1:
@@ -2577,7 +2557,6 @@ if nav == "KPI":
                             np3 = st.text_input(
                                 "Parametro 3 (Opzionale)", value="", key="t2_np3"
                             )
-
                         # Gestione Baseline (Sì o No con Text Area dedicata)
                         nbase_choice = st.selectbox(
                             "Baseline Esistente", ["No", "Sì"], key="t2_nbase_choice"
@@ -2591,7 +2570,6 @@ if nav == "KPI":
                             ),
                             key="t2_nbaseline_textarea",
                         )
-
                         if st.form_submit_button("Crea e Sincronizza Nuovo KPI"):
                             if nid in st.session_state.t1_kpi_definitions["ID_KPI"].values:
                                 st.error(f"L'ID KPI '{nid}' esiste già.")
@@ -2612,14 +2590,12 @@ if nav == "KPI":
                                     [st.session_state.t1_kpi_definitions, nuova_riga_kpi],
                                     ignore_index=True,
                                 )
-                                # Salva permanentemente su disco
-                                st.session_state.t1_kpi_definitions.to_csv(path_master_pers, index=False, encoding='utf-8')
-
+                                # Salva permanentemente sia in locale che su GitHub
+                                salva_su_github_kpi(path_master_pers, st.session_state.t1_kpi_definitions, f"Creazione nuovo KPI: {nid}")
                                 st.success(
-                                    "Nuovo KPI creato e riconosciuto correttamente in entrambe le"
-                                    " tab!"
+                                    "Nuovo KPI creato e riconosciuto correttamente sia in locale che su GitHub!"
                                 )
-                        st.rerun()
+                                st.rerun()
         render_sezione_kpi()
 # ==========================================
 # SEZIONE 8: PIANO DI MIGLIORAMENTO
