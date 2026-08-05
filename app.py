@@ -3769,15 +3769,15 @@ if nav == "Riconoscimento":
                 key="editor_riconoscimento_table"
             )
             
+            # RICALCOLO AUTOMATICO DEL TOTALE
+            df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
+            df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
+            df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
+            
             col_sav1, col_sav2 = st.columns(2)
             
             with col_sav1:
                 if st.button("💾 Salva Assegnazione Punteggi su GitHub", use_container_width=True, key="btn_save_riconoscimenti"):
-                    # Ricalcolo totali
-                    df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
-                    df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
-                    df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
-                    
                     # Ordina prima di salvare
                     df_edited = df_edited.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
                     
