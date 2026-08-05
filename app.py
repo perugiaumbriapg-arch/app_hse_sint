@@ -1443,6 +1443,43 @@ if nav == "Consultazione":
     if "autenticato_upload_legale" not in st.session_state:
         st.session_state.autenticato_upload_legale = False
         
+    correct_pwd_legale = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
+    github_token = st.secrets.get("GITHUB_TOKEN", "")
+    repo_name = st.secrets.get("REPO_NAME", "")
+    folder_repo_conformita = "documenti_conformità"
+
+    # Helper function per recuperare la lista dei file su GitHub
+    def elenca_file_github_conformita():
+        if github_token and repo_name:
+            url = f"https://api.github.com/repos/{repo_name}/contents/{folder_repo_conformita}"
+            headers = {"Authorization": f"token {github_token}"}
+            try:
+                res = requests.get(url, headers=headers)
+                if res.status_code == 200:
+                    return res.json()  # Restituisce la lista di oggetti dei file
+            except Exception:
+                pass
+        return []
+
+    # Helper function per scaricare un singolo file da GitHub
+    def scarica_file_github_conformita(nome_file):
+        if github_token and repo_name:
+            url = f"https://raw.githubusercontent.com/{repo_name}/main/{folder_repo_conformita}/{nome_file}"
+            headers = {"Authorization": f"token {github_token}"}
+            try:
+                res = requests.get(url, headers=headers)
+                if res.status_code == 200:
+                    return res.content
+            except Exception:
+                pass
+        
+        # Fallback locale
+        local_path = os.path.join(DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita, nome_file)
+        if os.path.exists(local_path):
+            with open(local_path, "rb") as lf:
+                return lf.read()
+        return None
+
     col_bot, col_upload = st.columns([1, 1])
     
     # -----------------------------------------------------------
@@ -1456,7 +1493,8 @@ if nav == "Consultazione":
         if st.button("Interroga Archivio Normativo", use_container_width=True):
             if prompt_utente.strip():
                 with st.spinner("Scansione testi in corso..."):
-                    risultati_ricerca = cerca_nei_documenti(prompt_utente, DIR_CONFORMITA)
+                    dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
+                    risultati_ricerca = cerca_nei_documenti(prompt_utente, dir_target)
                     if risultati_ricerca == "specifica":
                         st.warning("Inserisci una query di ricerca più dettagliata.")
                     elif not risultati_ricerca:
@@ -1468,15 +1506,18 @@ if nav == "Consultazione":
                             st.markdown(f"**Fonte:** {r['fonte']} (Rilevanza: {r['score']}%)")
                             st.info(f"> {r['testo'][:1000]}")
                             try:
-                                with open(r['percorso_completo'], "rb") as file_da_aprire:
-                                    dati_file = file_da_aprire.read()
-                                st.download_button(
-                                    label=f"Apri / Scarica File Originale ({r['nome_file']})",
-                                    data=dati_file,
-                                    file_name=r['nome_file'],
-                                    mime="application/octet-stream",
-                                    key=f"dl_{r['fonte'].replace(' ','_')}_{time.time()}"
-                                )
+                                # Recupero del file dal repository GitHub o locale
+                                dati_file = scarica_file_github_conformita(r['nome_file'])
+                                if dati_file:
+                                    st.download_button(
+                                        label=f"Apri / Scarica File Originale ({r['nome_file']})",
+                                        data=dati_file,
+                                        file_name=r['nome_file'],
+                                        mime="application/octet-stream",
+                                        key=f"dl_{r['fonte'].replace(' ','_')}_{time.time()}"
+                                    )
+                                else:
+                                    st.error("Impossibile recuperare il file dal repository.")
                             except Exception as e_file:
                                 st.error(f"Impossibile agganciare l'anteprima del file: {e_file}")
             else:
@@ -1489,16 +1530,14 @@ if nav == "Consultazione":
         st.subheader("Lettura Link tramite QR Code")
         st.caption("Strumento pubblico di codifica rapida per la documentazione HSE aziendale.")
         
-       # Scelta della modalità di input
+        # Scelta della modalità di input
         metodo_input = st.radio(
-        "Scegli come inserire il codice:", 
-        ["Carica file dal dispositivo", "Fotocamera"], 
-        horizontal=True,
-        key="qr_pub_metodo"
+            "Scegli come inserire il codice:", 
+            ["Carica file dal dispositivo", "Fotocamera"], 
+            horizontal=True,
+            key="qr_pub_metodo"
         )
-
         immagine_input = None
-
         # Gestione logica in base alla scelta
         if metodo_input == "Carica file dal dispositivo":
             immagine_input = st.file_uploader(
@@ -1510,10 +1549,9 @@ if nav == "Consultazione":
             immagine_input = st.camera_input("Scatta una foto del QR Code:", key="cam_qr_pub")
         
         risultato_pub = None
-
         # Elaborazione dell'immagine (funziona con entrambi gli input)
         if immagine_input:
-        # La funzione decodifica_qr_opencv gestisce l'oggetto file_like (file o stream camera)
+            # La funzione decodifica_qr_opencv gestisce l'oggetto file_like (file o stream camera)
             risultato_pub = decodifica_qr_opencv(immagine_input)
     
         if risultato_pub:
@@ -1525,72 +1563,96 @@ if nav == "Consultazione":
         else:
             st.warning("Nessun codice QR valido rilevato nell'immagine.")
 
-        # -----------------------------------------------------------
-        # AREA PRIVATA / AMMINISTRATIVA (col_upload)
-        # -----------------------------------------------------------        
+    # -----------------------------------------------------------
+    # AREA PRIVATA / AMMINISTRATIVA (col_upload)
+    # -----------------------------------------------------------        
     with col_upload:
         st.subheader("Area Amministrazione Archivio")
         
         if not st.session_state.autenticato_upload_legale:
-                st.caption("Questa funzione richiede i privileges di Amministrazione per inserire nuovi testi ed estrarre la check-list.")
-                pwd_leg = st.text_input("Inserisci la password amministrativa", type="password", key="pwd_leg_tab")
-                if st.button("Sblocca Funzioni Avanzate", use_container_width=True):
-                    if pwd_leg == "hse2026":
-                        st.session_state.autenticato_upload_legale = True
-                        st.rerun()
-                    else:
-                        st.error("Password di conformità errata. Accesso negato.")
+            st.caption("Questa funzione richiede i privileges di Amministrazione per inserire nuovi testi ed estrarre la check-list.")
+            pwd_leg = st.text_input("Inserisci la password amministrativa", type="password", key="pwd_leg_tab")
+            if st.button("Sblocca Funzioni Avanzate", use_container_width=True):
+                if pwd_leg == correct_pwd_legale:
+                    st.session_state.autenticato_upload_legale = True
+                    st.rerun()
+                else:
+                    st.error("Password di conformità errata. Accesso negato.")
         else:
             st.success("Modalità di amministrazione attiva.")
             if st.button("Chiudi sessione Amministratore (Blocca)", use_container_width=True):
                 st.session_state.autenticato_upload_legale = False
                 st.rerun()
-                # --- Funzioni Admin ---
+                
+            # --- Funzioni Admin ---
             tab_admin1, tab_admin2 = st.tabs(["Documenti & Check-list", "Gestione QR & Normativa"])
             
             with tab_admin1:
                 st.markdown("Conformità legislativa e documentale")
                 st.subheader("Caricamento Documenti")
                 file_caricati = st.file_uploader(
-                    "Trascina qui Decreti, Testi Unici o Tabelle Word/Excel da archiviare sul disco locale:",
+                    "Trascina qui Decreti, Testi Unici o Tabelle Word/Excel da archiviare nel repository online GitHub (cartella 'documenti_conformità'):",
                     type=["pdf", "csv", "xlsx", "xls", "docx", "doc", "jpg", "jpeg", "png"],
                     accept_multiple_files=True,
                     key="uploader_leg_sup"
-                    )
+                )
                 if file_caricati:
                     for f in file_caricati:
-                        save_path = os.path.join(DIR_CONFORMITA, f.name)
+                        file_bytes = f.getbuffer().tobytes()
+                        path_in_repo = f"{folder_repo_conformita}/{f.name}"
+                        
+                        # Backup locale
+                        dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
+                        os.makedirs(dir_target, exist_ok=True)
+                        save_path = os.path.join(dir_target, f.name)
                         with open(save_path, "wb") as f_out:
-                            f_out.write(f.getbuffer())
-                    st.success("File salvati!")
+                            f_out.write(file_bytes)
+                        
+                        # Salvataggio su repository GitHub
+                        if 'save_to_github' in globals():
+                            save_to_github(path_in_repo, file_bytes, f"Caricamento documento conformità {f.name}")
+                            
+                    st.success("File salvati con successo in locale e sul repository GitHub!")
                 
                 # Check-list
                 st.markdown("---")
                 st.subheader("Estrazione Check-list Documentale")
             
                 if st.button("Genera ed Elabora Check-list CSV", use_container_width=True, key="btn_genera_checklist_doc"):
-                    file_presenti = [os.path.join(DIR_CONFORMITA, f) for f in os.listdir(DIR_CONFORMITA) if os.path.isfile(os.path.join(DIR_CONFORMITA, f))]
-                    if not file_presenti:
+                    file_github = elenca_file_github_conformita()
+                    dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
+                    
+                    file_presenti_nomi = []
+                    if file_github:
+                        file_presenti_nomi = [item["name"] for item in file_github if item["type"] == "file"]
+                    elif os.path.exists(dir_target):
+                        file_presenti_nomi = [f for f in os.listdir(dir_target) if os.path.isfile(os.path.join(dir_target, f))]
+
+                    if not file_presenti_nomi:
                         st.warning("L'archivio è vuoto. Carica almeno un documento.")
                     else:
-                         with st.spinner("Analisi ed estrazione strutturata..."):
+                        with st.spinner("Analisi ed estrazione strutturata..."):
                             righe_checklist = []
-                            for fp in file_presenti:
-                                 timestamp_creazione = os.path.getmtime(fp)
-                                 data_caricamento = datetime.fromtimestamp(timestamp_creazione).strftime("%d-%m-%Y")
-                                 titolo, regolamento, doc_produrre, settore_aziendale = estrai_info_checklist(fp)
+                            for fn in file_presenti_nomi:
+                                fp = os.path.join(dir_target, fn)
+                                data_caricamento = datetime.now().strftime("%d-%m-%Y")
+                                if os.path.exists(fp):
+                                    timestamp_creazione = os.path.getmtime(fp)
+                                    data_caricamento = datetime.fromtimestamp(timestamp_creazione).strftime("%d-%m-%Y")
+                                    
+                                titolo, regolamento, doc_produrre, settore_aziendale = estrai_info_checklist(fp if os.path.exists(fp) else fn)
                             
-                                 righe_checklist.append({
+                                righe_checklist.append({
                                     "Quando fu caricata": data_caricamento,
                                     "Titolo": titolo,
-                                     "Settore aziendale": settore_aziendale,
-                                     "Regolamento o legge di riferimento": regolamento,
-                                     "Documenti da produrre o allegati": doc_produrre
+                                    "Settore aziendale": settore_aziendale,
+                                    "Regolamento o legge di riferimento": regolamento,
+                                    "Documenti da produrre o allegati": doc_produrre
                                 })
                             df_checklist = pd.DataFrame(righe_checklist)
                             st.session_state["cached_df_checklist"] = df_checklist
                             st.success("Check-list aggiornata in memoria.")
-
+                            
                     if "cached_df_checklist" in st.session_state:
                         df_visualizza = st.session_state["cached_df_checklist"]
                         st.dataframe(df_visualizza, use_container_width=True, hide_index=True)
@@ -1616,27 +1678,23 @@ if nav == "Consultazione":
                     testo_da_convertire = st.text_input("Inserisci l'URL o il testo da inserire nel QR Code:", placeholder="https://www.gazzettaufficiale.it/")
                     if testo_da_convertire.strip():
                         img_ottenuta = genera_qr_nativo(testo_da_convertire)
-                
-                    # Esegui la generazione e il salvataggio SOLO se il testo è presente
-                    if testo_da_convertire.strip():
-                        img_ottenuta = genera_qr_nativo(testo_da_convertire)
         
                     # Verifica che img_ottenuta non sia None (buona pratica)
-                        if img_ottenuta:
+                    if img_ottenuta:
                         # Salvataggio temporaneo per consentire la visualizzazione e il download
-                            percorso_temp_qr = "temp_generated_qr.png"
-                            img_ottenuta.save(percorso_temp_qr)
+                        percorso_temp_qr = "temp_generated_qr.png"
+                        img_ottenuta.save(percorso_temp_qr)
                 
-                            st.image(percorso_temp_qr, width=220, caption="Codice QR generato con successo!")
+                        st.image(percorso_temp_qr, width=220, caption="Codice QR generato con successo!")
                 
-                            with open(percorso_temp_qr, "rb") as f_qr:
-                                st.download_button(
-                                    label="Scarica Immagine QR Code (.png)",
-                                    data=f_qr.read(),
-                                    file_name="qr_code_hse.png",
-                                    mime="image/png",
-                                    use_container_width=True
-                                )
+                        with open(percorso_temp_qr, "rb") as f_qr:
+                            st.download_button(
+                                label="Scarica Immagine QR Code (.png)",
+                                data=f_qr.read(),
+                                file_name="qr_code_hse.png",
+                                mime="image/png",
+                                use_container_width=True
+                            )
                     
                 elif opzione_qr == "Leggi/Decodifica QR Code":
                     file_qr_caricato = st.file_uploader("Carica un'immagine contenente un codice QR:", type=["png", "jpg", "jpeg"], key="uploader_file_qr_nativo")
@@ -1650,7 +1708,6 @@ if nav == "Consultazione":
                                 st.markdown(f"[Clicca qui per aprire il link rilevato]({risultato_priv})")
                         else:
                             st.warning("Nessun codice QR valido rilevato all'interno dell'immagine caricata.")
-
                 # -----------------------------------------------------------
                 # VERIFICA AGGIORNAMENTI COGENTI CON LINK REALI
                 # -----------------------------------------------------------
@@ -1664,19 +1721,26 @@ if nav == "Consultazione":
                 )
             
                 if st.button("Genera ed Elabora Check-list CSV", use_container_width=True, key="btn_genera_checklist_cogenti"):
-                    file_presenti = [os.path.join(DIR_CONFORMITA, f) for f in os.listdir(DIR_CONFORMITA) if os.path.isfile(os.path.join(DIR_CONFORMITA, f))]
+                    file_github = elenca_file_github_conformita()
+                    dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
+                    
+                    file_presenti_nomi = []
+                    if file_github:
+                        file_presenti_nomi = [item["name"] for item in file_github if item["type"] == "file"]
+                    elif os.path.exists(dir_target):
+                        file_presenti_nomi = [f for f in os.listdir(dir_target) if os.path.isfile(os.path.join(dir_target, f))]
+                        
                     righe = []
-                    for fp in file_presenti:
-                        titolo, reg, settore, data = estrai_info_checklist(fp)
+                    for fn in file_presenti_nomi:
+                        fp = os.path.join(dir_target, fn)
+                        titolo, reg, settore, data = estrai_info_checklist(fp if os.path.exists(fp) else fn)
                         righe.append({"Titolo Documento": titolo, "Regolamento": reg, "Settore": settore, "Data Caricamento": data})
                     st.session_state["cached_df_checklist"] = pd.DataFrame(righe)
                     st.rerun()
-
                 if "cached_df_checklist" in st.session_state:
                     st.dataframe(st.session_state["cached_df_checklist"], use_container_width=True)
                     csv = st.session_state["cached_df_checklist"].to_csv(index=False).encode('utf-8')
                     st.download_button("Scarica Check-list CSV", csv, "checklist.csv", "text/csv")
-
                 # 4. Motore Confronto Legislativo Dinamico (Con Gap-Analysis)
                 st.markdown("---")
                 st.subheader("Confronto Legislativo & Stato Conformità")
@@ -1702,7 +1766,17 @@ if nav == "Consultazione":
                 
                     # 2. Preparazione dati (Checklist e File)
                     txt_checklist = st.session_state["cached_df_checklist"].to_string() if "cached_df_checklist" in st.session_state else ""
-                    txt_docs = " ".join(os.listdir(DIR_CONFORMITA)) if os.path.exists(DIR_CONFORMITA) else ""
+                    
+                    file_github = elenca_file_github_conformita()
+                    dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
+                    if file_github:
+                        file_presenti_nomi = [item["name"] for item in file_github if item["type"] == "file"]
+                    elif os.path.exists(dir_target):
+                        file_presenti_nomi = os.listdir(dir_target)
+                    else:
+                        file_presenti_nomi = []
+                        
+                    txt_docs = " ".join(file_presenti_nomi)
                     txt_totale_analisi = (note_libere + " " + txt_checklist + " " + txt_docs).lower()
                 
                     st.markdown("### Risultati Stato Conformità")
