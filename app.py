@@ -4006,8 +4006,7 @@ if nav == "Skill Matrix":
             pwd_skill = st.text_input("Password Skill Matrix", type="password", key="pwd_skill_input")
             
             if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_skill"):
-                # Recupero password sicura dai Secrets (supporta PASSWORD_SEZIONE)
-                password_secrets = st.secrets.get("PASSWORD_SEZIONE", st.secrets.get("SKILL_MATRIX_PASSWORD", " "))
+                password_secrets = st.secrets.get("PASSWORD_SEZIONE", st.secrets.get("SKILL_MATRIX_PASSWORD", "hse2026"))
                 
                 if pwd_skill and pwd_skill == password_secrets:
                     st.session_state.auth_skill_matrix = True
@@ -4016,7 +4015,6 @@ if nav == "Skill Matrix":
                 else:
                     st.error("Password errata o non valida.")
         else:
-            # Pulsante per effettuare il Logout
             if st.button("Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
                 st.session_state.auth_skill_matrix = False
                 st.rerun()
@@ -4032,24 +4030,50 @@ if nav == "Skill Matrix":
             st.markdown("---")
             st.markdown("Visualizza e modifica direttamente i dati aggregati delle autovalutazioni inserite dal personale.")
                 
-            # Percorsi locali
-            skill_matrix_dir = "Skill_Matrix"
-            autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
+            # Percorsi del file Master
+            skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
+            file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
+            master_local_path = os.path.join(skill_matrix_dir, file_name_master)
+            github_master_path = f"Skill_Matrix/{file_name_master}"
             
-            if os.path.exists(autoval_dir):
-                files_csv = [f for f in os.listdir(autoval_dir) if f.endswith(".csv")]
-                if files_csv:
+            df_master_sm = pd.DataFrame()
+            
+            # --- STEP 1: Lettura prioritaria del file Master da GitHub o Locale ---
+            token = st.secrets.get("GITHUB_TOKEN", "")
+            repo_name = st.secrets.get("REPO_NAME", "")
+            
+            # Tentativo di recupero da GitHub
+            if token and repo_name:
+                try:
+                    g = Github(token)
+                    repo = g.get_repo(repo_name)
+                    file_content_gh = repo.get_contents(github_master_path)
+                    csv_raw = base64.b64decode(file_content_gh.content).decode("utf-8")
+                    df_master_sm = pd.read_csv(io.StringIO(csv_raw), sep=";")
+                except Exception:
+                    pass
+            
+            # Fallback su file locale se non trovato su GitHub
+            if df_master_sm.empty and os.path.exists(master_local_path):
+                try:
+                    df_master_sm = pd.read_csv(master_local_path, sep=";")
+                except Exception:
+                    pass
+            
+            # --- STEP 2: Fallback - Ricostruzione dalle singole autovalutazioni se il master non esiste ---
+            if df_master_sm.empty:
+                autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
+                if os.path.exists(autoval_dir):
+                    files_csv = [f for f in os.listdir(autoval_dir) if f.endswith(".csv")]
                     lista_righe_tabella = []
-                        
                     for f_csv in files_csv:
                         f_path = os.path.join(autoval_dir, f_csv)
                         try:
                             df_temp = pd.read_csv(f_path, sep=";")
-                                
                             def get_val(campo_str, default_val):
                                 res = df_temp.loc[df_temp["Campo"] == campo_str, "Valore"]
                                 return res.values[0] if not res.empty else default_val
-        
+
                             lista_righe_tabella.append({
                                 "Nome": str(get_val("Nome", "N/D")),
                                 "Cognome": str(get_val("Cognome", "N/D")),
@@ -4074,94 +4098,83 @@ if nav == "Skill Matrix":
                             })
                         except Exception:
                             pass
-                                
                     if lista_righe_tabella:
                         df_master_sm = pd.DataFrame(lista_righe_tabella)
-                            
-                        st.markdown("#### Tabella Panoramica Modificabile")
-                        st.info("Puoi modificare i valori direttamente nella tabella sottostante. Clicca sui pulsanti in basso per salvare o scaricare.")
-                            
-                        edited_master_sm = st.data_editor(
-                            df_master_sm,
-                            use_container_width=True,
-                            num_rows="dynamic",
-                            column_config={
-                                "Ambito lavorativo": st.column_config.SelectboxColumn(
-                                    "Ambito lavorativo",
-                                    options=["Uffici", "Produzione", "Manutenzione", "Stoccaggio MP", "Trasporto-Logistica", "Commerciale"],
-                                    required=True
-                                ),
-                                "File Sorgente": st.column_config.TextColumn("File Sorgente", disabled=True)
-                            },
-                            key="editor_skill_matrix_generale"
-                        )
-                            
-                        col_btn1, col_btn2 = st.columns(2)
-                        with col_btn1:
-                            if st.button("Salva Modifiche Tabella Skill Matrix", use_container_width=True, key="btn_save_master_sm"):
-                                file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
-                                master_local_path = os.path.join(skill_matrix_dir, file_name_master)
-                                github_master_path = f"Skill_Matrix/{file_name_master}"
-                                
-                                csv_master_content = edited_master_sm.to_csv(index=False, sep=";")
-        
-                                # 1. Salvataggio Locale
+
+            # --- STEP 3: Visualizzazione ed Editing della Tabella ---
+            if not df_master_sm.empty:
+                st.markdown("#### Tabella Panoramica Modificabile")
+                st.info("Puoi modificare i valori direttamente nella tabella sottostante. Clicca su **Salva Modifiche** per aggiornare GitHub e scaricare la versione aggiornata.")
+                    
+                edited_master_sm = st.data_editor(
+                    df_master_sm,
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    column_config={
+                        "Ambito lavorativo": st.column_config.SelectboxColumn(
+                            "Ambito lavorativo",
+                            options=["Uffici", "Produzione", "Manutenzione", "Stoccaggio MP", "Trasporto-Logistica", "Commerciale"],
+                            required=True
+                        ),
+                        "File Sorgente": st.column_config.TextColumn("File Sorgente", disabled=True)
+                    },
+                    key="editor_skill_matrix_generale"
+                )
+                    
+                col_btn1, col_btn2 = st.columns(2)
+                
+                # --- STEP 4: Salvataggio e Download Sincronizzati ---
+                csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
+                
+                with col_btn1:
+                    if st.button("Salva Modifiche Tabella Skill Matrix", use_container_width=True, key="btn_save_master_sm"):
+                        # 1. Salvataggio locale
+                        try:
+                            os.makedirs(skill_matrix_dir, exist_ok=True)
+                            with open(master_local_path, "w", encoding="utf-8") as f:
+                                f.write(csv_master_data)
+                            salvati_local = True
+                        except Exception as e:
+                            st.error(f"Errore nel salvataggio locale: {e}")
+                            salvati_local = False
+
+                        # 2. Salvataggio su GitHub
+                        if token and repo_name:
+                            try:
+                                g = Github(token)
+                                repo = g.get_repo(repo_name)
                                 try:
-                                    os.makedirs(skill_matrix_dir, exist_ok=True)
-                                    with open(master_local_path, "w", encoding="utf-8") as f:
-                                        f.write(csv_master_content)
-                                    salvati_ok = True
-                                except Exception as e:
-                                    st.error(f"Errore nel salvataggio locale: {e}")
-                                    salvati_ok = False
-        
-                                # 2. Salvataggio su GitHub via Secrets
-                                if salvati_ok:
-                                    try:
-                                        token = st.secrets.get("GITHUB_TOKEN", "")
-                                        repo_name = st.secrets.get("REPO_NAME", "")
-                                        
-                                        if not token or not repo_name:
-                                            st.error("⚠️ Impossibile salvare su GitHub: GITHUB_TOKEN o REPO_NAME non trovati nei Secrets.")
-                                        else:
-                                            g = Github(token)
-                                            repo = g.get_repo(repo_name)
-                                            
-                                            try:
-                                                file_existing = repo.get_contents(github_master_path)
-                                                repo.update_file(
-                                                    path=github_master_path,
-                                                    message=f"Aggiornata panoramica generale: {file_name_master}",
-                                                    content=csv_master_content,
-                                                    sha=file_existing.sha
-                                                )
-                                            except GithubException:
-                                                repo.create_file(
-                                                    path=github_master_path,
-                                                    message=f"Creata panoramica generale: {file_name_master}",
-                                                    content=csv_master_content
-                                                )
-                                                
-                                            st.success(f"Panoramica Generale salvata ed emessa su GitHub: `{github_master_path}`")
-                                        
-                                    except Exception as e:
-                                        st.error(f"Errore nel salvataggio su GitHub: {e}")
-                                        
-                        with col_btn2:
-                            csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
-                            st.download_button(
-                                label="Scarica Tabella Master in formato CSV",
-                                data=csv_master_data,
-                                file_name="Skill_Matrix_Panoramica_Generale.csv",
-                                mime="text/csv",
-                                use_container_width=True
-                            )
-                    else:
-                        st.info("Nessun dato valido trovato nei file CSV.")
-                else:
-                    st.info("Nessuna autovalutazione completata e salvata al momento.")
+                                    file_existing = repo.get_contents(github_master_path)
+                                    repo.update_file(
+                                        path=github_master_path,
+                                        message=f"Aggiornata panoramica generale Skill Matrix: {file_name_master}",
+                                        content=csv_master_data,
+                                        sha=file_existing.sha
+                                    )
+                                except GithubException:
+                                    repo.create_file(
+                                        path=github_master_path,
+                                        message=f"Creata panoramica generale Skill Matrix: {file_name_master}",
+                                        content=csv_master_data
+                                    )
+                                st.success(f"✅ Dati salvati con successo su GitHub nel percorso `{github_master_path}`!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Errore nell'aggiornamento su GitHub: {e}")
+                        else:
+                            st.warning("⚠️ Credentials GitHub non configurate. Salvataggio avvenuto solo in locale.")
+                                
+                with col_btn2:
+                    st.download_button(
+                        label="📥 Scarica Tabella Master in formato CSV",
+                        data=csv_master_data,
+                        file_name="Skill_Matrix_Panoramica_Generale.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="btn_download_master_sm_csv"
+                    )
             else:
-                st.info("La cartella delle autovalutazioni non è ancora stata creata.")
+                st.info("Nessun dato di Skill Matrix ancora presente. Compila l'autovalutazione per generare la tabella.")
 #------------------------------------------------------------------------------------------------------------------
 # SEZIONE 12: RICONOSCIMENTO SEGNALANTI NEAR MISS
 #------------------------------------------------------------------------------------------------------------------
