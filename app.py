@@ -483,6 +483,133 @@ def estrai_info_checklist(percorso_file):
 
     return titolo, regolamento, doc_produrre, settore_aziendale
 
+# ==================================================================
+# --- MOTORE ROBUSTO ANALISI DI CONFORMITÀ & GAP ANALYSIS ---
+# ==================================================================
+
+def estrai_testo_da_bytes_robusto(nome_file, file_bytes):
+    """Estrae in modo sicuro il testo da file binari o di testo."""
+    if not file_bytes:
+        return ""
+    ext = os.path.splitext(nome_file)[1].lower()
+    testo = ""
+    try:
+        if ext == ".txt":
+            testo = file_bytes.decode("utf-8", errors="ignore")
+        elif ext == ".csv":
+            df = pd.read_csv(io.BytesIO(file_bytes), errors="ignore")
+            testo = df.to_string()
+        elif ext in [".xlsx", ".xls"]:
+            df = pd.read_excel(io.BytesIO(file_bytes))
+            testo = df.to_string()
+        elif ext == ".docx":
+            import docx
+            doc = docx.Document(io.BytesIO(file_bytes))
+            testo = "\n".join([p.text for p in doc.paragraphs])
+        elif ext == ".pdf":
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+            testo = "\n".join([page.extract_text() or "" for page in reader.pages if page.extract_text()])
+    except Exception as e:
+        st.warning(f"Impossibile leggere il contenuto del file {nome_file}: {e}")
+        testo = ""
+    return testo.strip()
+
+
+def estrai_contenuto_link(url_link):
+    """
+    Effettua una chiamata HTTP GET al link ufficiale per estrarne il testo
+    ed evitare errori di timeout o blocchi SSL.
+    """
+    if not url_link or not (url_link.startswith("http://") or url_link.startswith("https://")):
+        return ""
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response = requests.get(url_link, headers=headers, timeout=5, verify=False)
+        if response.status_code == 200:
+            # Estrazione basilare di testo evitando tag html
+            import re
+            text_clean = re.sub(r'<[^>]+>', ' ', response.text)
+            return text_clean[:3000] # Limita a 3000 caratteri per efficienza
+    except Exception:
+        pass
+    return ""
+
+
+def genera_piano_adeguamento_e_gap(chiave, info_norma, testo_link):
+    """
+    Identifica i documenti da produrre e le azioni da intraprendere
+    in base alla norma specifica non conforme.
+    """
+    chiave_lower = chiave.lower()
+    desc_norma = info_norma.get("desc", "").lower() + " " + testo_link.lower()
+
+    # Mappatura intelligente basata sui requisiti di legge
+    if any(k in chiave_lower or k in desc_norma for k in ["rifiuto", "rifiuti", "ambiente", "fir", "mud"]):
+        doc_necessari = [
+            "Formulari di Identificazione Rifiuti (FIR)",
+            "Registro di Carico e Scarico Rifiuti",
+            "Dichiarazione Annuale MUD (Modello Unico di Dichiarazione Ambientale)",
+            "Contratti con Trasportatori e Smaltitori Autorizzati (Albo Gestori Ambientali)"
+        ]
+        azioni_da_fare = [
+            "Verificare la classificazione dei codici EER (ex CER) prodotti in azienda.",
+            "Predisporre un'area stoccaggio temporaneo norma di legge con segnaletica appropriata.",
+            "Designare e formare il responsabile della gestione dei rifiuti aziendali."
+        ]
+
+    elif any(k in chiave_lower or k in desc_norma for k in ["antincendio", "vigili", "cpi", "emergenza"]):
+        doc_necessari = [
+            "Certificato di Prevenzione Incendi (CPI) / Segnalazione Certificata di Inizio Attività (SCIA Incendi)",
+            "Piano di Emergenza ed Evacuazione aggiornato",
+            "Registro dei Controlli Antincendio (manutenzione estintori, idranti, porte REI)",
+            "Attestati di formazione per Addetti alla Gestione Emergenze Antincendio"
+        ]
+        azioni_da_fare = [
+            "Programmare la manutenzione periodica semestrale dei presidi antincendio.",
+            "Nomina e formazione teorico-pratica degli addetti antincendio aziendali.",
+            "Eseguire e verbalizzare la prova periodica di evacuazione aziendale."
+        ]
+
+    elif any(k in chiave_lower or k in desc_norma for k in ["medico", "sanitaria", "sorveglianza", "idoneità"]):
+        doc_necessari = [
+            "Nomina formale del Medico Competente",
+            "Piano di Sorveglianza Sanitaria aziendale",
+            "Giudizi di Idoneità alla mansione rilasciati dal Medico Competente",
+            "Verbale della riunione periodica di sicurezza (Art. 35 D.Lgs. 81/08)"
+        ]
+        azioni_da_fare = [
+            "Sottoporre i lavoratori esposti a rischi specifici a visita medica preventiva e periodica.",
+            "Inviare le relazioni sanitarie all'Inail se richiesto.",
+            "Aggiornare le schede di rischio mansione."
+        ]
+
+    elif any(k in chiave_lower or k in desc_norma for k in ["formazione", "corso", "accordo stato regioni"]):
+        doc_necessari = [
+            "Attestati di formazione Generale e Specifica dei lavoratori",
+            "Attestato formazione RSPP / RLS / Preposti / Dirigenti",
+            "Registro delle presenze e verbali dei corsi svolti"
+        ]
+        azioni_da_fare = [
+            "Verificare le scadenze dei quinquenni di aggiornamento formativo.",
+            "Pianificare i corsi mancanti in base all'Accordo Stato-Regioni applicabile."
+        ]
+
+    else:
+        # Piano di conformità generico derivato dalle informazioni della norma
+        doc_necessari = [
+            f"Documentazione tecnica / Procedura aziendale specifica per '{info_norma.get('titolo', chiave)}'",
+            "Verbale di audit interno o scheda di conformità",
+            "Registro di tracciabilità delle verifiche e controlli"
+        ]
+        azioni_da_fare = [
+            f"Consultare il link ufficiale ({info_norma.get('url', 'N.D.')}) per verificare i requisiti specifici.",
+            "Predisporre una procedura operativa interna di adeguamento.",
+            "Incaricare un consulente/tecnico abilitato per la verifica dei requisiti normativi."
+        ]
+
+    return doc_necessari, azioni_da_fare
+
 # Aggiornamento Classificazione Riconoscimento
 def get_riconoscimenti_data():
     """Recupera i dati dei riconoscimenti dallo stato di sessione o dal file CSV."""
@@ -1895,62 +2022,149 @@ if nav == "Consultazione":
             
                 note_libere = st.text_area("Analisi testo libero / criticità:", placeholder="es: gestione rifiuti pericolosi, amianto, ecc.")
             
-                if st.button("Avvia Analisi di Conformità", use_container_width=True):
-                    # 1. Caricamento Database Normativo
-                    db = {}
-                    if os.path.exists("normative.json"):
-                        with open("normative.json", "r") as f:
-                            try: db = json.load(f)
-                            except: db = {}
-                
-                    # 2. Preparazione dati (Checklist e File)
-                    txt_checklist = st.session_state["cached_df_checklist"].to_string() if "cached_df_checklist" in st.session_state else ""
-                    
-                    file_github = elenca_file_github_conformita()
-                    dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
-                    if file_github:
-                        file_presenti_nomi = [item["name"] for item in file_github if item["type"] == "file"]
-                    elif os.path.exists(dir_target):
-                        file_presenti_nomi = os.listdir(dir_target)
-                    else:
-                        file_presenti_nomi = []
+# -----------------------------------------------------------
+                # 4. MOTORE CONFRONTO LEGISLATIVO DINAMICO CON GAP-ANALYSIS AVANZATA
+                # -----------------------------------------------------------
+                st.markdown("---")
+                st.subheader("Confronto Legislativo & Stato Conformità")
+            
+                with st.expander("Aggiungi nuova norma al database interno"):
+                    k = st.text_input("Parola chiave (es: rifiuti):")
+                    t = st.text_input("Titolo:")
+                    u = st.text_input("URL ufficiale:")
+                    d = st.text_area("Descrizione della norma:")
+                    if st.button("Salva nel database"): 
+                        if 'salva_normativa' in globals():
+                            salva_normativa(k, t, u, d)
+                            st.success("Norma salvata nel database!")
+                        else:
+                            st.error("Funzione salva_normativa non trovata.")
+            
+                note_libere = st.text_area("Analisi testo libero / criticità aziendali:", placeholder="es: gestione rifiuti pericolosi, amianto, dispositivi DPI, ecc.")
+            
+                if st.button("Avvia Analisi di Conformità", use_container_width=True, key="btn_avvia_analisi_conformita_avanzata"):
+                    with st.spinner("Scansione in corso di tutti i documenti di GitHub e verifica dei link nel database normativo..."):
                         
-                    txt_docs = " ".join(file_presenti_nomi)
-                    txt_totale_analisi = (note_libere + " " + txt_checklist + " " + txt_docs).lower()
-                
-                    st.markdown("### Risultati Stato Conformità")
-                
-                    trovato = False
-                    for chiave, info in db.items():
-                        # Se la parola chiave è presente nell'analisi o nella checklist/file
-                        if chiave.lower() in txt_totale_analisi:
-                            trovato = True
+                        # 1. Caricamento Database Normativo
+                        db_norme = {}
+                        if os.path.exists("normative.json"):
+                            try:
+                                with open("normative.json", "r", encoding="utf-8") as f:
+                                    db_norme = json.load(f)
+                            except Exception as e:
+                                st.error(f"Errore durante la lettura del database normative: {e}")
+
+                        if not db_norme:
+                            st.warning("Il database normativo (normative.json) è vuoto o assente. Aggiungi almeno una norma sopra.")
                         
-                        # LOGICA DI CONFORMITÀ: 
-                        # Verifichiamo se la parola chiave è presente nei file caricati (conformità documentale)
-                        is_conforme = chiave.lower() in (txt_checklist + txt_docs).lower()
+                        # 2. Scansione Documenti da GitHub (e Fallback Locale)
+                        file_github = elenca_file_github_conformita() if 'elenca_file_github_conformita' in globals() else []
+                        dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
                         
-                        # Layout Risultato
-                        col_stato, col_info = st.columns([1, 4])
+                        contenuto_documenti = {}  # {nome_file: testo_estratto}
                         
-                        with col_stato:
+                        if file_github:
+                            for item in file_github:
+                                if item.get("type") == "file":
+                                    n_file = item["name"]
+                                    bytes_file = scarica_file_github_conformita(n_file) if 'scarica_file_github_conformita' in globals() else None
+                                    txt_ext = estrai_testo_da_bytes_robusto(n_file, bytes_file)
+                                    contenuto_documenti[n_file] = txt_ext
+                        elif os.path.exists(dir_target):
+                            for n_file in os.listdir(dir_target):
+                                p_file = os.path.join(dir_target, n_file)
+                                if os.path.isfile(p_file):
+                                    with open(p_file, "rb") as lf:
+                                        txt_ext = estrai_testo_da_bytes_robusto(n_file, lf.read())
+                                        contenuto_documenti[n_file] = txt_ext
+
+                        # Unione di tutti i testi di archivio per il controllo globale
+                        testo_globale_archivio = " ".join(contenuto_documenti.values()).lower() + " " + note_libere.lower()
+                        
+                        st.markdown("### Risultati Analisi di Conformità Documentale")
+                        st.caption(f"Documenti analizzati nell'archivio 'documenti_conformità': **{len(contenuto_documenti)}**")
+                        
+                        if not db_norme:
+                            st.stop()
+
+                        trovati_totali = 0
+                        conformi_totali = 0
+                        non_conformi_totali = 0
+
+                        # 3. Analisi per ogni Norma nel Database
+                        for chiave, info in db_norme.items():
+                            chiave_clean = chiave.strip().lower()
+                            url_norma = info.get("url", "")
+                            
+                            # Scansione del link ufficiale per estrazione dettagli
+                            testo_link = estrai_contenuto_link(url_norma) if url_norma else ""
+                            
+                            # Cerca la presenza della norma o del tema sia nei file archiviati che nelle note
+                            presenza_in_note = chiave_clean in note_libere.lower()
+                            
+                            # Identificazione dei file specifici che citano la norma
+                            doc_corrispondenti = [
+                                nome_doc for nome_doc, testo_doc in contenuto_documenti.items()
+                                if chiave_clean in testo_doc.lower() or chiave_clean in nome_doc.lower()
+                            ]
+                            
+                            is_conforme = len(doc_corrispondenti) > 0
+
+                            trovati_totali += 1
                             if is_conforme:
-                                st.success("CONFORME")
-                                st.caption("Documentazione trovata")
+                                conformi_totali += 1
                             else:
-                                st.error("NON CONFORME")
-                                st.caption("Documentazione mancante")
-                        
-                        with col_info:
-                            with st.expander(f"Dettaglio: {info['titolo']}", expanded=True):
-                                st.write(f"**Descrizione:** {info['desc']}")
-                                st.link_button("Vai alla fonte ufficiale", info['url'])
+                                non_conformi_totali += 1
+
+                            # Layout dei risultati
+                            st.markdown("---")
+                            col_stato, col_info = st.columns([1, 3])
+                            
+                            with col_stato:
+                                if is_conforme:
+                                    st.success(" CONFORME")
+                                    st.caption(f"Trovati {len(doc_corrispondenti)} documenti relativi")
+                                else:
+                                    st.error(" NON CONFORME")
+                                    st.caption("Nessun documento idoneo rilevato")
+
+                            with col_info:
+                                st.subheader(f"Tema: {info.get('titolo', chiave)}")
+                                st.markdown(f"**Parola chiave monitorata:** `{chiave}`")
+                                st.write(f"**Descrizione:** {info.get('desc', 'N.D.')}")
                                 
-                                if not is_conforme:
-                                    st.warning(f"Attenzione: Il tema '{chiave}' è rilevato nel contesto, ma non risulta tra i documenti archiviati nella checklist.")
-                
-                    if not trovato:
-                        st.info("Nessun tema normativo specifico del database rilevato nei documenti o nelle note.")
+                                if url_norma:
+                                    st.link_button("Vai alla Fonte/Link Ufficiale", url_norma)
+
+                                # CASO 1: CONFORME -> Mostra i documenti che la soddisfano
+                                if is_conforme:
+                                    st.markdown("** Documenti presenti che attestano la conformità:**")
+                                    for doc_ok in doc_corrispondenti:
+                                        st.markdown(f"- `{doc_ok}`")
+
+                                # CASO 2: NON CONFORME -> Dettaglio di COSA MANCA e COSA FARE
+                                else:
+                                    doc_mancanti, azioni_suggerite = genera_piano_adeguamento_e_gap(chiave, info, testo_link)
+                                    
+                                    st.warning("⚠️ **AZIONI CORRETTIVE RICHIESTE PER L'ADEGUAMENTO:**")
+                                    
+                                    # SEZIONE 1: Documenti da produrre
+                                    st.markdown("####  1. Documenti specifici da produrre / allegare:")
+                                    for doc_m in doc_mancanti:
+                                        st.markdown(f" * {doc_m}")
+
+                                    # SEZIONE 2: Operazioni pratiche da fare
+                                    st.markdown("####  2. Azioni operative da intraprendere:")
+                                    for az_m in azioni_suggerite:
+                                        st.markdown(f" * {az_m}")
+
+                        # Riepilogo finale sintettivo
+                        st.markdown("---")
+                        st.markdown("###  Sintesi finale dell'Analisi di Conformità")
+                        col_m1, col_m2, col_m3 = st.columns(3)
+                        col_m1.metric("Totale Temi Controllati", trovati_totali)
+                        col_m2.metric("Conformi", conformi_totali)
+                        col_m3.metric("Non Conformi (Gap)", non_conformi_totali, delta_color="inverse")
 # ==================================================================
 # --- SEZIONE 6: Analisi - Fase 2 ---
 # ==================================================================
