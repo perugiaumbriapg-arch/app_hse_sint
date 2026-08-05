@@ -974,9 +974,8 @@ if nav == "Scadenzario Adempimenti":
                 for col in df_elaborazione.columns:
                     df_elaborazione[col] = df_elaborazione[col].astype(str).replace(["nan", "None", "<NA>", "NaT"], "").str.strip()
                 
-                # Calcolo dinamico della data di scadenza per tutte le righe (inclusi i nuovi inserimenti)
-                if 'calcola_data_scadenza' in globals():
-                    df_elaborazione["Scadenza"] = df_elaborazione.apply(calcola_data_scadenza, axis=1)
+                # Calcolo dinamico in base al mese di rilascio + mesi in vigore
+                df_elaborazione["Scadenza"] = df_elaborazione.apply(calcola_data_scadenza, axis=1)
                 
                 if "In vigore durante (mesi)" in df_elaborazione.columns:
                     df_elaborazione["In vigore durante (mesi)"] = pd.to_numeric(df_elaborazione["In vigore durante (mesi)"], errors='coerce').fillna(0).astype(int)
@@ -1014,11 +1013,10 @@ if nav == "Scadenzario Adempimenti":
         df_vista_alert = st.session_state.df_scadenzario_state.copy()
         
         if not df_vista_alert.empty:
-            # Calcolo/Ricalcolo data di scadenza per garantire che anche le nuove righe abbiano il valore aggiornato
-            if 'calcola_data_scadenza' in globals():
-                df_vista_alert["Scadenza"] = df_vista_alert.apply(calcola_data_scadenza, axis=1)
+            # Ricalcolo per tutte le righe esistenti e nuove
+            df_vista_alert["Scadenza"] = df_vista_alert.apply(calcola_data_scadenza, axis=1)
             
-            # Applicazione della formattazione condizionata dei colori per l'intera riga
+            # Applicazione formattazione condizionata
             if 'evidenzia_righe_scadenza' in globals():
                 styler_colorato = df_vista_alert.style.apply(evidenzia_righe_scadenza, axis=1)
                 st.dataframe(styler_colorato, use_container_width=True, hide_index=True)
