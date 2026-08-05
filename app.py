@@ -3006,7 +3006,6 @@ if nav == "Stima Costo Economico":
             except NameError:
                 base_dir = os.getcwd()
                 
-            # Ricerca file PDF nella cartella Stima_Economica al livello di app.py
             file_pdf_path = os.path.join(base_dir, "Stima_Economica", "Stima Economica del Near Miss.pdf")
             
             if not os.path.exists(file_pdf_path):
@@ -3166,7 +3165,7 @@ if nav == "Stima Costo Economico":
             
             df_ce = st.session_state.df_calcolo_economico_nm
             
-            # Assegnazione automatica dei valori calcolati nel DataFrame
+            # Assegnazione automatica dei valori calcolati
             df_ce.loc[df_ce["Sottocategoria"] == "Percentuale di indennità", "Stima costo (€)"] = perc_indennita_val
             df_ce.loc[df_ce["Sottocategoria"] == "RAL per mansione", "Stima costo (€)"] = ral_mansione_calc
             df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione delle vendite del 1% rispetto all’anno precedente", "Stima costo (€)"] = val_vendite_1
@@ -3174,7 +3173,7 @@ if nav == "Stima Costo Economico":
             df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 10% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_10
             df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 15% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_15
             
-            # Editor della tabella dinamica con formattazione numerica in euro e virgola per i decimali
+            # Editor della tabella dinamica
             edited_ce = st.data_editor(
                 df_ce,
                 use_container_width=True,
@@ -3194,12 +3193,11 @@ if nav == "Stima Costo Economico":
             
             st.session_state.df_calcolo_economico_nm = edited_ce
             
-            # Esclusione della riga "Percentuale di indennità" dal calcolo dei costi monetari
+            # Esclusione della riga "Percentuale di indennità" dal calcolo monetario
             df_costi_monetari = edited_ce[edited_ce["Sottocategoria"] != "Percentuale di indennità"]
             
-            # Calcolo automatico del totale generale e per area
+            # Calcolo automatico del totale
             st.markdown("### Riepilogo Costi per Area e Totale Generale")
-            
             totale_generale = df_costi_monetari["Stima costo (€)"].sum()
             
             col_tot1, col_tot2 = st.columns(2)
@@ -3214,46 +3212,44 @@ if nav == "Stima Costo Economico":
             
             st.markdown("---")
             
-            # Preparazione del DataFrame per l'esportazione con formattazione decimale con la virgola
+            # Preparazione DataFrame per Export con formato italiano (virgola per i decimali)
             df_export = edited_ce.copy()
             df_export.insert(0, "Evento / Analisi Collegata", scelta_rif)
-            
-            # Conversione dei costi in stringhe formattate con la virgola per i decimali
             df_export["Stima costo (€)"] = df_export["Stima costo (€)"].apply(format_csv_number)
             
-            # Aggiunta riga del totale
             riga_totale = pd.DataFrame([[scelta_rif, "TOTALE GENERALE", "SOMMA TUTTI I COSTI", format_csv_number(totale_generale)]], columns=df_export.columns)
             df_export = pd.concat([df_export, riga_totale], ignore_index=True)
             
-            # Cartella di salvataggio del report su GitHub / File System
-            try:
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-            except NameError:
-                base_dir = os.getcwd()
-                
-            target_report_dir = os.path.join(base_dir, "Stima_Economica", "Report_Stima_Economica")
-            os.makedirs(target_report_dir, exist_ok=True)
-            
-            # Generazione del nome file dinamico pulito
+            # Generazione del nome file dinamico
             import re
             clean_rif = re.sub(r'[\\/*?:"<>|]', "", scelta_rif)
             clean_rif = clean_rif.replace(" ", "_")
             file_name_export = f"{clean_rif}_Stima_Costo_Economico_NM.csv"
             
-            full_file_path = os.path.join(target_report_dir, file_name_export)
+            # Percorso su GitHub: Stima_Economica/Report/<nome_file>.csv
+            github_repo_path = f"Stima_Economica/Report/{file_name_export}"
             
-            # Salvataggio CSV locale / server con separatore ";" e virgola per decimali
-            df_export.to_csv(full_file_path, index=False, sep=";")
+            # Converti in stringa CSV codificata in utf-8
+            csv_content_str = df_export.to_csv(index=False, sep=";")
+            csv_bytes = csv_content_str.encode("utf-8")
             
-            csv_bytes = df_export.to_csv(index=False, sep=";").encode("utf-8")
-            st.download_button(
-                label="📥 Scarica Tabella Calcolo Economico NM con Totale in formato CSV (.csv)",
-                data=csv_bytes,
-                file_name=file_name_export,
-                mime="text/csv",
-                use_container_width=True
-            )
-            st.success(f"File salvato con successo nella cartella: `{target_report_dir}`")
+            col_save1, col_save2 = st.columns(2)
+            with col_save1:
+                if st.button("💾 Salva Report su GitHub", key="btn_save_stima_gh"):
+                    if 'save_to_github' in globals():
+                        if save_to_github(github_repo_path, csv_bytes, f"Add {file_name_export}"):
+                            st.success(f"Report salvato con successo su GitHub in: `{github_repo_path}`")
+                    else:
+                        st.error("Funzione `save_to_github` non trovata nel sistema.")
+            
+            with col_save2:
+                st.download_button(
+                    label="📥 Scarica Report CSV (.csv)",
+                    data=csv_bytes,
+                    file_name=file_name_export,
+                    mime="text/csv",
+                    use_container_width=True
+                )
 # ==================================================================
 # --- SEZIONE: Skill Matrix ---
 # ==================================================================
