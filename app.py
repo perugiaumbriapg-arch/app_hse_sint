@@ -3744,6 +3744,23 @@ if nav == "Riconoscimento":
                 "I dati inseriti verranno salvati direttamente su GitHub nella cartella `Riconoscimento`."
             )
             
+            # RICALCOLO ISTANTANEO IN TEMPO REALE
+            # Intercetta le modifiche dell'utente prima che la tabella venga renderizzata a schermo
+            if "editor_riconoscimento_table" in st.session_state:
+                modifiche = st.session_state["editor_riconoscimento_table"].get("edited_rows", {})
+                for idx_str, cambia in modifiche.items():
+                    idx = int(idx_str)
+                    if idx < len(df_riconoscimenti):
+                        p_seg = cambia.get("Punti Segnalazione (+50)", df_riconoscimenti.at[idx, "Punti Segnalazione (+50)"])
+                        p_sk = cambia.get("Punti Skill Matrix (+25)", df_riconoscimenti.at[idx, "Punti Skill Matrix (+25)"])
+                        
+                        p_seg = int(p_seg) if pd.notnull(p_seg) else 0
+                        p_sk = int(p_sk) if pd.notnull(p_sk) else 0
+                        
+                        df_riconoscimenti.at[idx, "Punti Segnalazione (+50)"] = p_seg
+                        df_riconoscimenti.at[idx, "Punti Skill Matrix (+25)"] = p_sk
+                        df_riconoscimenti.at[idx, "Punteggio Totale"] = p_seg + p_sk
+
             # Tabella dinamica modificabile (data_editor)
             df_edited = st.data_editor(
                 df_riconoscimenti,
@@ -3769,7 +3786,7 @@ if nav == "Riconoscimento":
                 key="editor_riconoscimento_table"
             )
             
-            # RICALCOLO AUTOMATICO DEL TOTALE
+            # Sincronizzazione finale del DataFrame prima del salvataggio
             df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
             df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
             df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
