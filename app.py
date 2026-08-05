@@ -3998,7 +3998,7 @@ if nav == "Skill Matrix":
                         st.error(f"Errore nel salvataggio su GitHub: {e}")
 
     # =========================================================
-    # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX (Autenticazione via Streamlit Secrets)
+    # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX (Lettura da PDF)
     # =========================================================
     elif sotto_sec_sm == "Skill Matrix":
         if not st.session_state.auth_skill_matrix:
@@ -4015,96 +4015,94 @@ if nav == "Skill Matrix":
                 else:
                     st.error("Password errata o non valida.")
         else:
-            if st.button("Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
+            if st.button("🚪 Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
                 st.session_state.auth_skill_matrix = False
                 st.rerun()
                 
             st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
             st.markdown(
                 "A ogni competenza si attribuirà un punteggio del 1 al 5. "
-                "Le persone saranno anche classificate a seconda del area lavoratoriva d'appartenenza. "
-                "Posteriormente, se si ritiene opportuno, le persone volontarie che apparterrano al Comitato "
-                "per la sicurezza di quel specifico Near Miss, potranno essere selezionate oltre che per le "
-                "competenze, anche per l'ambito lavorativo d'appartenenza."
+                "Le persone saranno anche classificate a seconda dell'area lavorativa d'appartenenza."
             )
             st.markdown("---")
-            st.markdown("Visualizza e modifica direttamente i dati aggregati delle autovalutazioni inserite dal personale.")
+            st.markdown("La tabella sottostante viene aggiornata automaticamente scansionando tutti i report PDF di autovalutazione.")
                 
-            # Percorsi del file Master
+            # Percorsi cartelle
             skill_matrix_dir = os.path.join(base_dir, "Skill_Matrix")
+            autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
             file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
             master_local_path = os.path.join(skill_matrix_dir, file_name_master)
             github_master_path = f"Skill_Matrix/{file_name_master}"
-            
-            df_master_sm = pd.DataFrame()
-            
-            # --- STEP 1: Lettura prioritaria del file Master da GitHub o Locale ---
-            token = st.secrets.get("GITHUB_TOKEN", "")
-            repo_name = st.secrets.get("REPO_NAME", "")
-            
-            # Tentativo di recupero da GitHub
-            if token and repo_name:
-                try:
-                    g = Github(token)
-                    repo = g.get_repo(repo_name)
-                    file_content_gh = repo.get_contents(github_master_path)
-                    csv_raw = base64.b64decode(file_content_gh.content).decode("utf-8")
-                    df_master_sm = pd.read_csv(io.StringIO(csv_raw), sep=";")
-                except Exception:
-                    pass
-            
-            # Fallback su file locale se non trovato su GitHub
-            if df_master_sm.empty and os.path.exists(master_local_path):
-                try:
-                    df_master_sm = pd.read_csv(master_local_path, sep=";")
-                except Exception:
-                    pass
-            
-            # --- STEP 2: Fallback - Ricostruzione dalle singole autovalutazioni se il master non esiste ---
-            if df_master_sm.empty:
-                autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
-                if os.path.exists(autoval_dir):
-                    files_csv = [f for f in os.listdir(autoval_dir) if f.endswith(".csv")]
-                    lista_righe_tabella = []
-                    for f_csv in files_csv:
-                        f_path = os.path.join(autoval_dir, f_csv)
-                        try:
-                            df_temp = pd.read_csv(f_path, sep=";")
-                            def get_val(campo_str, default_val):
-                                res = df_temp.loc[df_temp["Campo"] == campo_str, "Valore"]
-                                return res.values[0] if not res.empty else default_val
 
-                            lista_righe_tabella.append({
-                                "Nome": str(get_val("Nome", "N/D")),
-                                "Cognome": str(get_val("Cognome", "N/D")),
-                                "Inquadramento-Mansione": str(get_val("Inquadramento-Mansione", "")),
-                                "Ambito lavorativo": str(get_val("Ambito lavorativo", "Produzione")),
-                                "Data Autovalutazione": str(get_val("Data Autovalutazione", "")),
-                                "Processi produttivi mansione": float(get_val("Processi produttivi mansione", 3)),
-                                "Rapporto colleghi": float(get_val("Rapporto colleghi", 3)),
-                                "Interfaccia fornitori-clienti": float(get_val("Interfaccia fornitori-clienti", 3)),
-                                "Processi cartone-scatole": float(get_val("Processi cartone-scatole", 3)),
-                                "Processo pallettizzazione": float(get_val("Processo pallettizzazione", 3)),
-                                "Competenze legali-tecniche": float(get_val("Competenze legali-tecniche", 3)),
-                                "Individuazione rischi-fabbisogni": float(get_val("Individuazione rischi-fabbisogni", 3)),
-                                "Capacità d'adattamento": float(get_val("Capacità d'adattamento", 3)),
-                                "Capacità comunicative": float(get_val("Capacità comunicative", 3)),
-                                "Precisione lavoro": float(get_val("Precisione lavoro", 3)),
-                                "Persuasione": float(get_val("Persuasione", 3)),
-                                "Analisi critica contesto": float(get_val("Analisi critica contesto", 3)),
-                                "Turnazioni": float(get_val("Turnazioni", 3)),
-                                "Responsabilità supervisione": float(get_val("Responsabilità supervisione", 3)),
-                                "File Sorgente": f_csv
-                            })
-                        except Exception:
-                            pass
-                    if lista_righe_tabella:
-                        df_master_sm = pd.DataFrame(lista_righe_tabella)
+            lista_righe_tabella = []
 
-            # --- STEP 3: Visualizzazione ed Editing della Tabella ---
+            # --- PARSING AUTOMATICO DEI FILE PDF IN AUTOVALUTAZIONE ---
+            if os.path.exists(autoval_dir):
+                files_pdf = [f for f in os.listdir(autoval_dir) if f.lower().endswith(".pdf")]
+                
+                for f_pdf in files_pdf:
+                    pdf_path = os.path.join(autoval_dir, f_pdf)
+                    try:
+                        import pypdf
+                        reader = pypdf.PdfReader(pdf_path)
+                        testo_completo = ""
+                        for page in reader.pages:
+                            testo_completo += page.extract_text() + "\n"
+                        
+                        # Mappatura dei dati dal testo estratto
+                        dati_pdf = {}
+                        for line in testo_completo.split("\n"):
+                            if ":" in line:
+                                parti = line.split(":", 1)
+                                chiave = parti[0].strip()
+                                valore = parti[1].strip()
+                                dati_pdf[chiave] = valore
+
+                        def get_pdf_val(key_name, default_val):
+                            return dati_pdf.get(key_name, default_val)
+
+                        lista_righe_tabella.append({
+                            "Nome": str(get_pdf_val("Nome", "N/D")),
+                            "Cognome": str(get_pdf_val("Cognome", "N/D")),
+                            "Inquadramento-Mansione": str(get_pdf_val("Inquadramento-Mansione", "")),
+                            "Ambito lavorativo": str(get_pdf_val("Ambito lavorativo", "Produzione")),
+                            "Data Autovalutazione": str(get_pdf_val("Data Autovalutazione", "")),
+                            "Processi produttivi mansione": float(get_pdf_val("Processi produttivi mansione", 3)),
+                            "Rapporto colleghi": float(get_pdf_val("Rapporto colleghi", 3)),
+                            "Interfaccia fornitori-clienti": float(get_pdf_val("Interfaccia fornitori-clienti", 3)),
+                            "Processi cartone-scatole": float(get_pdf_val("Processi cartone-scatole", 3)),
+                            "Processo pallettizzazione": float(get_pdf_val("Processo pallettizzazione", 3)),
+                            "Competenze legali-tecniche": float(get_pdf_val("Competenze legali-tecniche", 3)),
+                            "Individuazione rischi-fabbisogni": float(get_pdf_val("Individuazione rischi-fabbisogni", 3)),
+                            "Capacità d'adattamento": float(get_pdf_val("Capacità d'adattamento", 3)),
+                            "Capacità comunicative": float(get_pdf_val("Capacità comunicative", 3)),
+                            "Precisione lavoro": float(get_pdf_val("Precisione lavoro", 3)),
+                            "Persuasione": float(get_pdf_val("Persuasione", 3)),
+                            "Analisi critica contesto": float(get_pdf_val("Analisi critica contesto", 3)),
+                            "Turnazioni": float(get_pdf_val("Turnazioni", 3)),
+                            "Responsabilità supervisione": float(get_pdf_val("Responsabilità supervisione", 3)),
+                            "File Sorgente": f_pdf
+                        })
+                    except Exception:
+                        pass
+
+            # Costruzione DataFrame aggiornato
+            if lista_righe_tabella:
+                df_master_sm = pd.DataFrame(lista_righe_tabella)
+            else:
+                # Fallback se non ci sono PDF o se è presente il master locale
+                if os.path.exists(master_local_path):
+                    try:
+                        df_master_sm = pd.read_csv(master_local_path, sep=";")
+                    except Exception:
+                        df_master_sm = pd.DataFrame()
+                else:
+                    df_master_sm = pd.DataFrame()
+
+            # --- VISUALIZZAZIONE ED EDITING TABELLA ---
             if not df_master_sm.empty:
                 st.markdown("#### Tabella Panoramica Modificabile")
-                st.info("Puoi modificare i valori direttamente nella tabella sottostante. Clicca su **Salva Modifiche** per aggiornare GitHub e scaricare la versione aggiornata.")
+                st.info("Visualizza o modifica i dati estratti dai report PDF. Clicca sui pulsanti in basso per salvare su GitHub o scaricare.")
                     
                 edited_master_sm = st.data_editor(
                     df_master_sm,
@@ -4122,8 +4120,6 @@ if nav == "Skill Matrix":
                 )
                     
                 col_btn1, col_btn2 = st.columns(2)
-                
-                # --- STEP 4: Salvataggio e Download Sincronizzati ---
                 csv_master_data = edited_master_sm.to_csv(index=False, sep=";")
                 
                 with col_btn1:
@@ -4138,8 +4134,10 @@ if nav == "Skill Matrix":
                             st.error(f"Errore nel salvataggio locale: {e}")
                             salvati_local = False
 
-                        # 2. Salvataggio su GitHub
-                        if token and repo_name:
+                        # 2. Salvataggio ed invio su GitHub
+                        token = st.secrets.get("GITHUB_TOKEN", "")
+                        repo_name = st.secrets.get("REPO_NAME", "")
+                        if token and repo_name and salvati_local:
                             try:
                                 g = Github(token)
                                 repo = g.get_repo(repo_name)
@@ -4147,22 +4145,22 @@ if nav == "Skill Matrix":
                                     file_existing = repo.get_contents(github_master_path)
                                     repo.update_file(
                                         path=github_master_path,
-                                        message=f"Aggiornata panoramica generale Skill Matrix: {file_name_master}",
+                                        message=f"Aggiornata panoramica generale Skill Matrix da PDF: {file_name_master}",
                                         content=csv_master_data,
                                         sha=file_existing.sha
                                     )
                                 except GithubException:
                                     repo.create_file(
                                         path=github_master_path,
-                                        message=f"Creata panoramica generale Skill Matrix: {file_name_master}",
+                                        message=f"Creata panoramica generale Skill Matrix da PDF: {file_name_master}",
                                         content=csv_master_data
                                     )
-                                st.success(f"✅ Dati salvati con successo su GitHub nel percorso `{github_master_path}`!")
+                                st.success(f"✅ Dati aggiornati salvati con successo su GitHub in `{github_master_path}`!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Errore nell'aggiornamento su GitHub: {e}")
+                                st.error(f"Errore durante il salvataggio su GitHub: {e}")
                         else:
-                            st.warning("⚠️ Credentials GitHub non configurate. Salvataggio avvenuto solo in locale.")
+                            st.warning("⚠️ Credentials GitHub assenti. File salvato solo in locale.")
                                 
                 with col_btn2:
                     st.download_button(
@@ -4174,7 +4172,7 @@ if nav == "Skill Matrix":
                         key="btn_download_master_sm_csv"
                     )
             else:
-                st.info("Nessun dato di Skill Matrix ancora presente. Compila l'autovalutazione per generare la tabella.")
+                st.info("Nessun report PDF trovato nella cartella 'Skill_Matrix/Autovalutazione'.")
 #------------------------------------------------------------------------------------------------------------------
 # SEZIONE 12: RICONOSCIMENTO SEGNALANTI NEAR MISS
 #------------------------------------------------------------------------------------------------------------------
