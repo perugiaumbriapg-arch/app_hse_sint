@@ -3997,7 +3997,7 @@ if nav == "Skill Matrix":
                     except Exception as e:
                         st.error(f"Errore nel salvataggio su GitHub: {e}")
 
-    # =========================================================
+# =========================================================
     # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX (Lettura da PDF)
     # =========================================================
     elif sotto_sec_sm == "Skill Matrix":
@@ -4015,14 +4015,14 @@ if nav == "Skill Matrix":
                 else:
                     st.error("Password errata o non valida.")
         else:
-            if st.button("🚪 Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
+            if st.button("Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
                 st.session_state.auth_skill_matrix = False
                 st.rerun()
                 
             st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
             st.markdown(
-                "A ogni competenza si attribuirà un punteggio del 1 al 5. "
-                "Le persone saranno anche classificate a seconda dell'area lavorativa d'appartenenza."
+                "A ogni competenza si attribuirà un punteggio dal 1 al 5. "
+                "Le persone saranno classificate anche a seconda dell'area lavorativa d'appartenenza."
             )
             st.markdown("---")
             st.markdown("La tabella sottostante viene aggiornata automaticamente scansionando tutti i report PDF di autovalutazione.")
@@ -4036,61 +4036,95 @@ if nav == "Skill Matrix":
 
             lista_righe_tabella = []
 
-            # --- PARSING AUTOMATICO DEI FILE PDF IN AUTOVALUTAZIONE ---
+            # --- PARSING AUTOMATICO DI TUTTI I PDF IN AUTOVALUTAZIONE ---
             if os.path.exists(autoval_dir):
                 files_pdf = [f for f in os.listdir(autoval_dir) if f.lower().endswith(".pdf")]
                 
                 for f_pdf in files_pdf:
                     pdf_path = os.path.join(autoval_dir, f_pdf)
+                    testo_completo = ""
+                    
+                    # 1. Estrazione del testo con pypdf / PyPDF2
                     try:
                         import pypdf
                         reader = pypdf.PdfReader(pdf_path)
-                        testo_completo = ""
                         for page in reader.pages:
-                            testo_completo += page.extract_text() + "\n"
-                        
-                        # Mappatura dei dati dal testo estratto
-                        dati_pdf = {}
-                        for line in testo_completo.split("\n"):
-                            if ":" in line:
-                                parti = line.split(":", 1)
-                                chiave = parti[0].strip()
-                                valore = parti[1].strip()
-                                dati_pdf[chiave] = valore
-
-                        def get_pdf_val(key_name, default_val):
-                            return dati_pdf.get(key_name, default_val)
-
-                        lista_righe_tabella.append({
-                            "Nome": str(get_pdf_val("Nome", "N/D")),
-                            "Cognome": str(get_pdf_val("Cognome", "N/D")),
-                            "Inquadramento-Mansione": str(get_pdf_val("Inquadramento-Mansione", "")),
-                            "Ambito lavorativo": str(get_pdf_val("Ambito lavorativo", "Produzione")),
-                            "Data Autovalutazione": str(get_pdf_val("Data Autovalutazione", "")),
-                            "Processi produttivi mansione": float(get_pdf_val("Processi produttivi mansione", 3)),
-                            "Rapporto colleghi": float(get_pdf_val("Rapporto colleghi", 3)),
-                            "Interfaccia fornitori-clienti": float(get_pdf_val("Interfaccia fornitori-clienti", 3)),
-                            "Processi cartone-scatole": float(get_pdf_val("Processi cartone-scatole", 3)),
-                            "Processo pallettizzazione": float(get_pdf_val("Processo pallettizzazione", 3)),
-                            "Competenze legali-tecniche": float(get_pdf_val("Competenze legali-tecniche", 3)),
-                            "Individuazione rischi-fabbisogni": float(get_pdf_val("Individuazione rischi-fabbisogni", 3)),
-                            "Capacità d'adattamento": float(get_pdf_val("Capacità d'adattamento", 3)),
-                            "Capacità comunicative": float(get_pdf_val("Capacità comunicative", 3)),
-                            "Precisione lavoro": float(get_pdf_val("Precisione lavoro", 3)),
-                            "Persuasione": float(get_pdf_val("Persuasione", 3)),
-                            "Analisi critica contesto": float(get_pdf_val("Analisi critica contesto", 3)),
-                            "Turnazioni": float(get_pdf_val("Turnazioni", 3)),
-                            "Responsabilità supervisione": float(get_pdf_val("Responsabilità supervisione", 3)),
-                            "File Sorgente": f_pdf
-                        })
+                            t = page.extract_text()
+                            if t:
+                                testo_completo += t + "\n"
                     except Exception:
-                        pass
+                        try:
+                            import PyPDF2
+                            reader = PyPDF2.PdfReader(pdf_path)
+                            for page in reader.pages:
+                                t = page.extract_text()
+                                if t:
+                                    testo_completo += t + "\n"
+                        except Exception:
+                            pass
 
-            # Costruzione DataFrame aggiornato
+                    # 2. Parsing Robusto Flessibile (Mappa Chiave-Valore)
+                    dati_pdf = {}
+                    if testo_completo.strip():
+                        for line in testo_completo.split("\n"):
+                            line_clean = line.strip()
+                            if ":" in line_clean:
+                                parti = line_clean.split(":", 1)
+                                k = parti[0].strip().lower()
+                                v = parti[1].strip()
+                                dati_pdf[k] = v
+
+                    # Helper function per ricerca flessibile
+                    def get_val_flex(kw_list, default_val):
+                        for k, v in dati_pdf.items():
+                            for kw in kw_list:
+                                if kw.lower() in k:
+                                    return v
+                        return default_val
+
+                    def get_num_flex(kw_list, default_val=3.0):
+                        raw_v = get_val_flex(kw_list, None)
+                        if raw_v is not None:
+                            try:
+                                # Estrae solo i numeri dal valore
+                                num_str = re.sub(r'[^0-9.]', '', raw_v.replace(',', '.'))
+                                return float(num_str)
+                            except ValueError:
+                                pass
+                        return float(default_val)
+
+                    # Estrazione Nome e Cognome anche dal nome del file se non trovati nel testo
+                    nome_default = f_pdf.split("_")[0] if "_" in f_pdf else "N/D"
+                    cognome_default = f_pdf.split("_")[1] if "_" in f_pdf and len(f_pdf.split("_")) > 1 else "N/D"
+
+                    riga = {
+                        "Nome": str(get_val_flex(["nome"], nome_default)),
+                        "Cognome": str(get_val_flex(["cognome"], cognome_default)),
+                        "Inquadramento-Mansione": str(get_val_flex(["inquadramento", "mansione"], "")),
+                        "Ambito lavorativo": str(get_val_flex(["ambito"], "Produzione")),
+                        "Data Autovalutazione": str(get_val_flex(["data"], "")),
+                        "Processi produttivi mansione": get_num_flex(["processi produttivi mansione", "processi produttivi"]),
+                        "Rapporto colleghi": get_num_flex(["rapporto colleghi"]),
+                        "Interfaccia fornitori-clienti": get_num_flex(["fornitori", "clienti", "interfaccia"]),
+                        "Processi cartone-scatole": get_num_flex(["cartone", "scatole"]),
+                        "Processo pallettizzazione": get_num_flex(["pallettizzazione"]),
+                        "Competenze legali-tecniche": get_num_flex(["legali", "tecniche", "competenze"]),
+                        "Individuazione rischi-fabbisogni": get_num_flex(["rischi", "fabbisogni", "individuazione"]),
+                        "Capacità d'adattamento": get_num_flex(["adattamento"]),
+                        "Capacità comunicative": get_num_flex(["comunicative"]),
+                        "Precisione lavoro": get_num_flex(["precisione"]),
+                        "Persuasione": get_num_flex(["persuasione"]),
+                        "Analisi critica contesto": get_num_flex(["analisi critica", "contesto"]),
+                        "Turnazioni": get_num_flex(["turnazioni"]),
+                        "Responsabilità supervisione": get_num_flex(["supervisione", "responsabilità"]),
+                        "File Sorgente": f_pdf
+                    }
+                    lista_righe_tabella.append(riga)
+
+            # Costruzione DataFrame globale
             if lista_righe_tabella:
                 df_master_sm = pd.DataFrame(lista_righe_tabella)
             else:
-                # Fallback se non ci sono PDF o se è presente il master locale
                 if os.path.exists(master_local_path):
                     try:
                         df_master_sm = pd.read_csv(master_local_path, sep=";")
@@ -4102,7 +4136,7 @@ if nav == "Skill Matrix":
             # --- VISUALIZZAZIONE ED EDITING TABELLA ---
             if not df_master_sm.empty:
                 st.markdown("#### Tabella Panoramica Modificabile")
-                st.info("Visualizza o modifica i dati estratti dai report PDF. Clicca sui pulsanti in basso per salvare su GitHub o scaricare.")
+                st.info(f"Trovati e analizzati **{len(df_master_sm)}** report PDF. Clicca sui pulsanti in basso per salvare o scaricare la tabella aggiornata.")
                     
                 edited_master_sm = st.data_editor(
                     df_master_sm,
@@ -4149,7 +4183,7 @@ if nav == "Skill Matrix":
                                         content=csv_master_data,
                                         sha=file_existing.sha
                                     )
-                                except GithubException:
+                                me except GithubException:
                                     repo.create_file(
                                         path=github_master_path,
                                         message=f"Creata panoramica generale Skill Matrix da PDF: {file_name_master}",
@@ -4160,7 +4194,7 @@ if nav == "Skill Matrix":
                             except Exception as e:
                                 st.error(f"Errore durante il salvataggio su GitHub: {e}")
                         else:
-                            st.warning("⚠️ Credentials GitHub assenti. File salvato solo in locale.")
+                            st.warning("⚠️ Credentials GitHub assenti nei secrets. File salvato solo in locale.")
                                 
                 with col_btn2:
                     st.download_button(
@@ -4172,7 +4206,7 @@ if nav == "Skill Matrix":
                         key="btn_download_master_sm_csv"
                     )
             else:
-                st.info("Nessun report PDF trovato nella cartella 'Skill_Matrix/Autovalutazione'.")
+                st.info("Nessun report PDF valido trovato nella cartella 'Skill_Matrix/Autovalutazione'.")
 #------------------------------------------------------------------------------------------------------------------
 # SEZIONE 12: RICONOSCIMENTO SEGNALANTI NEAR MISS
 #------------------------------------------------------------------------------------------------------------------
