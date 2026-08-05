@@ -3744,22 +3744,6 @@ if nav == "Riconoscimento":
                 "I dati inseriti verranno salvati direttamente su GitHub nella cartella `Riconoscimento`."
             )
             
-            # RICALCOLO ISTANTANEO IN TEMPO REALE SULL'INTERO DATAFRAME
-            if "editor_riconoscimento_table" in st.session_state:
-                modifiche = st.session_state["editor_riconoscimento_table"].get("edited_rows", {})
-                for idx_str, cambia in modifiche.items():
-                    idx = int(idx_str)
-                    if idx < len(df_riconoscimenti):
-                        p_seg = cambia.get("Punti Segnalazione (+50)", df_riconoscimenti.at[idx, "Punti Segnalazione (+50)"])
-                        p_sk = cambia.get("Punti Skill Matrix (+25)", df_riconoscimenti.at[idx, "Punti Skill Matrix (+25)"])
-                        
-                        p_seg = int(p_seg) if pd.notnull(p_seg) else 0
-                        p_sk = int(p_sk) if pd.notnull(p_sk) else 0
-                        
-                        df_riconoscimenti.at[idx, "Punti Segnalazione (+50)"] = p_seg
-                        df_riconoscimenti.at[idx, "Punti Skill Matrix (+25)"] = p_sk
-                        df_riconoscimenti.at[idx, "Punteggio Totale"] = p_seg + p_sk
-
             # Tabella dinamica modificabile (data_editor)
             df_edited = st.data_editor(
                 df_riconoscimenti,
@@ -3785,26 +3769,27 @@ if nav == "Riconoscimento":
                 key="editor_riconoscimento_table"
             )
             
-            # ELABORAZIONE COMPLETA DI TUTTE LE RIGHE AGGIORNATE DALL'EDITOR
-            df_final = df_edited.copy()
-            df_final["Punti Segnalazione (+50)"] = pd.to_numeric(df_final["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
-            df_final["Punti Skill Matrix (+25)"] = pd.to_numeric(df_final["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
-            df_final["Punteggio Totale"] = df_final["Punti Segnalazione (+50)"] + df_final["Punti Skill Matrix (+25)"]
-            df_final = df_final.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
-
+            # RICALCOLO AUTOMATICO DEL TOTALE
+            df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
+            df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
+            df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
+            
             col_sav1, col_sav2 = st.columns(2)
             
             with col_sav1:
                 if st.button("💾 Salva Assegnazione Punteggi su GitHub", use_container_width=True, key="btn_save_riconoscimenti"):
+                    # Ordina prima di salvare
+                    df_edited = df_edited.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
+                    
                     # Salva in locale
                     os.makedirs(os.path.dirname(file_riconoscimenti_csv), exist_ok=True)
-                    df_final.to_csv(file_riconoscimenti_csv, index=False, sep=";")
+                    df_edited.to_csv(file_riconoscimenti_csv, index=False, sep=";")
                     
                     # Salvataggio remoto su GitHub Repository Online
-                    csv_bytes = df_final.to_csv(index=False, sep=";").encode('utf-8')
+                    csv_bytes = df_edited.to_csv(index=False, sep=";").encode('utf-8')
                     if 'save_to_github' in globals():
                         if save_to_github(rel_github_path, csv_bytes, "Aggiornamento Riconoscimento_Partecipazione_NM.csv"):
-                            st.success(f"Punteggi di tutte le righe salvati su GitHub in `{rel_github_path}` e classifica aggiornata!")
+                            st.success(f"Punteggi salvati su GitHub in `{rel_github_path}` e classifica aggiornata!")
                             st.rerun()
                         else:
                             st.warning("Salvato in locale, ma si è verificato un errore durante l'invio a GitHub.")
@@ -3813,9 +3798,9 @@ if nav == "Riconoscimento":
                         st.rerun()
 
             with col_sav2:
-                csv_ric_data = df_final.to_csv(index=False, sep=";").encode('utf-8')
+                csv_ric_data = df_edited.to_csv(index=False, sep=";").encode('utf-8')
                 st.download_button(
-                    label="📥 Scarica Classifica Riconoscimenti (.csv)",
+                    label="📥 Scarica Classifica Riconoscimenti (CSV)",
                     data=csv_ric_data,
                     file_name="Riconoscimento_Partecipazione_NM.csv",
                     mime="text/csv",
