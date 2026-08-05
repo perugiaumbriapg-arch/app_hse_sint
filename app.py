@@ -482,6 +482,88 @@ def estrai_info_checklist(percorso_file):
         doc_produrre = "Giudizi di Idoneità / Piano Sanitario"
 
     return titolo, regolamento, doc_produrre, settore_aziendale
+# ==============================================================
+# SALVA NORMATIVA DI CONFORMITA SU NORMATIVE.JSON
+# =============================================================
+def salva_normativa(chiave, titolo, url, descrizione):
+    """
+    Salva o aggiorna una norma nel file normative.json su GitHub e in locale.
+    """
+    if not chiave.strip():
+        st.warning("Inserire almeno una parola chiave per la norma.")
+        return False
+
+    file_json_name = "normative.json"
+    db_norme = {}
+
+    # 1. Tenta il recupero del JSON corrente da GitHub
+    if github_token and repo_name:
+        url_github_api = f"https://api.github.com/repos/{repo_name}/contents/{file_json_name}"
+        headers = {"Authorization": f"token {github_token}"}
+        sha_file = None
+        try:
+            res = requests.get(url_github_api, headers=headers)
+            if res.status_code == 200:
+                data_json = res.json()
+                sha_file = data_json.get("sha")
+                content_b64 = data_json.get("content", "")
+                import base64
+                content_decoded = base64.b64decode(content_b64).decode("utf-8")
+                db_norme = json.loads(content_decoded)
+        except Exception:
+            pass
+
+    # Fallback locale se da GitHub non è stato letto nulla
+    if not db_norme and os.path.exists(file_json_name):
+        try:
+            with open(file_json_name, "r", encoding="utf-8") as f:
+                db_norme = json.load(f)
+        except Exception:
+            db_norme = {}
+
+    # 2. Aggiorna il dizionario
+    db_norme[chiave.strip()] = {
+        "titolo": titolo.strip(),
+        "url": url.strip(),
+        "desc": descrizione.strip()
+    }
+
+    content_bytes = json.dumps(db_norme, indent=4, ensure_ascii=False).encode("utf-8")
+
+    # 3. Salva in locale
+    try:
+        with open(file_json_name, "wb") as f_out:
+            f_out.write(content_bytes)
+    except Exception:
+        pass
+
+    # 4. Salva o aggiorna il file su GitHub
+    if github_token and repo_name:
+        try:
+            import base64
+            url_github_api = f"https://api.github.com/repos/{repo_name}/contents/{file_json_name}"
+            headers = {"Authorization": f"token {github_token}"}
+            
+            # Recupera lo SHA se non già salvato
+            if not sha_file:
+                res_check = requests.get(url_github_api, headers=headers)
+                if res_check.status_code == 200:
+                    sha_file = res_check.json().get("sha")
+
+            payload = {
+                "message": f"Aggiornamento database normative.json - Norma: {chiave}",
+                "content": base64.b64encode(content_bytes).decode("utf-8")
+            }
+            if sha_file:
+                payload["sha"] = sha_file
+
+            res_put = requests.put(url_github_api, headers=headers, json=payload)
+            if res_put.status_code in [200, 201]:
+                return True
+        except Exception as e:
+            st.error(f"Errore durante la sincronizzazione su GitHub: {e}")
+
+    return True
 
 # ==================================================================
 # --- MOTORE ROBUSTO ANALISI DI CONFORMITÀ & GAP ANALYSIS ---
@@ -1932,7 +2014,7 @@ if nav == "Consultazione":
                         )
                         
             # -----------------------------------------------------------
-            # GENERA QRCode
+            # GENERA QRCode e Gestione Normativa
             # -----------------------------------------------------------    
             with tab_admin2:
                 # Generazione QR
@@ -1941,13 +2023,11 @@ if nav == "Consultazione":
                 img_ottenuta = None
         
                 if opzione_qr == "Genera QR Code":
-                    testo_da_convertire = st.text_input("Inserisci l'URL o il testo da inserire nel QR Code:", placeholder="https://www.gazzettaufficiale.it/")
+                    testo_da_convertire = st.text_input("Inserisci l'URL o il testo da inserire nel QR Code:", placeholder="https://www.gazzettaufficiale.it/", key="txt_input_qr_gen_unq")
                     if testo_da_convertire.strip():
                         img_ottenuta = genera_qr_nativo(testo_da_convertire)
         
-                    # Verifica che img_ottenuta non sia None (buona pratica)
                     if img_ottenuta:
-                        # Salvataggio temporaneo per consentire la visualizzazione e il download
                         percorso_temp_qr = "temp_generated_qr.png"
                         img_ottenuta.save(percorso_temp_qr)
                 
@@ -1959,7 +2039,8 @@ if nav == "Consultazione":
                                 data=f_qr.read(),
                                 file_name="qr_code_hse.png",
                                 mime="image/png",
-                                use_container_width=True
+                                use_container_width=True,
+                                key="btn_dl_qr_unq"
                             )
                     
                 elif opzione_qr == "Leggi/Decodifica QR Code":
@@ -1974,94 +2055,63 @@ if nav == "Consultazione":
                                 st.markdown(f"[Clicca qui per aprire il link rilevato]({risultato_priv})")
                         else:
                             st.warning("Nessun codice QR valido rilevato all'interno dell'immagine caricata.")
+
                 # -----------------------------------------------------------
-                # VERIFICA AGGIORNAMENTI COGENTI CON LINK REALI
-                # -----------------------------------------------------------
-                st.markdown("---")
-                st.subheader("Verifica Aggiornamenti Cogenti (Italia & UE)")
-                st.caption("Il sistema incrocia i dati estratti con il contesto operativo e le fonti ufficiali della gazzetta italiana ed europea.")
-            
-                quadro_libero = st.text_area(
-                    "Fornisci dettagli sul contesto aziendale o processi specifici (es: smart working, rifiuti pericolosi, imballaggi plastici, marketing ecologico):",
-                    placeholder="Inserisci qui note libere per la verifica..."
-                )
-            
-                if st.button("Genera ed Elabora Check-list CSV", use_container_width=True, key="btn_genera_checklist_cogenti"):
-                    file_github = elenca_file_github_conformita()
-                    dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
-                    
-                    file_presenti_nomi = []
-                    if file_github:
-                        file_presenti_nomi = [item["name"] for item in file_github if item["type"] == "file"]
-                    elif os.path.exists(dir_target):
-                        file_presenti_nomi = [f for f in os.listdir(dir_target) if os.path.isfile(os.path.join(dir_target, f))]
-                        
-                    righe = []
-                    for fn in file_presenti_nomi:
-                        fp = os.path.join(dir_target, fn)
-                        titolo, reg, settore, data = estrai_info_checklist(fp if os.path.exists(fp) else fn)
-                        righe.append({"Titolo Documento": titolo, "Regolamento": reg, "Settore": settore, "Data Caricamento": data})
-                    st.session_state["cached_df_checklist"] = pd.DataFrame(righe)
-                    st.rerun()
-                if "cached_df_checklist" in st.session_state:
-                    st.dataframe(st.session_state["cached_df_checklist"], use_container_width=True)
-                    csv = st.session_state["cached_df_checklist"].to_csv(index=False).encode('utf-8')
-                    st.download_button("Scarica Check-list CSV", csv, "checklist.csv", "text/csv")
-                # 4. Motore Confronto Legislativo Dinamico (Con Gap-Analysis)
-                st.markdown("---")
-                st.subheader("Confronto Legislativo & Stato Conformità")
-            
-                with st.expander("Aggiungi nuova norma al database interno"):
-                    k = st.text_input("Parola chiave (es: rifiuti):")
-                    t = st.text_input("Titolo:")
-                    u = st.text_input("URL ufficiale:")
-                    d = st.text_area("Descrizione della norma:")
-                    if st.button("Salva nel database"): 
-                        salva_normativa(k, t, u, d)
-                        st.success("Norma salvata!")
-            
-                note_libere = st.text_area("Analisi testo libero / criticità:", placeholder="es: gestione rifiuti pericolosi, amianto, ecc.")
-            
-# -----------------------------------------------------------
-                # 4. MOTORE CONFRONTO LEGISLATIVO DINAMICO CON GAP-ANALYSIS AVANZATA
+                # UNICA AREA: GESTIONE DATABASE NORMATIVO & CONFRONTO LEGISLATIVO
                 # -----------------------------------------------------------
                 st.markdown("---")
                 st.subheader("Confronto Legislativo & Stato Conformità")
             
-                with st.expander("Aggiungi nuova norma al database interno"):
+                with st.expander("Aggiungi nuova norma al database interno (normative.json su GitHub)"):
                     k = st.text_input("Parola chiave (es: rifiuti):", key="txt_norma_key_unique")
                     t = st.text_input("Titolo:", key="txt_norma_titolo_unique")
                     u = st.text_input("URL ufficiale:", key="txt_norma_url_unique")
                     d = st.text_area("Descrizione della norma:", key="txt_norma_desc_unique")
-                    if st.button("Salva nel database", key="btn_salva_norma_unique"): 
-                        if 'salva_normativa' in globals():
-                            salva_normativa(k, t, u, d)
-                            st.success("Norma salvata nel database!")
+                    
+                    if st.button("Salva nel database", key="btn_salva_norma_unique", use_container_width=True): 
+                        if k.strip():
+                            esito = salva_normativa(k, t, u, d)
+                            if esito:
+                                st.success(f"Norma '{k}' salvata e sincronizzata con successo nel database su GitHub!")
+                                time.sleep(1)
+                                st.rerun()
                         else:
-                            st.error("Funzione salva_normativa non trovata.")
-            
-                note_libere = st.text_area("Analisi testo libero / criticità aziendali:", placeholder="es: gestione rifiuti pericolosi, amianto, dispositivi DPI, ecc.")
+                            st.warning("Inserisci obbligatoriamente una parola chiave prima di salvare.")
+
+                note_libere = st.text_area("Analisi testo libero / criticità aziendali:", placeholder="es: gestione rifiuti pericolosi, amianto, dispositivi DPI, ecc.", key="txt_note_libere_conformita_unq")
             
                 if st.button("Avvia Analisi di Conformità", use_container_width=True, key="btn_avvia_analisi_conformita_avanzata"):
                     with st.spinner("Scansione in corso di tutti i documenti di GitHub e verifica dei link nel database normativo..."):
                         
-                        # 1. Caricamento Database Normativo
+                        # 1. Caricamento Database Normativo (da GitHub o locale)
                         db_norme = {}
-                        if os.path.exists("normative.json"):
+                        if github_token and repo_name:
+                            url_github_api = f"https://api.github.com/repos/{repo_name}/contents/normative.json"
+                            headers = {"Authorization": f"token {github_token}"}
+                            try:
+                                res = requests.get(url_github_api, headers=headers)
+                                if res.status_code == 200:
+                                    import base64
+                                    content_decoded = base64.b64decode(res.json().get("content", "")).decode("utf-8")
+                                    db_norme = json.loads(content_decoded)
+                            except Exception:
+                                pass
+
+                        if not db_norme and os.path.exists("normative.json"):
                             try:
                                 with open("normative.json", "r", encoding="utf-8") as f:
                                     db_norme = json.load(f)
                             except Exception as e:
-                                st.error(f"Errore durante la lettura del database normative: {e}")
+                                st.error(f"Errore lettura database: {e}")
 
                         if not db_norme:
-                            st.warning("Il database normativo (normative.json) è vuoto o assente. Aggiungi almeno una norma sopra.")
+                            st.warning("Il database normativo (normative.json) è vuoto o assente. Aggiungi una norma nel pannello sopra.")
                         
-                        # 2. Scansione Documenti da GitHub (e Fallback Locale)
+                        # 2. Scansione Documenti da GitHub
                         file_github = elenca_file_github_conformita() if 'elenca_file_github_conformita' in globals() else []
                         dir_target = DIR_CONFORMITA if 'DIR_CONFORMITA' in globals() else folder_repo_conformita
                         
-                        contenuto_documenti = {}  # {nome_file: testo_estratto}
+                        contenuto_documenti = {}
                         
                         if file_github:
                             for item in file_github:
@@ -2078,7 +2128,6 @@ if nav == "Consultazione":
                                         txt_ext = estrai_testo_da_bytes_robusto(n_file, lf.read())
                                         contenuto_documenti[n_file] = txt_ext
 
-                        # Unione di tutti i testi di archivio per il controllo globale
                         testo_globale_archivio = " ".join(contenuto_documenti.values()).lower() + " " + note_libere.lower()
                         
                         st.markdown("### Risultati Analisi di Conformità Documentale")
@@ -2091,24 +2140,19 @@ if nav == "Consultazione":
                         conformi_totali = 0
                         non_conformi_totali = 0
 
-                        # 3. Analisi per ogni Norma nel Database
+                        # 3. Analisi per ogni Norma
                         for chiave, info in db_norme.items():
                             chiave_clean = chiave.strip().lower()
                             url_norma = info.get("url", "")
                             
-                            # Scansione del link ufficiale per estrazione dettagli
                             testo_link = estrai_contenuto_link(url_norma) if url_norma else ""
                             
-                            # Cerca la presenza della norma o del tema sia nei file archiviati che nelle note
-                            presenza_in_note = chiave_clean in note_libere.lower()
-                            
-                            # Identificazione dei file specifici che citano la norma
                             doc_corrispondenti = [
                                 nome_doc for nome_doc, testo_doc in contenuto_documenti.items()
                                 if chiave_clean in testo_doc.lower() or chiave_clean in nome_doc.lower()
                             ]
                             
-                            is_conforme = len(doc_corrispondenti) > 0
+                            is_conforme = len(doc_corrispondenti) > 0 or (chiave_clean in note_libere.lower())
 
                             trovati_totali += 1
                             if is_conforme:
@@ -2116,7 +2160,6 @@ if nav == "Consultazione":
                             else:
                                 non_conformi_totali += 1
 
-                            # Layout dei risultati
                             st.markdown("---")
                             col_stato, col_info = st.columns([1, 3])
                             
@@ -2136,29 +2179,23 @@ if nav == "Consultazione":
                                 if url_norma:
                                     st.link_button("Vai alla Fonte/Link Ufficiale", url_norma)
 
-                                # CASO 1: CONFORME -> Mostra i documenti che la soddisfano
                                 if is_conforme:
                                     st.markdown("** Documenti presenti che attestano la conformità:**")
                                     for doc_ok in doc_corrispondenti:
                                         st.markdown(f"- `{doc_ok}`")
-
-                                # CASO 2: NON CONFORME -> Dettaglio di COSA MANCA e COSA FARE
                                 else:
                                     doc_mancanti, azioni_suggerite = genera_piano_adeguamento_e_gap(chiave, info, testo_link)
                                     
                                     st.warning("⚠️ **AZIONI CORRETTIVE RICHIESTE PER L'ADEGUAMENTO:**")
                                     
-                                    # SEZIONE 1: Documenti da produrre
                                     st.markdown("####  1. Documenti specifici da produrre / allegare:")
                                     for doc_m in doc_mancanti:
                                         st.markdown(f" * {doc_m}")
 
-                                    # SEZIONE 2: Operazioni pratiche da fare
                                     st.markdown("####  2. Azioni operative da intraprendere:")
                                     for az_m in azioni_suggerite:
                                         st.markdown(f" * {az_m}")
 
-                        # Riepilogo finale sintettivo
                         st.markdown("---")
                         st.markdown("###  Sintesi finale dell'Analisi di Conformità")
                         col_m1, col_m2, col_m3 = st.columns(3)
