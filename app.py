@@ -3569,16 +3569,17 @@ if nav == "Riconoscimento":
     st.markdown("Gestione delle classifiche e assegnazione dei punteggi di riconoscimento.")
     
     # ---------------------------------------------------------
-    # Autenticazione Password Sezione Riconoscimento
+    # Autenticazione Password Sezione Riconoscimento tramite Secrets
     # ---------------------------------------------------------
     if "auth_riconoscimento" not in st.session_state:
         st.session_state.auth_riconoscimento = False
 
     if not st.session_state.auth_riconoscimento:
-        st.markdown("**Area Riservata:** Inserisci la password per accedere.")
+        st.markdown("🔒 **Area Riservata:** Inserisci la password per accedere.")
         pwd_riconoscimento = st.text_input("Password Riconoscimento", type="password", key="pwd_riconoscimento_input")
         if st.button("Accedi", use_container_width=True, key="btn_auth_riconoscimento"):
-            if pwd_riconoscimento == "hse2026":  # Sostituisci o mantieni la password desiderata
+            correct_pwd = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
+            if pwd_riconoscimento == correct_pwd:
                 st.session_state.auth_riconoscimento = True
                 st.success("Accesso autorizzato!")
                 st.rerun()
@@ -3595,43 +3596,49 @@ if nav == "Riconoscimento":
             key="radio_sotto_sec_ric"
         )
         st.markdown("---")
-
-        # Gestione percorsi base
+        
+        # Gestione percorsi base e GitHub
         try:
             base_dir = os.path.dirname(os.path.abspath(__file__))
         except NameError:
             base_dir = os.getcwd()
-
-        file_riconoscimenti_csv = os.path.join(base_dir, "riconoscimenti_punteggi.csv")
-
+            
+        rel_github_path = "Riconoscimento/Riconoscimento_Partecipazione_NM.csv"
+        file_riconoscimenti_csv = os.path.join(base_dir, "Riconoscimento", "Riconoscimento_Partecipazione_NM.csv")
+        
         # ---------------------------------------------------------
         # Funzione di supporto: Lettura/Caricamento dati salvati
         # ---------------------------------------------------------
         def carica_o_inizializza_punteggi():
-            # 1. Recupero Segnalatori da segnalazioni_near_miss.csv
+            # Tentativo 1: Caricamento da file locale in Riconoscimento/Riconoscimento_Partecipazione_NM.csv
+            if os.path.exists(file_riconoscimenti_csv):
+                try:
+                    df_ric = pd.read_csv(file_riconoscimenti_csv, sep=";")
+                    if not df_ric.empty:
+                        return df_ric
+                except Exception:
+                    pass
+            
+            # Recupero nominativi da segnalazioni e Skill Matrix se non esiste ancora il file principale
             segnalatori_set = set()
             file_nm = os.path.join(base_dir, "segnalazioni_near_miss.csv")
             if os.path.exists(file_nm):
                 try:
                     df_nm = pd.read_csv(file_nm, sep=";")
-                    # Cerca la colonna "Segnalatore" (ignora maiuscole/minuscole)
                     col_seg = [c for c in df_nm.columns if c.strip().lower() == "segnalatore"]
                     if col_seg:
                         col_name = col_seg[0]
-                        # Filtra le righe dove la colonna non è vuota o composta solo da spazi
                         segnalatori_validi = df_nm[col_name].dropna().astype(str).str.strip()
                         for s in segnalatori_validi:
                             if s != "" and s.lower() != "nan":
                                 segnalatori_set.add(s)
                 except Exception as e:
                     st.warning(f"Errore nella lettura di segnalazioni_near_miss.csv: {e}")
-
-            # 2. Recupero Nomi e Cognomi da Skill Matrix
+                    
             skill_set = set()
             autoval_dir = os.path.join(base_dir, "Skill_Matrix", "Autovalutazione")
             if not os.path.exists(autoval_dir):
                 autoval_dir = os.path.join(base_dir, "APP HSE", "Skill_Matrix", "Autovalutazione")
-
             if os.path.exists(autoval_dir):
                 files_csv_sm = [f for f in os.listdir(autoval_dir) if f.endswith(".csv")]
                 for f_csv in files_csv_sm:
@@ -3640,43 +3647,16 @@ if nav == "Riconoscimento":
                         df_sm = pd.read_csv(f_path, sep=";")
                         nome_val = df_sm.loc[df_sm["Campo"] == "Nome", "Valore"]
                         cognome_val = df_sm.loc[df_sm["Campo"] == "Cognome", "Valore"]
-                        
                         nome_str = str(nome_val.values[0]).strip() if not nome_val.empty else ""
                         cognome_str = str(cognome_val.values[0]).strip() if not cognome_val.empty else ""
-                        
                         full_name = f"{nome_str} {cognome_str}".strip()
                         if full_name and full_name != "N/D N/D":
                             skill_set.add(full_name)
                     except Exception:
                         pass
-
-            # Unione di tutti i nominativi trovati
+                        
             tutti_nominativi = list(segnalatori_set.union(skill_set))
-
-            # Caricamento del file storico se esiste
-            if os.path.exists(file_riconoscimenti_csv):
-                try:
-                    df_ric = pd.read_csv(file_riconoscimenti_csv, sep=";")
-                    # Aggiunta di eventuali nuovi nominativi non ancora presenti nel CSV
-                    for nom in tutti_nominativi:
-                        if nom not in df_ric["Nominativo"].values:
-                            is_seg = nom in segnalatori_set
-                            is_sk = nom in skill_set
-                            fonte = "Segnalatore & Skill Matrix" if (is_seg and is_sk) else ("Segnalatore" if is_seg else "Skill Matrix")
-                            
-                            nuova_riga = pd.DataFrame([{
-                                "Nominativo": nom,
-                                "Fonte": fonte,
-                                "Punti Segnalazione (+50)": 0,
-                                "Punti Skill Matrix (+25)": 0,
-                                "Punteggio Totale": 0
-                            }])
-                            df_ric = pd.concat([df_ric, nuova_riga], ignore_index=True)
-                    return df_ric
-                except Exception:
-                    pass
-
-            # Se il file non esiste, crea la struttura iniziale
+            
             rows = []
             for nom in tutti_nominativi:
                 is_seg = nom in segnalatori_set
@@ -3701,8 +3681,8 @@ if nav == "Riconoscimento":
 
         # Carica il dataframe generale
         df_riconoscimenti = carica_o_inizializza_punteggi()
-
-        # Ricalcola sempre il totale e ordina per punteggio decrescente
+        
+        # Normalizzazione tipi e ricalcolo totale
         df_riconoscimenti["Punti Segnalazione (+50)"] = pd.to_numeric(df_riconoscimenti["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
         df_riconoscimenti["Punti Skill Matrix (+25)"] = pd.to_numeric(df_riconoscimenti["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
         df_riconoscimenti["Punteggio Totale"] = df_riconoscimenti["Punti Segnalazione (+50)"] + df_riconoscimenti["Punti Skill Matrix (+25)"]
@@ -3715,20 +3695,36 @@ if nav == "Riconoscimento":
         # =========================================================
         if sotto_sec_ric == "Classificazione":
             st.subheader("Classifica Generale Riconoscimenti")
-            st.markdown("Visualizzazione della classifica complessiva aggiornata in base ai punteggi assegnati.")
-
-            # Podio o metriche sui primi 3 (opzionale e visivo)
+            st.markdown("Visualizzazione della classifica complessiva letta da `Riconoscimento_Partecipazione_NM`.")
+            
+            # Podio sui primi 3 con il punteggio più elevato
+            st.markdown("### Classifica Generale Riconoscimenti (Top 3)")
             if len(df_riconoscimenti) > 0 and df_riconoscimenti.iloc[0]["Punteggio Totale"] > 0:
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("🥇 1° Posto", f"{df_riconoscimenti.iloc[0]['Nominativo']}", f"{df_riconoscimenti.iloc[0]['Punteggio Totale']} Punti")
+                    st.metric(
+                        "🥇 1° Posto", 
+                        f"{df_riconoscimenti.iloc[0]['Nominativo']}", 
+                        f"{df_riconoscimenti.iloc[0]['Punteggio Totale']} Punti"
+                    )
                 with col2:
                     if len(df_riconoscimenti) > 1:
-                        st.metric("🥈 2° Posto", f"{df_riconoscimenti.iloc[1]['Nominativo']}", f"{df_riconoscimenti.iloc[1]['Punteggio Totale']} Punti")
+                        st.metric(
+                            "🥈 2° Posto", 
+                            f"{df_riconoscimenti.iloc[1]['Nominativo']}", 
+                            f"{df_riconoscimenti.iloc[1]['Punteggio Totale']} Punti"
+                        )
                 with col3:
                     if len(df_riconoscimenti) > 2:
-                        st.metric("🥉 3° Posto", f"{df_riconoscimenti.iloc[2]['Nominativo']}", f"{df_riconoscimenti.iloc[2]['Punteggio Totale']} Punti")
+                        st.metric(
+                            "🥉 3° Posto", 
+                            f"{df_riconoscimenti.iloc[2]['Nominativo']}", 
+                            f"{df_riconoscimenti.iloc[2]['Punteggio Totale']} Punti"
+                        )
+            else:
+                st.info("Nessun punteggio ancora registrato nel sistema per generare il podio.")
             
+            st.markdown("---")
             st.markdown("### Tabella Classifica Complessiva")
             st.dataframe(
                 df_riconoscimenti[["Nominativo", "Fonte", "Punti Segnalazione (+50)", "Punti Skill Matrix (+25)", "Punteggio Totale"]],
@@ -3745,9 +3741,9 @@ if nav == "Riconoscimento":
                 "In questa sezione puoi assegnare manualmente i punti:\n"
                 "- **+50 Punti** per le attività di segnalazione Near Miss.\n"
                 "- **+25 Punti** per le competenze inserite nella Skill Matrix.\n"
-                "La tabella si riordina automaticamente in base al punteggio finale più alto."
+                "I dati inseriti verranno salvati direttamente su GitHub nella cartella `Riconoscimento`."
             )
-
+            
             # Tabella dinamica modificabile (data_editor)
             df_edited = st.data_editor(
                 df_riconoscimenti,
@@ -3772,34 +3768,41 @@ if nav == "Riconoscimento":
                 },
                 key="editor_riconoscimento_table"
             )
-
+            
             col_sav1, col_sav2 = st.columns(2)
             
             with col_sav1:
-              if st.button("💾 Salva Assegnazione Punteggi", use_container_width=True, key="btn_save_riconoscimenti"):
-                  # Ricalcolo totali
-                  df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
-                  df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
-                  df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
-                  
-                  # Ordina prima di salvare
-                  df_edited = df_edited.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
-                  
-                  # 1. Salva su CSV
-                  df_edited.to_csv(file_riconoscimenti_csv, index=False, sep=";")
-                  
-                  # 2. AGGIORNAMENTO STATE GLOBALE (Rende i dati visibili ovunque all'istante)
-                  st.session_state["df_riconoscimenti"] = df_edited
-                  
-                  st.success("Punteggi salvati con successo e classifica aggiornata!")
-                  st.rerun()
+                if st.button("💾 Salva Assegnazione Punteggi su GitHub", use_container_width=True, key="btn_save_riconoscimenti"):
+                    # Ricalcolo totali
+                    df_edited["Punti Segnalazione (+50)"] = pd.to_numeric(df_edited["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
+                    df_edited["Punti Skill Matrix (+25)"] = pd.to_numeric(df_edited["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
+                    df_edited["Punteggio Totale"] = df_edited["Punti Segnalazione (+50)"] + df_edited["Punti Skill Matrix (+25)"]
+                    
+                    # Ordina prima di salvare
+                    df_edited = df_edited.sort_values(by="Punteggio Totale", ascending=False).reset_index(drop=True)
+                    
+                    # Salva in locale
+                    os.makedirs(os.path.dirname(file_riconoscimenti_csv), exist_ok=True)
+                    df_edited.to_csv(file_riconoscimenti_csv, index=False, sep=";")
+                    
+                    # Salvataggio remoto su GitHub Repository Online
+                    csv_bytes = df_edited.to_csv(index=False, sep=";").encode('utf-8')
+                    if 'save_to_github' in globals():
+                        if save_to_github(rel_github_path, csv_bytes, "Aggiornamento Riconoscimento_Partecipazione_NM.csv"):
+                            st.success(f"Punteggi salvati su GitHub in `{rel_github_path}` e classifica aggiornata!")
+                            st.rerun()
+                        else:
+                            st.warning("Salvato in locale, ma si è verificato un errore durante l'invio a GitHub.")
+                    else:
+                        st.success("Punteggi salvati in locale con successo!")
+                        st.rerun()
 
             with col_sav2:
                 csv_ric_data = df_edited.to_csv(index=False, sep=";").encode('utf-8')
                 st.download_button(
                     label="📥 Scarica Classifica Riconoscimenti (CSV)",
                     data=csv_ric_data,
-                    file_name="Classifica_Riconoscimenti_HSE.csv",
+                    file_name="Riconoscimento_Partecipazione_NM.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
