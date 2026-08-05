@@ -1427,10 +1427,16 @@ if nav == "Scadenzario Adempimenti":
 # ==================================================================
 if nav == "Analisi Segnalazioni Near Miss":
     st.header("Analisi approfondita delle segnalazioni Near Miss")
+    
+    # Recupero sicuro della password da st.secrets con fallback di sicurezza
+    try:
+        password_sezione = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
+    except Exception:
+        password_sezione = "hse2026"
 
     if "autenticato_rspp" not in st.session_state:
         st.session_state.autenticato_rspp = False
-
+        
     if not st.session_state.autenticato_rspp:
         pwd_rspp = st.text_input(
             "Inserisci la Password di Accesso",
@@ -1438,15 +1444,14 @@ if nav == "Analisi Segnalazioni Near Miss":
             key="pwd_rspp_tab",
         )
         if st.button("Convalida Accesso", use_container_width=True):
-            if pwd_rspp == "hse2026":
+            if pwd_rspp == password_sezione:
                 st.session_state.autenticato_rspp = True
                 st.rerun()
             else:
                 st.error("Credenziali errate.")
-
+                
     if st.session_state.autenticato_rspp:
         st.success("Autenticato")
-
         # --- PERCORSI DEI FILE ---
         FILE_NEAR_MISS = "segnalazioni_near_miss.csv"
         FILE_MANUTENZIONE = os.path.join(
@@ -1454,10 +1459,9 @@ if nav == "Analisi Segnalazioni Near Miss":
         )
         FILE_ANALISI_NM = "analisi_near_miss.csv"
         DIR_IMMAGINI_ANALISI = "immagini_analisi"
-
         if not os.path.exists(DIR_IMMAGINI_ANALISI):
             os.makedirs(DIR_IMMAGINI_ANALISI)
-
+            
         # Funzione di supporto per salvare l'intero DataFrame aggiornato su GitHub
         def salva_df_analisi_su_github(
             df_target, message="Aggiornamento analisi_near_miss.csv"
@@ -1467,9 +1471,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                 repo_name = st.secrets["REPO_NAME"]
                 g = Github(github_token)
                 repo = g.get_repo(repo_name)
-
                 csv_buffer = df_target.to_csv(index=False, sep=";")
-
                 try:
                     file_content = repo.get_contents(FILE_ANALISI_NM)
                     repo.update_file(
@@ -1497,7 +1499,6 @@ if nav == "Analisi Segnalazioni Near Miss":
         # --- LETTURA DELLE SEGNALAZIONI DAI DUE FILE ---
         lista_segnalazioni = []
         mappa_descrizioni = {}
-
         # 1. Lettura File "segnalazioni_near_miss.csv"
         if os.path.exists(FILE_NEAR_MISS):
             try:
@@ -1523,7 +1524,6 @@ if nav == "Analisi Segnalazioni Near Miss":
                     mappa_descrizioni[label] = str(row.get("Descrizione", ""))
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_NEAR_MISS}: {e}")
-
         # 2. Lettura File "manutenzione.csv"
         if os.path.exists(FILE_MANUTENZIONE):
             try:
@@ -1549,7 +1549,6 @@ if nav == "Analisi Segnalazioni Near Miss":
                     mappa_descrizioni[label] = str(row.get("Descrizione", ""))
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_MANUTENZIONE}: {e}")
-
         # Lettura file delle analisi
         df_analisi = (
             pd.read_csv(
@@ -1558,10 +1557,8 @@ if nav == "Analisi Segnalazioni Near Miss":
             if os.path.exists(FILE_ANALISI_NM)
             else pd.DataFrame()
         )
-
         if "sub_sezione_rspp" not in st.session_state:
             st.session_state.sub_sezione_rspp = "compilazione"
-
         col_m1, col_m2 = st.columns(2)
         with col_m1:
             if st.button("Apri Nuovo Modulo Analisi", use_container_width=True):
@@ -1569,15 +1566,12 @@ if nav == "Analisi Segnalazioni Near Miss":
         with col_m2:
             if st.button("Commento e firma RSPP", use_container_width=True):
                 st.session_state.sub_sezione_rspp = "firma"
-
         st.markdown("---")
-
         # --- SUBSEZIONE COMPILAZIONE ---
         if st.session_state.sub_sezione_rspp == "compilazione":
             opzioni_tendina = [
                 "Nessun collegamento (Crea analisi indipendente)"
             ] + lista_segnalazioni
-
             selezione_nm = st.selectbox(
                 "Seleziona una segnalazione a cui allacciarti:", opzioni_tendina
             )
@@ -1588,7 +1582,6 @@ if nav == "Analisi Segnalazioni Near Miss":
             ):
                 desc_def = mappa_descrizioni.get(selezione_nm, "")
                 st.info("Testo della segnalazione caricato.")
-
             st.markdown(
                 "#### Inserimento immagine o allegato di supporto per l'Analisi (Facoltativo)"
             )
@@ -1597,7 +1590,6 @@ if nav == "Analisi Segnalazioni Near Miss":
                 ["Nessun file", "Carica file locale", "Scatta foto istantanea"],
                 key="scelta_media_analisi_rspp",
             )
-
             allegato_analisi_nome = "Nessuna"
             if opzione_media_analisi == "Carica file locale":
                 file_img_an = st.file_uploader(
@@ -1634,9 +1626,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                     st.caption(
                         f"Foto '{allegato_analisi_nome}' archiviata in {DIR_IMMAGINI_ANALISI}/"
                     )
-
             st.markdown("---")
-
             # FORM DI INSERIMENTO ANALISI
             with st.form("form_analisi_sup"):
                 descrizione_finale = st.text_area(
@@ -1752,7 +1742,6 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Nessuna",
                     ],
                 )
-
                 colX, colY = st.columns(2)
                 with colX:
                     danno_strutture = st.radio(
@@ -1772,13 +1761,10 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Frequenza stimata",
                         ["rara", "frequente", "molto frequente"],
                     )
-
                 submit_button = st.form_submit_button("Salva Modulo Direzione")
-
             # PULSANTE DI INVIO
             if submit_button:
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
                 # Costruzione riga dati
                 nuova_risposta = {
                     "Data Analisi": now_str,
@@ -1799,13 +1785,11 @@ if nav == "Analisi Segnalazioni Near Miss":
                     "Firma RSPP (Stato)": "Non Firmato",
                     "Allegato Analisi": allegato_analisi_nome,
                 }
-
                 # Unisci il nuovo record al DataFrame o crealo se non esiste
                 df_nuovo_rec = pd.DataFrame([nuova_risposta])
                 df_totale = pd.concat(
                     [df_analisi, df_nuovo_rec], ignore_index=True
                 )
-
                 if salva_df_analisi_su_github(
                     df_totale, f"Nuova analisi near miss ({now_str})"
                 ):
@@ -1817,7 +1801,6 @@ if nav == "Analisi Segnalazioni Near Miss":
                     )
                     time.sleep(1)
                     st.rerun()
-
         # --- SUBSEZIONE COMMENTO E FIRMA RSPP ---
         elif st.session_state.sub_sezione_rspp == "firma":
             if df_analisi.empty:
