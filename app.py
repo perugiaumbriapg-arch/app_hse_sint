@@ -2625,7 +2625,7 @@ if nav == "KPI":
 # SEZIONE 8: PIANO DI MIGLIORAMENTO
 # ==========================================
 if nav == "Piano Miglioramento":
-    st.title("Piano di Miglioramento")
+    st.title("Sezione 8: Piano di Miglioramento")
 
     # Inizializzazione Session State Autenticazione
     if "authenticated_sec8" not in st.session_state:
@@ -2679,6 +2679,46 @@ if nav == "Piano Miglioramento":
             return False
         return True
 
+    # UTILITY PER CARICAMENTO EVENTI (Estesa a manutenzione.csv)
+    def load_events():
+        events = []
+        file_sources = [
+            ("segnalazioni_near_miss.csv", "segnalazione"),
+            ("analisi_near_miss.csv", "analisi"),
+            (os.path.join("Segnalazioni_NM_Manutenzione", "manutenzione.csv"), "manutenzione")
+        ]
+        
+        for filepath, tipo in file_sources:
+            if os.path.exists(filepath):
+                try:
+                    df = pd.read_csv(filepath)
+                    if not df.empty:
+                        for val in df.iloc[:, 0].dropna().astype(str).tolist():
+                            events.append(f"{val} ({tipo})")
+                except Exception:
+                    pass
+        return sorted(list(set(events))) if events else ["Nessun evento disponibile"]
+
+    # UTILITY PER ACCORCIARE IL NOME DELL'EVENTO
+    def format_event_name_short(evento_str):
+        import re
+        tipo = "evento"
+        if "(segnalazione)" in evento_str.lower():
+            tipo = "segnalazione"
+        elif "(analisi)" in evento_str.lower():
+            tipo = "analisi"
+        elif "(manutenzione)" in evento_str.lower():
+            tipo = "manutenzione"
+        
+        # Cerca una data nel testo (es. YYYY-MM-DD, DD/MM/YYYY, YYYYMMDD)
+        match_date = re.search(r'(\d{4}[-/.]?\d{2}[-/.]?\d{2}|\d{2}[-/.]?\d{2}[-/.]?\d{4})', evento_str)
+        if match_date:
+            clean_date = re.sub(r'[-/.]', '', match_date.group(1))
+        else:
+            clean_date = datetime.now().strftime("%Y%m%d")
+            
+        return f"{clean_date}_{tipo}"
+
     # ------------------------------------------
     # SOTTOSEZIONE 2: Valutazione del Rischio (PRIVATA)
     # ------------------------------------------
@@ -2689,7 +2729,6 @@ if nav == "Piano Miglioramento":
             lista_eventi = load_events()
             evento_selezionato_vr = st.selectbox("Seleziona Evento Near Miss", lista_eventi, key="sb_vr")
             
-            # Dataframe di default per la valutazione rischi
             default_vr_data = pd.DataFrame([
                 {"Rischio": "", "Probabilità": 1, "Gravità": 1, "Sensibilità": 1, "Controllo": 1}
             ])
@@ -2708,10 +2747,17 @@ if nav == "Piano Miglioramento":
                 key="editor_vr"
             )
             
-            # Calcolo dinamico colonna Significatività e formattazione
             def calcola_significativita(df):
                 df_calc = df.copy()
-                # Calcolo formula: (Gravità * Probabilità * Sensibilità) / Controllo
+                if df_calc.empty:
+                    df_calc["Significatività"] = []
+                    return df_calc
+                
+                for col in ["Gravità", "Probabilità", "Sensibilità", "Controllo"]:
+                    if col in df_calc.columns:
+                        df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(1)
+                
+                df_calc["Controllo"] = df_calc["Controllo"].replace(0, 1)
                 df_calc["Significatività"] = (
                     (df_calc["Gravità"] * df_calc["Probabilità"] * df_calc["Sensibilità"]) / df_calc["Controllo"]
                 ).round(2)
@@ -2719,25 +2765,28 @@ if nav == "Piano Miglioramento":
 
             df_vr_calcolato = calcola_significativita(edited_vr_df)
             
-            # Evidenziazione colore riga in base al risultato
             def color_rows(val):
-                if pd.isna(val):
-                    return ''
-                if 1 <= val <= 3:
-                    return 'background-color: #d4edda; color: #155724;'  # Verde
-                elif 4 <= val <= 6:
-                    return 'background-color: #fff3cd; color: #856404;'  # Giallo
-                elif 7 <= val <= 9:
-                    return 'background-color: #f8d7da; color: #721c24;'  # Rosso
+                try:
+                    if pd.isna(val):
+                        return ''
+                    val = float(val)
+                    if 1 <= val <= 3:
+                        return 'background-color: #d4edda; color: #155724;'
+                    elif 4 <= val <= 6:
+                        return 'background-color: #fff3cd; color: #856404;'
+                    elif 7 <= val <= 9:
+                        return 'background-color: #f8d7da; color: #721c24;'
+                except Exception:
+                    pass
                 return ''
 
             styled_df = df_vr_calcolato.style.map(color_rows, subset=['Significatività'])
             st.dataframe(styled_df, use_container_width=True)
             
-            # Preparazione esportazione Excel
+            # Generazione nome file corto
             now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            safe_evento = evento_selezionato_vr.replace(" ", "_").replace("/", "_")
-            excel_filename = f"{safe_evento}_{now_str}_Valutazione del rischio.xlsx"
+            short_event_vr = format_event_name_short(evento_selezionato_vr)
+            excel_filename_vr = f"{short_event_vr}_{now_str}_Valutazione_Rischio.xlsx"
             
             buffer_vr = io.BytesIO()
             with pd.ExcelWriter(buffer_vr, engine='openpyxl') as writer:
@@ -2747,15 +2796,15 @@ if nav == "Piano Miglioramento":
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
                 if st.button("💾 Salva nuovamente su GitHub", key="btn_gh_vr"):
-                    repo_path = f"Piano_Miglioramento/Valutazione_Rischio/{excel_filename}"
-                    if save_to_github(repo_path, excel_data_vr, f"Add {excel_filename}"):
+                    repo_path = f"Piano_Miglioramento/Valutazione_Rischio/{excel_filename_vr}"
+                    if save_to_github(repo_path, excel_data_vr, f"Add {excel_filename_vr}"):
                         st.success(f"File salvato con successo su GitHub in: {repo_path}")
             
             with col_btn2:
                 st.download_button(
                     label="📥 Scarica Tabella Dinamica (Excel)",
                     data=excel_data_vr,
-                    file_name=excel_filename,
+                    file_name=excel_filename_vr,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="btn_dl_excel_vr"
                 )
@@ -2792,14 +2841,16 @@ if nav == "Piano Miglioramento":
             )
             
             st.markdown("### Follow up Azioni Intraprese")
+            today_date = datetime.today().date()
+
             default_followup_df = pd.DataFrame([{
                 "Azioni di miglioramento (correttive o preventive)": "",
                 "Responsabile attuazione": "",
                 "Accountable Attuazione": "",
-                "Entro il": datetime.today(),
+                "Entro il": today_date,
                 "Firma presa in carico": "",
-                "Data attuazione": datetime.today(),
-                "Verifica attuazione Data": datetime.today(),
+                "Data attuazione": today_date,
+                "Verifica attuazione Data": today_date,
                 "Verifica attuazione Firma": ""
             }])
             
@@ -2814,11 +2865,14 @@ if nav == "Piano Miglioramento":
                 key="editor_followup"
             )
             
-            # Auto-Salvataggio CSV sincronizzato su GitHub
+            # Formattazione timestamp e nomi file accorciati
             now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            safe_evento_am = evento_selezionato_am.replace(" ", "_").replace("/", "_")
-            csv_filename = f"{safe_evento_am}_{now_str}_Azioni Piano di miglioramento.csv"
+            short_event_am = format_event_name_short(evento_selezionato_am)
             
+            csv_filename = f"{short_event_am}_{now_str}_Piano_Miglioramento.csv"
+            report_excel_filename = f"{short_event_am}_{now_str}_Report.xlsx"
+
+            # Prepara il buffer CSV
             csv_buffer = io.StringIO()
             csv_buffer.write(f"# Evento: {evento_selezionato_am}\n")
             csv_buffer.write(f"# Azioni Immediate:\n{azioni_immediate}\n\n")
@@ -2827,13 +2881,8 @@ if nav == "Piano Miglioramento":
             csv_buffer.write("\n# Follow Up:\n")
             edited_followup_df.to_csv(csv_buffer, index=False)
             
-            csv_repo_path = f"Piano_Miglioramento/Azioni_Piano_Miglioramento/{csv_filename}"
-            save_to_github(csv_repo_path, csv_buffer.getvalue().encode('utf-8'), f"Auto-save CSV {csv_filename}")
-            
             # --- GENERAZIONE EXCEL REPORT MULTI-FOGLIO ---
-            report_excel_filename = f"{safe_evento_am}_{now_str}_Report Piano di Miglioramento.xlsx"
             report_buffer = io.BytesIO()
-            
             df_vr_report = st.session_state.get("editor_vr", pd.DataFrame())
             if isinstance(df_vr_report, pd.DataFrame) and not df_vr_report.empty:
                 df_vr_report = calcola_significativita(df_vr_report)
@@ -2849,14 +2898,20 @@ if nav == "Piano Miglioramento":
                 edited_followup_df.to_excel(writer, index=False, sheet_name="Follow up azioni di miglioramento")
                 
             report_excel_data = report_buffer.getvalue()
-            report_repo_path = f"Piano_Miglioramento/Report/{report_excel_filename}"
             
             st.markdown("---")
             col_rep1, col_rep2 = st.columns(2)
             with col_rep1:
                 if st.button("💾 Salva Report Online", key="btn_save_report"):
-                    if save_to_github(report_repo_path, report_excel_data, f"Add {report_excel_filename}"):
-                        st.success(f"Report salvato su GitHub in: {report_repo_path}")
+                    # Salvataggio sincronizzato sia del CSV di sezione che del Report Excel su GitHub
+                    csv_repo_path = f"Piano_Miglioramento/Azioni_Piano_Miglioramento/{csv_filename}"
+                    report_repo_path = f"Piano_Miglioramento/Report/{report_excel_filename}"
+                    
+                    saved_csv = save_to_github(csv_repo_path, csv_buffer.getvalue().encode('utf-8'), f"Add {csv_filename}")
+                    saved_excel = save_to_github(report_repo_path, report_excel_data, f"Add {report_excel_filename}")
+                    
+                    if saved_csv and saved_excel:
+                        st.success(f"Report e dati salvati con successo su GitHub!")
 
             with col_rep2:
                 st.download_button(
