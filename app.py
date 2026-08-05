@@ -846,32 +846,56 @@ if nav == "Segnalazione Near Miss":
 # ==================================================================
 if nav == "Scadenzario Adempimenti":
     st.header("Registro Scadenzario Adempimenti Aziendali")
-    st.markdown("Sezione Protetta — Modifiche simultanee salvate in tempo reale sul file Excel locale")
+    st.markdown("Sezione Protetta — Sincronizzata direttamente sul file Excel GitHub `scadenzario.xlsx`")
     
     if "autenticato_scadenze" not in st.session_state:
         st.session_state.autenticato_scadenze = False
     if "df_scadenzario_state" not in st.session_state:
         st.session_state.df_scadenzario_state = None
         
+    correct_pwd_scad = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
+
+    # Helper function per la lettura da GitHub
+    def carica_da_github_scadenzario():
+        file_path_repo = "scadenzario.xlsx"
+        github_token = st.secrets.get("GITHUB_TOKEN", "")
+        repo_name = st.secrets.get("REPO_NAME", "")
+        
+        if github_token and repo_name:
+            url = f"https://raw.githubusercontent.com/{repo_name}/main/{file_path_repo}"
+            headers = {"Authorization": f"token {github_token}"}
+            try:
+                res = requests.get(url, headers=headers)
+                if res.status_code == 200:
+                    df = pd.read_excel(io.BytesIO(res.content))
+                    for col in COLONNE_SCADENZARIO:
+                        if col not in df.columns:
+                            df[col] = ""
+                    return df[COLONNE_SCADENZARIO]
+            except Exception as e:
+                st.warning(f"Impossibile leggere da GitHub ({e}), tentativo da file locale...")
+        
+        # Fallback locale se GitHub non è raggiungibile o non configurato
+        file_scad_target = FILE_SCADENZARIO if 'FILE_SCADENZARIO' in globals() else "scadenzario.xlsx"
+        if os.path.exists(file_scad_target):
+            try:
+                df = pd.read_excel(file_scad_target)
+                for col in COLONNE_SCADENZARIO:
+                    if col not in df.columns:
+                        df[col] = ""
+                return df[COLONNE_SCADENZARIO]
+            except Exception as e:
+                st.error(f"Errore lettura file locale: {e}")
+        
+        return pd.DataFrame(columns=COLONNE_SCADENZARIO)
+
     if not st.session_state.autenticato_scadenze:
         pwd_scad = st.text_input("Inserisci la password di sblocco Scadenzario", type="password", key="pwd_scad_tab")
         if st.button("Convalida Password Scadenzario", use_container_width=True):
-            if pwd_scad == "hse2026":
+            if pwd_scad == correct_pwd_scad:
                 st.session_state.autenticato_scadenze = True
                 
-                if os.path.exists(FILE_SCADENZARIO):
-                    try:
-                        df_caricato = pd.read_excel(FILE_SCADENZARIO)
-                        for col in COLONNE_SCADENZARIO:
-                            if col not in df_caricato.columns:
-                                df_caricato[col] = ""
-                        df_caricato = df_caricato[COLONNE_SCADENZARIO]
-                    except Exception as e:
-                        st.error(f"Errore lettura file: {e}")
-                        df_caricato = pd.DataFrame(columns=COLONNE_SCADENZARIO)
-                else:
-                    df_caricato = pd.DataFrame(columns=COLONNE_SCADENZARIO)
-                
+                df_caricato = carica_da_github_scadenzario()
                 df_caricato = df_caricato.fillna("")
                 for col in df_caricato.columns:
                     df_caricato[col] = df_caricato[col].astype(str).replace(["nan", "None", "<NA>", "NaT"], "").str.strip()
@@ -896,7 +920,7 @@ if nav == "Scadenzario Adempimenti":
             key="editor_scadenzario_pure_data"
         )
         
-        if st.button("Aggiorna Calcoli Automatici e Salva nel File Excel", use_container_width=True):
+        if st.button("Aggiorna Calcoli Automatici e Salva nel File Excel su GitHub", use_container_width=True):
             try:
                 df_elaborazione = df_modificato.copy()
                 df_elaborazione = df_elaborazione.fillna("")
@@ -906,14 +930,34 @@ if nav == "Scadenzario Adempimenti":
                 df_elaborazione["Scadenza"] = df_elaborazione.apply(calcola_data_scadenza, axis=1)
                 df_elaborazione["In vigore durante (mesi)"] = pd.to_numeric(df_elaborazione["In vigore durante (mesi)"], errors='coerce').fillna(0).astype(int)
                 
-                df_elaborazione.to_excel(FILE_SCADENZARIO, index=False)
+                # Salvataggio in buffer di memoria per GitHub
+                output_excel = io.BytesIO()
+                with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
+                    df_elaborazione.to_excel(writer, index=False)
+                excel_bytes = output_excel.getvalue()
+
+                # Salvataggio Locale Backup
+                file_scad_target = FILE_SCADENZARIO if 'FILE_SCADENZARIO' in globals() else "scadenzario.xlsx"
+                with open(file_scad_target, "wb") as f:
+                    f.write(excel_bytes)
+
+                # Salvataggio Remoto GitHub Repository Online
+                salvato_gh = False
+                if 'save_to_github' in globals():
+                    salvato_gh = save_to_github("scadenzario.xlsx", excel_bytes, "Aggiornamento scadenzario.xlsx")
+                
                 st.session_state.df_scadenzario_state = df_elaborazione
-                st.success("File Excel salvato!")
+                
+                if salvato_gh:
+                    st.success("File Excel 'scadenzario.xlsx' salvato con successo sia in locale che su GitHub!")
+                else:
+                    st.success("File Excel salvato in locale!")
+                    
                 time.sleep(0.4)
                 st.rerun()
             except Exception as err:
                 st.error(f"Errore durante il salvataggio: {err}")
-
+                
         st.markdown("---")
         st.subheader("2. Registro Alert & Scadenze Effettive (Vista Finale)")
         df_vista_alert = st.session_state.df_scadenzario_state.copy()
@@ -924,7 +968,6 @@ if nav == "Scadenzario Adempimenti":
             st.dataframe(styler_colorato, use_container_width=True, hide_index=True)
         else:
             st.info("Nessun adempimento presente nel registro.")
-
 # ==================================================================
 # --- SEZIONE 4: ANALISI SEGNALAZIONI NEAR MISS ---
 # ==================================================================
