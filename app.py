@@ -823,98 +823,152 @@ st.markdown("---") # Linea di separazione estetica
 # ==================================================================
 if nav == "Home Dashboard":
     st.header("Quadro Generale di Controllo HSE")
-    st.markdown("Benvenuto nel menu principale. Qui trovi i dati riassuntivi estratti in tempo reale dai database locali.")
+    st.markdown("Benvenuto nel menu principale. Qui trovi i dati riassuntivi estratti in tempo reale dai database.")
     st.markdown(" ")
 
-    tot_stima_economica = 0.0
-    
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
     except NameError:
         base_dir = os.getcwd()
-        
-    dir_report_stima = os.path.join(base_dir, "Stima_Economica", "Report_Stima_Economica")
+
+    # ---------------------------------------------------------
+    # 1. CALCOLO METRICHE DASHBOARD
+    # ---------------------------------------------------------
     
-    if os.path.exists(dir_report_stima):
-        # Elenca tutti i file nella cartella report
-        files_stima = [f for f in os.listdir(dir_report_stima) if f.endswith(('.csv', '.xlsx', '.xls'))]
+    # A. Conteggio Segnalazioni Near Miss (segnalazioni_near_miss.csv + Segnalazione_NM_Manutenzione/manutenzione.csv)
+    tot_nm = 0
+    path_nm_main = os.path.join(base_dir, "segnalazioni_near_miss.csv")
+    path_nm_manut = os.path.join(base_dir, "Segnalazione_NM_Manutenzione", "manutenzione.csv")
+    
+    if os.path.exists(path_nm_main):
+        try:
+            df_nm1 = pd.read_csv(path_nm_main, sep=None, engine='python')
+            tot_nm += len(df_nm1)
+        except Exception:
+            pass
+            
+    if os.path.exists(path_nm_manut):
+        try:
+            df_nm2 = pd.read_csv(path_nm_manut, sep=None, engine='python')
+            tot_nm += len(df_nm2)
+        except Exception:
+            pass
+
+    # B. Conteggio Analisi fatte (analisi_near_miss.csv)
+    tot_an = 0
+    path_analisi = os.path.join(base_dir, "analisi_near_miss.csv")
+    if os.path.exists(path_analisi):
+        try:
+            df_an = pd.read_csv(path_analisi, sep=None, engine='python')
+            tot_an = len(df_an)
+        except Exception:
+            pass
+
+    # C. Registro Scadenze (Fallback Scadenzario)
+    tot_scad = 0
+    file_scad = os.path.join(base_dir, "scadenzario.xlsx") if 'FILE_SCADENZARIO' not in globals() else FILE_SCADENZARIO
+    if os.path.exists(file_scad):
+        try:
+            tot_scad = len(pd.read_excel(file_scad))
+        except Exception:
+            pass
+
+    # D. Stima Costo Economico Complessivo (Lettura Riga 26 dai file .csv in Stima_Economica/Report)
+    tot_stima_economica = 0.0
+    dir_stima_report = os.path.join(base_dir, "Stima_Economica", "Report")
+    if not os.path.exists(dir_stima_report):
+        dir_stima_report = os.path.join(base_dir, "Stima_Economica", "Report_Stima_Economica")
+
+    if os.path.exists(dir_stima_report):
+        files_csv_stima = [f for f in os.listdir(dir_stima_report) if f.lower().endswith('.csv')]
         
-        for file_stima in files_stima:
-            path_file = os.path.join(dir_report_stima, file_stima)
+        for file_stima in files_csv_stima:
+            path_file_stima = os.path.join(dir_stima_report, file_stima)
             try:
-                # Lettura file in base all'estensione
-                if file_stima.endswith('.csv'):
-                    df_stima = pd.read_csv(path_file, sep=";")
-                    # Se non trova colonne con il separatore ';' prova con la virgola ','
-                    if df_stima.shape[1] <= 1:
-                        df_stima = pd.read_csv(path_file, sep=",")
-                else:
-                    df_stima = pd.read_excel(path_file)
+                # Lettura file CSV
+                df_rep = pd.read_csv(path_file_stima, sep=None, engine='python', header=None)
                 
-                # Cerca colonne che contengono "costo", "importo", "totale", "somma" o "valore" (case insensitive)
-                colonne_candidate = [
-                    col for col in df_stima.columns 
-                    if any(kw in str(col).lower() for kw in ["costo", "importo", "totale", "somma", "valore", "stima", "prezzo"])
-                ]
-                
-                # Se non trova nomi specifici, valuta tutte le colonne numeriche o convertibili
-                target_cols = colonne_candidate if colonne_candidate else df_stima.columns
-                
-                for col in target_cols:
-                    # Converte la colonna in stringa, pulisce eventuali valute/spazi/virgole e trasforma in float
-                    s_clean = (
-                        df_stima[col]
-                        .astype(str)
-                        .str.replace("€", "", regex=False)
-                        .str.replace(" ", "", regex=False)
-                        .str.replace(".", "", regex=False)  # rimuove separatore migliaia italiano
-                        .str.replace(",", ".", regex=False) # converte virgola decimale in punto
-                    )
-                    valori_num = pd.to_numeric(s_clean, errors='coerce')
-                    if valori_num.notna().any():
-                        tot_stima_economica += valori_num.sum()
-                        
+                # Verifica presenza riga 26 (indice 25)
+                if len(df_rep) >= 26:
+                    riga_26 = df_rep.iloc[25]
+                    # Cerca valori numerici nella riga 26
+                    for val in riga_26:
+                        if pd.notna(val):
+                            s_val = (
+                                str(val)
+                                .replace("€", "")
+                                .replace(" ", "")
+                                .replace(".", "")
+                                .replace(",", ".")
+                                .strip()
+                            )
+                            try:
+                                v_num = float(s_val)
+                                tot_stima_economica += v_num
+                            except ValueError:
+                                pass
             except Exception:
                 pass
-    
+
+    # Rendering Metriche 4 Colonne
     colA, colB, colC, colD = st.columns(4)
     with colA:
-        tot_nm = len(pd.read_csv(FILE_NEAR_MISS, sep=";")) if os.path.exists(FILE_NEAR_MISS) else 0
         st.metric("Segnalazioni Near Miss Ricevute", tot_nm)
     with colB:
-        tot_an = len(pd.read_csv(FILE_ANALISI_NM, sep=";")) if os.path.exists(FILE_ANALISI_NM) else 0
         st.metric("Analisi di Segnalazioni Near Miss Trattate", tot_an)
     with colC:
-        tot_scad = len(pd.read_excel(FILE_SCADENZARIO)) if os.path.exists(FILE_SCADENZARIO) else 0
         st.metric("Adempimenti in Registro Scadenze", tot_scad)
     with colD:
         st.metric(
             label="Totale Stima Economica", 
             value=f"€ {tot_stima_economica:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         ) 
-    
-    # ---------------------------------------------------------
-    # 3. Classifica Sezione "Riconoscimento"
-    # ---------------------------------------------------------
 
+    # ---------------------------------------------------------
+    # 2. CLASSIFICA RICONOSCIMENTI
+    # ---------------------------------------------------------
+    st.markdown("---")
     st.markdown("## 🏆 Classifica Riconoscimenti per segnalazioni Near Miss")
-
-    # Recupera i dati sempre aggiornati
-    df_home_ric = get_riconoscimenti_data()
     
+    path_riconoscimento = os.path.join(base_dir, "Riconoscimento", "Riconoscimento_Partecipazione_NM.csv")
+    df_home_ric = pd.DataFrame()
+
+    if os.path.exists(path_riconoscimento):
+        try:
+            df_home_ric = pd.read_csv(path_riconoscimento, sep=None, engine='python')
+        except Exception:
+            pass
+            
+    # Fallback su funzione helper se presente
+    if df_home_ric.empty and 'get_riconoscimenti_data' in globals():
+        try:
+            df_home_ric = get_riconoscimenti_data()
+        except Exception:
+            pass
+
     if not df_home_ric.empty and len(df_home_ric) > 0:
+        # Ordinamento preventivo se esiste una colonna punteggio
+        col_punteggio = next((c for c in df_home_ric.columns if "totale" in c.lower() or "punti" in c.lower()), None)
+        if col_punteggio:
+            df_home_ric = df_home_ric.sort_values(by=col_punteggio, ascending=False).reset_index(drop=True)
+
+        col_nom = next((c for c in df_home_ric.columns if "nominativo" in c.lower() or "dipendente" in c.lower() or "nome" in c.lower()), df_home_ric.columns[0])
+
         # 1. Podio / Primi 3 posti
         col_h1, col_h2, col_h3 = st.columns(3)
         
         with col_h1:
             if len(df_home_ric) > 0:
-                st.metric("🥇 1° Posto", f"{df_home_ric.iloc[0]['Nominativo']}", f"{df_home_ric.iloc[0]['Punteggio Totale']} Pts")
+                pts_1 = df_home_ric.iloc[0][col_punteggio] if col_punteggio else ""
+                st.metric("🥇 1° Posto", f"{df_home_ric.iloc[0][col_nom]}", f"{pts_1} Pts" if pts_1 != "" else "")
         with col_h2:
             if len(df_home_ric) > 1:
-                st.metric("🥈 2° Posto", f"{df_home_ric.iloc[1]['Nominativo']}", f"{df_home_ric.iloc[1]['Punteggio Totale']} Pts")
+                pts_2 = df_home_ric.iloc[1][col_punteggio] if col_punteggio else ""
+                st.metric("🥈 2° Posto", f"{df_home_ric.iloc[1][col_nom]}", f"{pts_2} Pts" if pts_2 != "" else "")
         with col_h3:
             if len(df_home_ric) > 2:
-                st.metric("🥉 3° Posto", f"{df_home_ric.iloc[2]['Nominativo']}", f"{df_home_ric.iloc[2]['Punteggio Totale']} Pts")
+                pts_3 = df_home_ric.iloc[2][col_punteggio] if col_punteggio else ""
+                st.metric("🥉 3° Posto", f"{df_home_ric.iloc[2][col_nom]}", f"{pts_3} Pts" if pts_3 != "" else "")
     
         st.markdown("---")
         st.subheader("📋 Tabella di Classificazione Completa")
@@ -926,61 +980,54 @@ if nav == "Home Dashboard":
         # 2. Visualizzazione Tabella Intera
         st.dataframe(
             df_classifica_completa,
-            column_config={
-                "Posizione": st.column_config.NumberColumn("Posizione", format="#%d"),
-                "Nominativo": st.column_config.TextColumn("Nominativo / Dipendente"),
-                "Punti Segnalazione (+50)": st.column_config.NumberColumn("Punti Segnalazioni", format="%d"),
-                "Punti Skill Matrix (+25)": st.column_config.NumberColumn("Punti Skill Matrix", format="%d"),
-                "Punteggio Totale": st.column_config.NumberColumn("Punteggio Totale", format="%d pts"),
-            },
             use_container_width=True,
             hide_index=True
         )
     else:
-        st.info("Nessun dato di riconoscimento ancora disponibile.")
+        st.info("Nessun dato di riconoscimento disponibile nel file 'Riconoscimento/Riconoscimento_Partecipazione_NM.csv'.")
             
     # ---------------------------------------------------------
-    # 4. Visualizzazione Flowchart Segnalazione Near Miss
+    # 3. VISUALIZZAZIONE FLOWCHART SEGNALAZIONE NEAR MISS (.PDF)
     # ---------------------------------------------------------
-    st.subheader("Flowchart Segnalazione Near Miss")
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-    except NameError:
-        base_dir = os.getcwd()
-            
-    file_pdf_path = os.path.join(base_dir, "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
-        
+    st.markdown("---")
+    st.subheader("📄 Flowchart Segnalazione Near Miss")
+    
+    file_pdf_path = os.path.join(base_dir, "documenti_conformita", "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
+    
+    # Ricerca fallback in caso di difformità nel nome cartella
     if not os.path.exists(file_pdf_path):
         percorsi_alternativi = [
-            os.path.join("FLOWCHART SEGNALAZIONE NEAR MISS.pdf"),
-            os.path.join("APP HSE", "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
+            os.path.join(base_dir, "documenti_conformita", "FLOWCHART SEGNALAZIONE NEAR MISS.PDF"),
+            os.path.join(base_dir, "FLOWCHART SEGNALAZIONE NEAR MISS.pdf"),
+            os.path.join("documenti_conformita", "FLOWCHART SEGNALAZIONE NEAR MISS.pdf")
         ]
         for p in percorsi_alternativi:
             if os.path.exists(p):
-                file_pdf_path = os.path.abspath(p)
+                file_pdf_path = p
                 break
-        
+
     if os.path.exists(file_pdf_path):
-        with open(file_pdf_path, "rb") as f:
-            pdf_bytes = f.read()
-            
-        st.download_button(
-            label="📥 Scarica / Apri Flowchart Segnalazione Near Miss",
-            data=pdf_bytes,
-            file_name="FLOWCHART SEGNALAZIONE NEAR MISS.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-            
         try:
+            with open(file_pdf_path, "rb") as f:
+                pdf_bytes = f.read()
+                
+            st.download_button(
+                label="📥 Scarica Flowchart Segnalazione Near Miss (.pdf)",
+                data=pdf_bytes,
+                file_name="FLOWCHART SEGNALAZIONE NEAR MISS.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="btn_download_flowchart_pdf"
+            )
+                
             import base64
             base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
             pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>'
             st.markdown(pdf_display, unsafe_allow_html=True)
-        except Exception as e:
-            st.info("Utilizza il pulsante di download sopra per consultare il documento nel lettore PDF del tuo computer.")
+        except Exception as e_pdf:
+            st.error(f"Errore durante la lettura del file PDF: {e_pdf}")
     else:
-        st.error("Il file PDF 'FLOWCHART SEGNALAZIONE NEAR MISS.pdf' non è stato trovato.")
+        st.error("Il file PDF 'FLOWCHART SEGNALAZIONE NEAR MISS.pdf' non è stato trovato nella cartella 'documenti_conformita'.")
 
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
