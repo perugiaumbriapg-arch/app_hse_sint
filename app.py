@@ -2735,7 +2735,7 @@ if nav == "Piano Miglioramento":
             st.dataframe(styled_df, use_container_width=True)
             
             # Preparazione esportazione Excel
-            now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_evento = evento_selezionato_vr.replace(" ", "_").replace("/", "_")
             excel_filename = f"{safe_evento}_{now_str}_Valutazione del rischio.xlsx"
             
@@ -2815,7 +2815,7 @@ if nav == "Piano Miglioramento":
             )
             
             # Auto-Salvataggio CSV sincronizzato su GitHub
-            now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_evento_am = evento_selezionato_am.replace(" ", "_").replace("/", "_")
             csv_filename = f"{safe_evento_am}_{now_str}_Azioni Piano di miglioramento.csv"
             
