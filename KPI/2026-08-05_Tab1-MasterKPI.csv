@@ -1,0 +1,17 @@
+ID_KPI,Nome_KPI,Categoria,Unita_Misura,Cadenza,Formula,Parametro_1,Parametro_2,Parametro_3,Baseline
+NM-01,Numero Totale Near Miss Segnalati,Volume,Numero,Settimanale,Conteggio assoluto segnalazioni validate,Segnalazioni valide,,,Media storica di riferimento: 10
+NM-02,Tasso di Risoluzione Near Miss,Efficacia,%,Settimanale,(Parametro_1 / Parametro_2) * 100,Near Miss Chiusi,Near Miss Totali,,Target minimo aziendale: 75%
+NM-03,Tempo Medio di Presa in Carico,Reattività,Giorni,Bisettimanale,Parametro_1 / Parametro_2,Somma giorni attesa,Numero totale pratiche,,Target massimo accettabile: 2 giorni
+NM-04,Addestramento-Formazione,Prevenzione,%,Annuale,(Parametro_1 - Parametro_2 / Parametro_1) / Parametro_3 * 100,N. totale ore Formazione Completata,N. totale ore Formazione ,N. Totale lavoratori formati,Nessuna baseline storica precedente.
+NM-05,Verifica disponibilità PDI,Prevenzione,%,Settimanale,(Parametro_1 / Parametro_2 ) / Parametro_3 * 100,N. totale DPI Disponibili,N. totale DPI per lavoratore,N. Totale lavoratori con DPI,Nessuna baseline storica precedente.
+NM-06,Ispezione Periodica DPI,Prevenzione,%,Settimanale,(Parametro_1 / Parametro_2) * 100,N. DPI Conformi,N. DPI ispezionati,,Nessuna baseline storica precedente.
+NM-07,Formazione DPI,Prevenzione,%,Settimanale,(Parametro_1 / Parametro_2) * 100,N. Lavoratori formati ,N. lavoratori con DPI,,Nessuna baseline storica precedente.
+NM-08,Totale infortunio,Efficacia,Numero,Annuale,Parametro_1 +  Parametro_2 + Parametro_3,N. totale infortuni in itinere,N. totale infortunio in azienda,N. totale infortunio in missione,Nessuna baseline storica precedente.
+NM-09,Totale infortunio passati a malattia,Efficacia,Numero,Annuale,Parametro_1 +  Parametro_2 ,Totale infortunio passati a malattia,0,,Nessuna baseline storica precedente.
+NM-10,Tasso Frequenza Osservazioni Sicurezza (SOFR),Efficacia,Numero,Annuale,Parametro_1 / Parametro_2 *1000,N. totale osservazioni sulla sicurezza,N. totale ore di lavoro nell'anno,,Nessuna baseline storica precedente.
+NM-12,Tasso Frequenza Infortuni a tempo perso (LTIFR),Efficacia,Numero,Annuale,Parametro_1  * 200.000 / 1.000.000 + Parametro_2,N. Totale Infortuni registrati,0,,Nessuna baseline storica precedente.
+NM-13,Tasso Frequenza Near Miss/NC a tempo perso,Efficacia,Numero,Annuale,Parametro_1  * 200.000 / 1.000.000 + Parametro_2,N. Totale Near Miss registrati,0,,Nessuna baseline storica precedente.
+NM-14,Percentuale Safe (e uso DPI),Efficacia,%,Annuale,Parametro_1  / Parametro_2 * 100,N. totale comportamenti SICURI osservati ,N. totale comportamenti osservati ,,Nessuna baseline storica precedente.
+NM-15,Tasso medio di ore straordinarie realizzate,Efficacia,%,Annuale,Parametro_1  / Parametro_2 * 1000,N. Totale ore straordinarie per mansione,N. Totale persone per mansione ,,Nessuna baseline storica precedente.
+NM-16,Percentuale Segnalazioni analizzate,Efficacia,%,Semestrale,Parametro_1  / Parametro_2 * 1000,N. Totale Analisi Fase 2 Near Miss,N. Totale Segnalazioni Near Miss,,Nessuna baseline storica precedente.
+NM-17,Controllo cassetta primo soccorso,Prevenzione,%,Bisettimanale,Parametro_1  / Parametro_2 * 100,N. Totale Controllo cassetta PS/anno (24),N. Totale Controlli Cassetta PS realizzati,,Nessuna baseline storica precedente.
