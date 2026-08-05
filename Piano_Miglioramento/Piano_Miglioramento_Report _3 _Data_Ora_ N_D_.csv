@@ -1,0 +1,6 @@
+﻿Rischio;Probabilità;Gravità;Sensibilità;Controllo;Significatività;Sezione Sottosezione;Dettaglio / Descrizione;Tipologia di Intervento;Descrizione;Azione / Descrizione;Responsabile attuazione;Accountable attuazione;Entro il;Firma presa in carico;Data attuazione;Verifica attuazione;Data e firma
+Esempio rischio infortuni;2.0;2.0;2.0;2.0;4.0;1. Valutazione del Rischio;;;;;;;;;;;
+Rischio caduta dall'alto;2.0;3.0;3.0;2.0;9.0;1. Valutazione del Rischio;;;;;;;;;;;
+;;;;;;2. Azioni Immediate di Rimedio;;;;;;;;;;;
+;;;;;;3. Azioni di Miglioramento - Tipologia Intervento;;Tecnico;Esempio intervento tecnico correttivo;;;;;;;;
+;;;;;;4. Follow UP Azioni Intraprese;;;;1° - Esempio azione correttiva;Mario Rossi;Luigi Verdi;2026-12-31;Presa in carico;2026-06-15;Verificato e conforme;2026-06-20 - M. Rossi
