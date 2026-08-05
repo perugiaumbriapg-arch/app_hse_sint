@@ -2796,10 +2796,10 @@ if nav == "Piano Miglioramento":
                 "Azioni di miglioramento (correttive o preventive)": "",
                 "Responsabile attuazione": "",
                 "Accountable Attuazione": "",
-                "Entro il": datetime.date.today(),
+                "Entro il": datetime.today(),
                 "Firma presa in carico": "",
-                "Data attuazione": datetime.date.today(),
-                "Verifica attuazione Data": datetime.date.today(),
+                "Data attuazione": datetime.today(),
+                "Verifica attuazione Data": datetime.today(),
                 "Verifica attuazione Firma": ""
             }])
             
