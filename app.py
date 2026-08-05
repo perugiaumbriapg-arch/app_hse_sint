@@ -835,7 +835,7 @@ if nav == "Segnalazione Near Miss":
 # ==================================================================
 if nav == "Scadenzario Adempimenti":
     st.header("Registro Scadenzario Adempimenti Aziendali")
-    st.markdown("Sezione Protetta — Sincronizzata direttamente sul file Excel GitHub `scadenzario.xlsx`[cite: 3]")
+    st.markdown("Sezione Protetta — Sincronizzata direttamente sul file Excel GitHub `scadenzario.xlsx`")
     
     if "autenticato_scadenze" not in st.session_state:
         st.session_state.autenticato_scadenze = False
@@ -888,10 +888,6 @@ if nav == "Scadenzario Adempimenti":
                 for col in df_caricato.columns:
                     df_caricato[col] = df_caricato[col].astype(str).replace(["nan", "None", "<NA>", "NaT"], "").str.strip()
                 
-                # Ricalcolo automatico della colonna 'Scadenza' su TUTTE le righe all'accesso
-                if not df_caricato.empty:
-                    df_caricato["Scadenza"] = df_caricato.apply(calcola_data_scadenza, axis=1)
-                
                 st.session_state.df_scadenzario_state = df_caricato
                 st.rerun()
             else:
@@ -902,11 +898,7 @@ if nav == "Scadenzario Adempimenti":
         st.markdown("---")
         
         st.subheader("1. Modifica ed Inserimento Dati")
-        
-        # Garanzia che tutte le righe abbiano il calcolo della scadenza aggiornato prima di mostrare l'editor
         df_editor_input = st.session_state.df_scadenzario_state.copy()
-        if not df_editor_input.empty:
-            df_editor_input["Scadenza"] = df_editor_input.apply(calcola_data_scadenza, axis=1)
         
         df_modificato = st.data_editor(
             df_editor_input,
@@ -916,6 +908,7 @@ if nav == "Scadenzario Adempimenti":
             key="editor_scadenzario_pure_data"
         )
         
+        # EVENTO PULSANTE: Esegue il calcolo della Scadenza su ogni riga e salva su GitHub
         if st.button("Aggiorna Calcoli Automatici e Salva nel File Excel su GitHub", use_container_width=True):
             try:
                 df_elaborazione = df_modificato.copy()
@@ -923,7 +916,7 @@ if nav == "Scadenzario Adempimenti":
                 for col in df_elaborazione.columns:
                     df_elaborazione[col] = df_elaborazione[col].astype(str).replace(["nan", "None", "<NA>", "NaT"], "").str.strip()
                 
-                # ESECUZIONE OBBLIGATORIA DEL CALCOLO SCADENZA SU OGNI RIGA
+                # ---> ESECUZIONE DEL CALCOLO DELLA SCADENZA SU OGNI RIGA AL CLICK <---
                 df_elaborazione["Scadenza"] = df_elaborazione.apply(calcola_data_scadenza, axis=1)
                 
                 if "In vigore durante (mesi)" in df_elaborazione.columns:
@@ -931,22 +924,23 @@ if nav == "Scadenzario Adempimenti":
                         df_elaborazione["In vigore durante (mesi)"], errors='coerce'
                     ).fillna(0).astype(int)
                 
-                # Salvataggio in buffer di memoria per GitHub
+                # Salvataggio nel buffer Excel per GitHub
                 output_excel = io.BytesIO()
                 with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
                     df_elaborazione.to_excel(writer, index=False)
                 excel_bytes = output_excel.getvalue()
 
-                # Backup locale
+                # Backup file locale
                 file_scad_target = FILE_SCADENZARIO if 'FILE_SCADENZARIO' in globals() else "scadenzario.xlsx"
                 with open(file_scad_target, "wb") as f:
                     f.write(excel_bytes)
 
-                # Repository GitHub
+                # Push su Repository GitHub
                 salvato_gh = False
                 if 'save_to_github' in globals():
                     salvato_gh = save_to_github("scadenzario.xlsx", excel_bytes, "Aggiornamento scadenzario.xlsx")
                 
+                # Aggiornamento dello Stato applicazione
                 st.session_state.df_scadenzario_state = df_elaborazione
                 
                 if salvato_gh:
@@ -964,10 +958,7 @@ if nav == "Scadenzario Adempimenti":
         df_vista_alert = st.session_state.df_scadenzario_state.copy()
         
         if not df_vista_alert.empty:
-            # Ricalcolo forza-bruta della colonna Scadenza su TUTTE le righe della tabella finale
-            df_vista_alert["Scadenza"] = df_vista_alert.apply(calcola_data_scadenza, axis=1)
-            
-            # Applicazione formattazione condizionata dei colori per tutte le righe
+            # Applicazione della formattazione condizionata basata sulle date presenti
             if 'evidenzia_righe_scadenza' in globals():
                 styler_colorato = df_vista_alert.style.apply(evidenzia_righe_scadenza, axis=1)
                 st.dataframe(styler_colorato, use_container_width=True, hide_index=True)
