@@ -3997,7 +3997,7 @@ if nav == "Skill Matrix":
                     except Exception as e:
                         st.error(f"Errore nel salvataggio su GitHub: {e}")
 
-# =========================================================
+    # =========================================================
     # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX (Lettura da PDF)
     # =========================================================
     elif sotto_sec_sm == "Skill Matrix":
@@ -4086,7 +4086,6 @@ if nav == "Skill Matrix":
                         raw_v = get_val_flex(kw_list, None)
                         if raw_v is not None:
                             try:
-                                # Estrae solo i numeri dal valore
                                 num_str = re.sub(r'[^0-9.]', '', raw_v.replace(',', '.'))
                                 return float(num_str)
                             except ValueError:
@@ -4183,7 +4182,7 @@ if nav == "Skill Matrix":
                                         content=csv_master_data,
                                         sha=file_existing.sha
                                     )
-                                me except GithubException:
+                                except GithubException:
                                     repo.create_file(
                                         path=github_master_path,
                                         message=f"Creata panoramica generale Skill Matrix da PDF: {file_name_master}",
