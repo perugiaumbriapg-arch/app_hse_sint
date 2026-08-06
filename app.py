@@ -5165,7 +5165,7 @@ if nav == "Consapevolezza":
                     else:
                         st.error(f"Domanda {k}: Risposta sbagliata")
 
-                data_ora_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                data_ora_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 user_filename_base = f"{nome.strip()}_{cognome.strip()}_{data_ora_str}_Consapevolezza_Risposte"
                 
                 risposte_dict = {
