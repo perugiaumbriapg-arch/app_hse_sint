@@ -4961,9 +4961,9 @@ if nav == "Consapevolezza":
     QUESTIONS_TEXT = {
         "Q1": "1. Quale di questi esempi e un Near Miss o quasi infortunio?",
         "Q2": "2. Indica tutte le icone dell'immagine che rappresentano un near miss:",
-        "Q3": "3. Sei nell'area magazzino di prodotti finiti... ti rendi conto che lo scaffale e instabile. Cosa fai?",
+        "Q3": "3. Sei nell'area magazzino... ti rendi conto che lo scaffale e instabile. Cosa fai?",
         "Q4": "4. Scegli i DPI obbligatori comuni a tutti gli operai della fabbrica:",
-        "Q5": "5. Devi passare a piedi dietro un carrello elevatore in fase di manovra. Come ti comporti?",
+        "Q5": "5. Devi passare a piedi dietro un carrello elevatore in manovra. Come ti comporti?",
         "Q6": "6. Sei un manutentore... devi sostituire una guarnizione. Scegli la sequenza corretta:",
         "Q7": "7. Macchia di inchiostro fresco vicino alla macchina di stampaggio. Cosa fai?",
         "Q8": "8. Quale errore/near miss riscontri nell'immagine?"
@@ -5160,7 +5160,6 @@ if nav == "Consapevolezza":
             elif not all([q1, q2, q3, q4, q5, q6, q7, q8]):
                 st.warning("Per favore rispondi a tutte le domande del quiz.")
             else:
-                # Mappatura delle risposte selezionate (testo intero ed opzione corta)
                 full_responses = {
                     "Q1": q1, "Q2": q2, "Q3": q3, "Q4": q4,
                     "Q5": q5, "Q6": q6, "Q7": q7, "Q8": q8
@@ -5186,43 +5185,48 @@ if nav == "Consapevolezza":
                     **user_answers
                 }
 
-                # Generazione PDF completo con tutte le domande e risposte
-                pdf = FPDF()
+                # --- GENERAZIONE PDF A4 COMPATTO (1 SINGOLA PAGINA) ---
+                pdf = FPDF(orientation='P', unit='mm', format='A4')
+                pdf.set_margins(left=8, top=8, right=8)
+                pdf.set_auto_page_break(auto=False)  # Mantiene rigido il layout ad 1 pagina
                 pdf.add_page()
-                pdf.set_font("Arial", 'B', 16)
                 
-                epw = pdf.epw
+                epw = pdf.epw  # Larghezza utile (210 - 16 = 194 mm)
                 
-                pdf.cell(epw, 10, "Report Quiz Consapevolezza HSE", ln=True, align='C')
-                pdf.set_font("Arial", size=11)
-                pdf.cell(epw, 8, f"Utente: {nome} {cognome}", ln=True)
-                pdf.cell(epw, 8, f"Data invio: {data_ora_str}", ln=True)
-                pdf.ln(4)
+                # Intestazione compatta
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(epw, 6, "Report Quiz Consapevolezza HSE", ln=True, align='C')
                 
+                pdf.set_font("Arial", size=9)
+                pdf.cell(epw, 5, f"Utente: {nome} {cognome}   |   Data: {data_ora_str}", ln=True, align='C')
+                pdf.line(8, pdf.get_y() + 1, 202, pdf.get_y() + 1)
+                pdf.ln(3)
+                
+                # Stampa dinamica delle 8 domande
                 for k in range(1, 9):
                     q_key = f"Q{k}"
                     ans_code = user_answers[q_key]
                     ans_text = full_responses[q_key]
-                    is_correct = "ESATTA" if ans_code == CORRECT_ANSWERS[q_key] else "SBAGLIATA"
+                    is_correct = "ESATTA" if ans_code == CORRECT_ANSWERS[q_key] else f"SBAGLIATA (Corretta: {CORRECT_ANSWERS[q_key]})"
                     
-                    # Sanificazione caratteri speciali per FPDF
                     q_title = QUESTIONS_TEXT[q_key].encode('latin-1', 'replace').decode('latin-1')
                     ans_clean = ans_text.encode('latin-1', 'replace').decode('latin-1')
                     
-                    pdf.set_font("Arial", 'B', 10)
-                    pdf.multi_cell(epw, 6, q_title)
-                    pdf.set_font("Arial", size=10)
-                    pdf.multi_cell(epw, 6, f"Risposta data: {ans_clean}")
+                    # Domanda (Grassetto 8.5pt)
+                    pdf.set_font("Arial", 'B', 8.5)
+                    pdf.multi_cell(epw, 4.2, q_title)
                     
-                    if is_correct == "ESATTA":
-                        pdf.set_font("Arial", 'B', 10)
-                        pdf.cell(epw, 6, f"Esito: {is_correct}", ln=True)
-                    else:
-                        pdf.set_font("Arial", 'B', 10)
-                        pdf.cell(epw, 6, f"Esito: {is_correct} (Corretta: {CORRECT_ANSWERS[q_key]})", ln=True)
+                    # Risposta data + Esito (Standard 8.5pt)
+                    pdf.set_font("Arial", size=8.5)
+                    pdf.multi_cell(epw, 4.2, f"Risposta: {ans_clean}")
                     
-                    pdf.ln(3)
+                    # Esito evidenziato
+                    pdf.set_font("Arial", 'B', 8.5)
+                    pdf.multi_cell(epw, 4.2, f"Esito: {is_correct}")
+                    
+                    pdf.ln(2.5)  # Spaziatura minima tra un blocco e il successivo
                 
+                # Conversione in byte per FPDF2
                 pdf_bytes = bytes(pdf.output())
 
                 # Caricamento PDF su GitHub
@@ -5233,7 +5237,7 @@ if nav == "Consapevolezza":
                         message=f"Aggiunto PDF risposte per {nome} {cognome}",
                         content=pdf_bytes
                     )
-                    st.success("📄 Report PDF completo salvato su GitHub!")
+                    st.success("📄 Report PDF (Formato A4 Singola Pagina) salvato su GitHub!")
                 except Exception as e:
                     st.error(f"Errore nel salvataggio del file PDF su GitHub: {e}")
 
