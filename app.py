@@ -5195,7 +5195,7 @@ if nav == "Consapevolezza":
                     is_correct = "Esatta" if ans == CORRECT_ANSWERS[f"Q{k}"] else "Sbagliata"
                     pdf.multi_cell(epw, 8, f"Domanda {k}: Risposta ({ans}) - {is_correct}")
                 
-                pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                pdf_bytes = bytes(pdf.output())
 
                 # Caricamento PDF su GitHub
                 pdf_path = f"Consapevolezza/Risposte_Consapevolezza/{user_filename_base}.pdf"
