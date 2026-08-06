@@ -5059,7 +5059,7 @@ if nav == "Consapevolezza":
 
             st.divider()
 
-            # DOMANDA 6 (Con ricerca flessibile dei nomi per risolvere problemi di caricamento)
+            # DOMANDA 6 (Con bypass della cache ed estrazione diretta dei byte)
             st.markdown("**6. Sei un manutentore in azienda, devi andare a sostituire una guarnizione della macchina stampante a colori per il cartone. Guarda l’immagine e sceglie la risposta giusta:**")
             
             cols_q6_row1 = st.columns(3)
@@ -5068,28 +5068,46 @@ if nav == "Consapevolezza":
             
             for idx, key in enumerate(img_list_q6):
                 target_col = cols_q6_row1[idx] if idx < 3 else cols_q6_row2[idx - 3]
+                img = None
                 
-                # Elenco di possibili varianti di nome file su GitHub
+                # Elenco di possibili percorsi e varianti di nome su GitHub
                 possible_paths = [
                     f"Consapevolezza/{key}.png",
                     f"Consapevolezza/{key}.PNG",
                     f"Consapevolezza/{key}.jpg",
-                    f"Consapevolezza/{key}.jpeg",
-                    f"Consapevolezza/{key.replace('.', '_')}.png",  # es. 6_2.png
-                    f"Consapevolezza/{key.replace('.', '-')}.png",  # es. 6-2.png
-                    f"Consapevolezza/{key.replace('.', '')}.png"    # es. 62.png
+                    f"Consapevolezza/{key.replace('.', '_')}.png",
+                    f"Consapevolezza/{key.replace('.', '-')}.png"
                 ]
                 
-                img = None
                 for path in possible_paths:
+                    # 1. Tentativo standard con la funzione load_image_from_github
                     img = load_image_from_github(path)
                     if img is not None:
                         break
-                        
+                    
+                    # 2. Bypass diretto della cache (lettura forzata senza passare per @st.cache_data)
+                    try:
+                        file_content = repo.get_contents(path)
+                        img = Image.open(io.BytesIO(file_content.decoded_content))
+                        if img is not None:
+                            break
+                    except Exception:
+                        pass
+    
+                    # 3. Fallback via URL Raw di GitHub
+                    try:
+                        raw_url = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{path}"
+                        res = requests.get(raw_url)
+                        if res.status_code == 200:
+                            img = Image.open(io.BytesIO(res.content))
+                            break
+                    except Exception:
+                        pass
+                
                 if img:
                     target_col.image(img, caption=f"Fig. {key}", use_column_width=True)
                 else:
-                    target_col.warning(f"⚠️ Fig. {key} non trovata")
+                    target_col.error(f"❌ Impossibile caricare Fig. {key}")
     
             q6 = st.radio("Seleziona una risposta:", [
                 "a. 4, 2, 1, 3, 6 e 5",
