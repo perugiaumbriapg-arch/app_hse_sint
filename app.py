@@ -791,6 +791,7 @@ if "active_tab" not in st.session_state:
 # Usiamo st.radio in orizzontale per simulare le tab
 tab_list = [
     "Home Dashboard", 
+    "Consapevolezza",
     "Segnalazione Near Miss", 
     "Consultazione",
     "Segnalazione Manutenzione",
@@ -4909,3 +4910,283 @@ if nav == "Segnalazione Manutenzione":
             mime="application/pdf",
             use_container_width=True,
         )
+
+#=============================================================================================================================
+# SEZIONE CONSAPEVOLEZZA
+# ============================================================================================================================
+if nav == "Consapevolezza":
+    st.title("💡 Sezione Consapevolezza")
+
+    # Configurazione GitHub
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # Oppure st.secrets["GITHUB_TOKEN"]
+    REPO_NAME = os.getenv("REPO_NAME")        # es. "utente/repository"
+
+    if not GITHUB_TOKEN or not REPO_NAME:
+        st.error("Configurazione GitHub mancante (GITHUB_TOKEN o REPO_NAME).")
+        st.stop()
+
+    try:
+        g = Github(GITHUB_TOKEN)
+        repo = g.get_repo(REPO_NAME)
+    except Exception as e:
+        st.error(f"Errore di connessione a GitHub: {e}")
+        st.stop()
+
+    # Funzione helper per recuperare immagini da GitHub
+    @st.cache_data(ttl=600)
+    def load_image_from_github(file_path):
+        try:
+            file_content = repo.get_contents(file_path)
+            return Image.open(io.BytesIO(file_content.decoded_content))
+        except Exception:
+            return None
+
+    # Mappatura delle risposte corrette (estratte dal documento originale)
+    CORRECT_ANSWERS = {
+        "Q1": "b", # Opzione b[cite: 5]
+        "Q2": "c", # c. 1, 3, 5, 7, 9[cite: 5]
+        "Q3": "b", # b. Smetto di caricare...[cite: 5]
+        "Q4": "c", # c) 2, 5, 7, 8, 9[cite: 5]
+        "Q5": "c", # c. Cerchi il contatto visivo...[cite: 5]
+        "Q6": "a", # a. 4, 2, 1, 3, 6 e 5[cite: 5]
+        "Q7": "a", # a. Delimiti la zona...[cite: 5]
+        "Q8": "c"  # c. Il cassonetto degli scarti...[cite: 5]
+    }
+
+    # Tabs per organizzare Informazione e Quiz
+    tab_info, tab_quiz = st.tabs(["📖 Informazione", "✏️ Quiz"])
+
+    # --- AREA INFORMAZIONE ---
+    with tab_info:
+        st.header("Informazione: Segnalazione Near Miss")
+        
+        st.markdown("""
+        In azienda, abbiamo un metodo per individuare, analizzare e diminuire i mancati infortuni o **near miss** presenti durante lo svolgimento del lavoro nelle diverse mansioni[cite: 5]. 
+        Perciò, i lavoratori devono segnalare quanto accaduto attraverso l'applicazione **Piattaforma Centralizzata HSE System Streamlit** e informare il proprio responsabile[cite: 5]. 
+        La segnalazione sarà analizzata dal **RSSSL** e altre persone identificate, anche attraverso l'autovalutazione volontaria[cite: 5]. 
+        Questo gruppo definirà le azioni da realizzare per evitare le cause del near miss o un quasi infortunio simile[cite: 5]. L'obiettivo è creare un ambiente di lavoro più sicuro[cite: 5].
+        
+        🎁 **Premi:**
+        * **+50 punti** per chi segnala un near miss[cite: 5].
+        * **+25 punti** per chi partecipa volontariamente al gruppo d'analisi[cite: 5].
+        """)
+        
+        st.divider()
+        
+        st.subheader("Definizioni e Concetti Chiave")
+        st.markdown("""
+        * **Near miss (mancato infortunio):** evento avvenuto nel luogo di lavoro che non ha recato danno fisico al lavoratore, pur avendone il potenziale[cite: 5]. 
+          * *Esempi:* caduta di materiale imballato durante movimentazione con carrello elevatore; improvvisa fuoriuscita di liquido da tubazione; lavoratore scivola su pavimento bagnato senza riportare danni[cite: 5].
+        * **Infortunio:** ogni lesione originata, in occasione di lavoro, da causa violenta che determini la morte della persona o ne menomi parzialmente o totalmente la capacità lavorativa[cite: 5].
+        * **DPI (Dispositivi di Protezione Individuale):** strumenti progettati per proteggere i lavoratori dai rischi presenti sul luogo di lavoro, quando non è possibile eliminarli con misure collettive[cite: 5]. 
+          Nella nostra azienda i DPI obbligatori per tutti i lavoratori in fabbrica sono: **scarpe antinfortunistiche, gilet riflettente, guanti, occhiali protettivi e otoprotettori**[cite: 5].
+        """)
+
+    # --- AREA QUIZ ---
+    with tab_quiz:
+        st.header("Quiz di Autovalutazione")
+        
+        with st.form("form_quiz_consapevolezza"):
+            col_nome, col_cognome = st.columns(2)
+            nome = col_nome.text_input("Nome*")
+            cognome = col_cognome.text_input("Cognome*")
+            
+            st.divider()
+            
+            # Domanda 1
+            st.markdown("**1. Quale di questi esempi è un Near Miss o quasi infortunio?**")[cite: 5]
+            q1 = st.radio("Seleziona una risposta:", [
+                "a) In fabbrica, un lavoratore deve spostare una fustella per inserirla in macchina dovuto a un cambio ordine, quando l'alza, gli scivola, cadendogli in testa. La testa gli sanguina e deve mettere 5 punti.",
+                "b) In fabbrica, un operatore deve pulire la macchina di resti di scarti del cartone in foglio prima di riavviare l'ondulatore. Mentre sta facendo le pulizie, i rulli di preriscaldamento dell'ondulatore si mettono in motto, azionati dalla cabina di controllo per avviare un nuovo ordine di cartone.",
+                "c) In fabbrica, un lavoratore cammina in fabbrica mentre sta mangiando un boccone al volo."
+            ], key="q1", index=None)[cite: 5]
+            
+            st.divider()
+
+            # Domanda 2
+            st.markdown("**2. Indica tutte le icone dell'immagine che rappresentano un near miss:**")[cite: 5]
+            img2 = load_image_from_github("Consapevolezza/2.png")
+            if img2:
+                st.image(img2, use_column_width=True)
+            q2 = st.radio("Seleziona una risposta:", [
+                "a. 3, 6, 8, 2, 4",
+                "b. 2, 3, 5, 6, 9",
+                "c. 1, 3, 5, 7, 9"
+            ], key="q2", index=None)[cite: 5]
+
+            st.divider()
+
+            # Domanda 3
+            st.markdown("**3. Sei nell’area magazzino di prodotti finiti, devi passare con il carrello elevatore nella zona abilitata, stai circulating, gli scafali del magazzino sono pieni. Stai collocando la merce sullo scafale e ti rendi conto che lo scafale è innestabile perché non ancorato alla parete. Cosa fai?**")[cite: 5]
+            q3 = st.radio("Seleziona una risposta:", [
+                "a. Smetto di caricare le merci nello scafale. Lascio il carrello elevatore lì nella zona abilitata ed informo al responsabile di magazzino.",
+                "b. Smetto di caricare le merci nello scafale. Accosto lo scafale alla zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSSL.",
+                "c. Carico la merce comunque nello scafale. Metto un cartello che dice “Attenzione, scafale innestabile”."
+            ], key="q3", index=None)[cite: 5]
+
+            st.divider()
+
+            # Domanda 4
+            st.markdown("**4. Guardando la seguente immagine, sceglie i DPI che si devono indossare obbligatori nell’ambiente di lavoro comuni a tutti gli operai della fabbrica di carta e cartone:**")[cite: 5]
+            img4 = load_image_from_github("Consapevolezza/4.png")
+            if img4:
+                st.image(img4, use_column_width=True)
+            q4 = st.radio("Seleziona una risposta:", [
+                "a) 1, 3, 5, 8, 9",
+                "b) 2, 4, 5, 6, 8",
+                "c) 2, 5, 7, 8, 9"
+            ], key="q4", index=None)[cite: 5]
+
+            st.divider()
+
+            # Domanda 5
+            st.markdown("**5. Devi passare a piedi dietro un carrello elevatore in fase di manovra. Come ti comporti?**")[cite: 5]
+            q5 = st.radio("Seleziona una risposta:", [
+                "a. Passi rapidamente alle sue spalle confidando che il guidatore ti veda dai retrovisori.",
+                "b. Suoni un fischietto e corri dall'altra parte.",
+                "c. Cerchi il contatto visivo con l'operatore, attendi che si fermi e ti faccia cenno di procedere."
+            ], key="q5", index=None)[cite: 5]
+
+            st.divider()
+
+            # Domanda 6 (Immagini multiple)
+            st.markdown("**6. Sei un manutentore in azienda, devi andare a sostituire una guarnizione della macchina stampante a colori per il cartone. Guarda l’immagine e sceglie la risposta giusta:**")[cite: 5]
+            
+            cols_q6_1 = st.columns(3)
+            cols_q6_2 = st.columns(3)
+            img_keys = ["6.1", "6.2", "6.3", "6.4", "6.5", "6.6"]
+            
+            for idx, key in enumerate(img_keys):
+                img = load_image_from_github(f"Consapevolezza/{key}.png")
+                target_col = cols_q6_1[idx] if idx < 3 else cols_q6_2[idx - 3]
+                if img:
+                    target_col.image(img, caption=f"Fig. {key}", use_column_width=True)
+            
+            q6 = st.radio("Seleziona una risposta:", [
+                "a. 4, 2, 1, 3, 6 e 5",
+                "b. 1, 2, 3, 4, 5 e 6",
+                "c. 3, 1, 4, 6, 2 e 5"
+            ], key="q6", index=None)[cite: 5]
+
+            st.divider()
+
+            # Domanda 7
+            st.markdown("**7. Sei in fabbrica e scontri che vicino alla macchina di stampaggio c’è una macchia di inchiostro fresco. Cosa fai?**")[cite: 5]
+            q7 = st.radio("Seleziona una risposta:", [
+                "a. Delimiti la zona, impedendo l’accesso alla macchia. Informi al superiore o preposto più vicino. Segnali il successo con l’app. Seguendo le istruzioni del preposto, pulisci la zona.",
+                "b. Superi l’ostacolo e quando vedi al preposto, anche se è passato un po’ di tempo glielo comunichi.",
+                "c. Pulisci la zona. Fai sapere all’operai della macchina di stampaggio del successo."
+            ], key="q7", index=None)[cite: 5]
+
+            st.divider()
+
+            # Domanda 8
+            st.markdown("**8. Quale errore, near miss, riscontri nella immagine?**")[cite: 5]
+            img8 = load_image_from_github("Consapevolezza/8.png")
+            if img8:
+                st.image(img8, use_column_width=True)
+            q8 = st.radio("Seleziona una risposta:", [
+                "a. Lo scafale non è etichettato con il tipo di merce",
+                "b. La porta di uscita di emergenza è chiusa. Dovrebbe essere aperta per uscire prima.",
+                "c. Il cassonetto degli scarti difficolta il passaggio pedonale e le scatole difficoltano l’uscita di emergenza."
+            ], key="q8", index=None)[cite: 5]
+
+            st.divider()
+            
+            submit = st.form_submit_button("Invia Risposte")
+
+        if submit:
+            if not nome or not cognome:
+                st.warning("Per favore inserisci sia il Nome che il Cognome prima di inviare.")
+            elif not all([q1, q2, q3, q4, q5, q6, q7, q8]):
+                st.warning("Per favore rispondi a tutte le domande del quiz.")
+            else:
+                user_answers = {
+                    "Q1": q1[0],
+                    "Q2": q2[0],
+                    "Q3": q3[0],
+                    "Q4": q4[0],
+                    "Q5": q5[0],
+                    "Q6": q6[0],
+                    "Q7": q7[0],
+                    "Q8": q8[0]
+                }
+                
+                # Valutazione e visualizzazione esito per ogni risposta
+                st.subheader("Esito del Quiz:")
+                for k in range(1, 9):
+                    q_key = f"Q{k}"
+                    if user_answers[q_key] == CORRECT_ANSWERS[q_key]:
+                        st.success(f"Domanda {k}: Risposta esatta")
+                    else:
+                        st.error(f"Domanda {k}: Risposta sbagliata")
+
+                data_ora_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                user_filename_base = f"{nome.strip()}_{cognome.strip()}_{data_ora_str}_Consapevolezza_Risposte"
+                
+                # Mappatura Risposte complete per il salvataggio
+                risposte_dict = {
+                    "Data": data_ora_str,
+                    "Nome": nome,
+                    "Cognome": cognome,
+                    **user_answers
+                }
+
+                # 1. GENERAZIONE PDF IN MEMORIA
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(0, 10, "Risultati Quiz Consapevolezza", ln=True, align='C')
+                pdf.set_font("Arial", size=12)
+                pdf.cell(0, 10, f"Utente: {nome} {cognome}", ln=True)
+                pdf.cell(0, 10, f"Data invio: {data_ora_str}", ln=True)
+                pdf.ln(5)
+                
+                for k in range(1, 9):
+                    ans = risposte_dict[f"Q{k}"]
+                    is_correct = "Esatta" if ans == CORRECT_ANSWERS[f"Q{k}"] else "Sbagliata"
+                    pdf.multi_cell(0, 8, f"Domanda {k}: Risposta ({ans}) - {is_correct}")
+                
+                pdf_bytes = pdf.output(dest='S').encode('latin-1')
+
+                # 2. SALVATAGGIO PDF SU GITHUB
+                pdf_path = f"Consapevolezza/Risposte_Consapevolezza/{user_filename_base}.pdf"
+                try:
+                    repo.create_file(
+                        path=pdf_path,
+                        message=f"Aggiunto PDF risposte per {nome} {cognome}",
+                        content=pdf_bytes
+                    )
+                except Exception as e:
+                    st.error(f"Errore nel salvataggio del file PDF su GitHub: {e}")
+
+                # 3. AGGIORNAMENTO CSV SU GITHUB
+                csv_path = "Consapevolezza/Risposte_Consapevolezza/Consapevolezza_Risposte.csv"
+                new_row_df = pd.DataFrame([risposte_dict])
+                
+                try:
+                    csv_file = repo.get_contents(csv_path)
+                    csv_content = csv_file.decoded_content.decode('utf-8')
+                    df_existing = pd.read_csv(io.StringIO(csv_content))
+                    df_updated = pd.concat([df_existing, new_row_df], ignore_index=True)
+                    
+                    repo.update_file(
+                        path=csv_path,
+                        message=f"Aggiornato CSV risposte per {nome} {cognome}",
+                        content=df_updated.to_csv(index=False),
+                        sha=csv_file.sha
+                    )
+                except GithubException as ge:
+                    if ge.status == 404:
+                        repo.create_file(
+                            path=csv_path,
+                            message=f"Creato CSV risposte e inserito {nome} {cognome}",
+                            content=new_row_df.to_csv(index=False)
+                        )
+                    else:
+                        st.error(f"Errore GitHub nell'aggiornamento CSV: {ge}")
+                except Exception as e:
+                    st.error(f"Errore generico durante l'aggiornamento CSV: {e}")
+
+                st.info("Risposte inviate e archiviate con successo su GitHub.")
+      
