@@ -5176,19 +5176,24 @@ if nav == "Consapevolezza":
                 }
 
                 # Generazione PDF
+                # Generazione PDF (con correzione FPDFException larghezza cella)
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, "Risultati Quiz Consapevolezza", ln=True, align='C')
+                
+                # pdf.epw calcola la larghezza utile della pagina escludendo i margini
+                epw = pdf.epw 
+                
+                pdf.cell(epw, 10, "Risultati Quiz Consapevolezza", ln=True, align='C')
                 pdf.set_font("Arial", size=12)
-                pdf.cell(0, 10, f"Utente: {nome} {cognome}", ln=True)
-                pdf.cell(0, 10, f"Data invio: {data_ora_str}", ln=True)
+                pdf.cell(epw, 10, f"Utente: {nome} {cognome}", ln=True)
+                pdf.cell(epw, 10, f"Data invio: {data_ora_str}", ln=True)
                 pdf.ln(5)
                 
                 for k in range(1, 9):
                     ans = risposte_dict[f"Q{k}"]
                     is_correct = "Esatta" if ans == CORRECT_ANSWERS[f"Q{k}"] else "Sbagliata"
-                    pdf.multi_cell(0, 8, f"Domanda {k}: Risposta ({ans}) - {is_correct}")
+                    pdf.multi_cell(epw, 8, f"Domanda {k}: Risposta ({ans}) - {is_correct}")
                 
                 pdf_bytes = pdf.output(dest='S').encode('latin-1')
 
@@ -5200,7 +5205,7 @@ if nav == "Consapevolezza":
                         message=f"Aggiunto PDF risposte per {nome} {cognome}",
                         content=pdf_bytes
                     )
-                    st.success("Report PDF salvato su GitHub!")
+                    st.success("📄 Report PDF salvato su GitHub!")
                 except Exception as e:
                     st.error(f"Errore nel salvataggio del file PDF su GitHub: {e}")
 
@@ -5220,7 +5225,7 @@ if nav == "Consapevolezza":
                         content=df_updated.to_csv(index=False),
                         sha=csv_file.sha
                     )
-                    st.success("CSV aggiornato con successo su GitHub!")
+                    st.success("📊 CSV aggiornato con successo su GitHub!")
                 except GithubException as ge:
                     if ge.status == 404:
                         repo.create_file(
@@ -5228,7 +5233,7 @@ if nav == "Consapevolezza":
                             message=f"Creato CSV risposte e inserito {nome} {cognome}",
                             content=new_row_df.to_csv(index=False)
                         )
-                        st.success("Nuovo file CSV creato e salvato su GitHub!")
+                        st.success("📊 Nuovo file CSV creato e salvato su GitHub!")
                     else:
                         st.error(f"Errore GitHub nell'aggiornamento CSV: {ge}")
                 except Exception as e:
