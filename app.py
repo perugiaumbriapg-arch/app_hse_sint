@@ -4915,7 +4915,7 @@ if nav == "Segnalazione Manutenzione":
 # SEZIONE CONSAPEVOLEZZA
 # ============================================================================================================================
 if nav == "Consapevolezza":
-    st.title("Sezione Consapevolezza")
+    st.title("💡 Sezione Consapevolezza")
 
     # Configurazione GitHub
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -4957,8 +4957,20 @@ if nav == "Consapevolezza":
         "Q8": "c"
     }
 
+    # Dizionario con i testi completi delle domande per il report PDF
+    QUESTIONS_TEXT = {
+        "Q1": "1. Quale di questi esempi e un Near Miss o quasi infortunio?",
+        "Q2": "2. Indica tutte le icone dell'immagine che rappresentano un near miss:",
+        "Q3": "3. Sei nell'area magazzino di prodotti finiti... ti rendi conto che lo scaffale e instabile. Cosa fai?",
+        "Q4": "4. Scegli i DPI obbligatori comuni a tutti gli operai della fabbrica:",
+        "Q5": "5. Devi passare a piedi dietro un carrello elevatore in fase di manovra. Come ti comporti?",
+        "Q6": "6. Sei un manutentore... devi sostituire una guarnizione. Scegli la sequenza corretta:",
+        "Q7": "7. Macchia di inchiostro fresco vicino alla macchina di stampaggio. Cosa fai?",
+        "Q8": "8. Quale errore/near miss riscontri nell'immagine?"
+    }
+
     # Tabs per organizzare Informazione e Quiz
-    tab_info, tab_quiz = st.tabs(["Informazione", "Quiz"])
+    tab_info, tab_quiz = st.tabs(["📖 Informazione", "✏️ Quiz"])
 
     # --- AREA INFORMAZIONE ---
     with tab_info:
@@ -4970,7 +4982,7 @@ if nav == "Consapevolezza":
         La segnalazione sarà analizzata dal **RSSSL** e altre persone identificate, anche attraverso l'autovalutazione volontaria. 
         Questo gruppo definirà le azioni da realizzare per evitare le cause del near miss o un quasi infortunio simile. L'obiettivo è creare un ambiente di lavoro più sicuro.
         
-        **Premi:**
+        🎁 **Premi:**
         * **+50 punti** per chi segnala un near miss.
         * **+25 punti** per chi partecipa volontariamente al gruppo d'analisi.
         """)
@@ -4998,7 +5010,7 @@ if nav == "Consapevolezza":
             st.divider()
             
             # DOMANDA 1
-            st.markdown("**1. Quale di questi esempi è un Near Miss o quasi infortunio?**")
+            st.markdown(f"**{QUESTIONS_TEXT['Q1']}**")
             q1 = st.radio("Seleziona una risposta:", [
                 "a) In fabbrica, un lavoratore deve spostare una fustella per inserirla in macchina dovuto a un cambio ordine, quando l'alza, gli scivola, cadendogli in testa. La testa gli sanguina e deve mettere 5 punti.",
                 "b) In fabbrica, un operatore deve pulire la macchina di resti di scarti del cartone in foglio prima di riavviare l'ondulatore. Mentre sta facendo le pulizie, i rulli di preriscaldamento dell'ondulatore si mettono in motto, azionati dalla cabina di controllo per avviare un nuovo ordine di cartone.",
@@ -5008,12 +5020,12 @@ if nav == "Consapevolezza":
             st.divider()
 
             # DOMANDA 2
-            st.markdown("**2. Indica tutte le icone dell'immagine che rappresentano un near miss:**")
+            st.markdown(f"**{QUESTIONS_TEXT['Q2']}**")
             img2 = load_image_from_github("Consapevolezza/2.png")
             if img2:
                 st.image(img2, caption="Immagine Domanda 2", use_column_width=True)
             else:
-                st.warning("Immagine 'Consapevolezza/2.png' non trovata su GitHub.")
+                st.warning("⚠️ Immagine 'Consapevolezza/2.png' non trovata su GitHub.")
                 
             q2 = st.radio("Seleziona una risposta:", [
                 "a. 3, 6, 8, 2, 4",
@@ -5024,7 +5036,7 @@ if nav == "Consapevolezza":
             st.divider()
 
             # DOMANDA 3
-            st.markdown("**3. Sei nell’area magazzino di prodotti finiti, devi passare con il carrello elevatore nella zona abilitata, stai circulating, gli scafali del magazzino sono pieni. Stai collocando la merce sullo scafale e ti rendi conto che lo scafale è innestabile perché non ancorato alla parete. Cosa fai?**")
+            st.markdown(f"**{QUESTIONS_TEXT['Q3']}**")
             q3 = st.radio("Seleziona una risposta:", [
                 "a. Smetto di caricare le merci nello scafale. Lascio il carrello elevatore lì nella zona abilitata ed informo al responsabile di magazzino.",
                 "b. Smetto di caricare le merci nello scafale. Accosto lo scafale alla zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSSL.",
@@ -5034,12 +5046,12 @@ if nav == "Consapevolezza":
             st.divider()
 
             # DOMANDA 4
-            st.markdown("**4. Guardando la seguente immagine, sceglie i DPI che si devono indossare obbligatori nell’ambiente di lavoro comuni a tutti gli operai della fabbrica di carta e cartone:**")
+            st.markdown(f"**{QUESTIONS_TEXT['Q4']}**")
             img4 = load_image_from_github("Consapevolezza/4.png")
             if img4:
                 st.image(img4, caption="Immagine Domanda 4", use_column_width=True)
             else:
-                st.warning("Immagine 'Consapevolezza/4.png' non trovata su GitHub.")
+                st.warning("⚠️ Immagine 'Consapevolezza/4.png' non trovata su GitHub.")
                 
             q4 = st.radio("Seleziona una risposta:", [
                 "a) 1, 3, 5, 8, 9",
@@ -5050,7 +5062,7 @@ if nav == "Consapevolezza":
             st.divider()
 
             # DOMANDA 5
-            st.markdown("**5. Devi passare a piedi dietro un carrello elevatore in fase di manovra. Come ti comporti?**")
+            st.markdown(f"**{QUESTIONS_TEXT['Q5']}**")
             q5 = st.radio("Seleziona una risposta:", [
                 "a. Passi rapidamente alle sue spalle confidando che il guidatore ti veda dai retrovisori.",
                 "b. Suoni un fischietto e corri dall'altra parte.",
@@ -5059,8 +5071,8 @@ if nav == "Consapevolezza":
 
             st.divider()
 
-            # DOMANDA 6 (Con bypass della cache ed estrazione diretta dei byte)
-            st.markdown("**6. Sei un manutentore in azienda, devi andare a sostituire una guarnizione della macchina stampante a colori per il cartone. Guarda l’immagine e sceglie la risposta giusta:**")
+            # DOMANDA 6
+            st.markdown(f"**{QUESTIONS_TEXT['Q6']}**")
             
             cols_q6_row1 = st.columns(3)
             cols_q6_row2 = st.columns(3)
@@ -5070,7 +5082,6 @@ if nav == "Consapevolezza":
                 target_col = cols_q6_row1[idx] if idx < 3 else cols_q6_row2[idx - 3]
                 img = None
                 
-                # Elenco di possibili percorsi e varianti di nome su GitHub
                 possible_paths = [
                     f"Consapevolezza/{key}.png",
                     f"Consapevolezza/{key}.PNG",
@@ -5080,12 +5091,10 @@ if nav == "Consapevolezza":
                 ]
                 
                 for path in possible_paths:
-                    # 1. Tentativo standard con la funzione load_image_from_github
                     img = load_image_from_github(path)
                     if img is not None:
                         break
                     
-                    # 2. Bypass diretto della cache (lettura forzata senza passare per @st.cache_data)
                     try:
                         file_content = repo.get_contents(path)
                         img = Image.open(io.BytesIO(file_content.decoded_content))
@@ -5093,8 +5102,7 @@ if nav == "Consapevolezza":
                             break
                     except Exception:
                         pass
-    
-                    # 3. Fallback via URL Raw di GitHub
+
                     try:
                         raw_url = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{path}"
                         res = requests.get(raw_url)
@@ -5108,16 +5116,17 @@ if nav == "Consapevolezza":
                     target_col.image(img, caption=f"Fig. {key}", use_column_width=True)
                 else:
                     target_col.error(f"❌ Impossibile caricare Fig. {key}")
-    
+
             q6 = st.radio("Seleziona una risposta:", [
                 "a. 4, 2, 1, 3, 6 e 5",
                 "b. 1, 2, 3, 4, 5 e 6",
                 "c. 3, 1, 4, 6, 2 e 5"
             ], key="q6", index=None)
-    
+
             st.divider()
+
             # DOMANDA 7
-            st.markdown("**7. Sei in fabbrica e scontri che vicino alla macchina di stampaggio c’è una macchia di inchiostro fresco. Cosa fai?**")
+            st.markdown(f"**{QUESTIONS_TEXT['Q7']}**")
             q7 = st.radio("Seleziona una risposta:", [
                 "a. Delimiti la zona, impedendo l’accesso alla macchia. Informi al superiore o preposto più vicino. Segnali il successo con l’app. Seguendo le istruzioni del preposto, pulisci la zona.",
                 "b. Superi l’ostacolo e quando vedi al preposto, anche se è passato un po’ di tempo glielo comunichi.",
@@ -5127,12 +5136,12 @@ if nav == "Consapevolezza":
             st.divider()
 
             # DOMANDA 8
-            st.markdown("**8. Quale errore, near miss, riscontri nella immagine?**")
+            st.markdown(f"**{QUESTIONS_TEXT['Q8']}**")
             img8 = load_image_from_github("Consapevolezza/8.png")
             if img8:
                 st.image(img8, caption="Immagine Domanda 8", use_column_width=True)
             else:
-                st.warning("Immagine 'Consapevolezza/8.png' non trovata su GitHub.")
+                st.warning("⚠️ Immagine 'Consapevolezza/8.png' non trovata su GitHub.")
                 
             q8 = st.radio("Seleziona una risposta:", [
                 "a. Lo scafale non è etichettato con il tipo di merce",
@@ -5151,12 +5160,14 @@ if nav == "Consapevolezza":
             elif not all([q1, q2, q3, q4, q5, q6, q7, q8]):
                 st.warning("Per favore rispondi a tutte le domande del quiz.")
             else:
-                user_answers = {
-                    "Q1": q1[0], "Q2": q2[0], "Q3": q3[0], "Q4": q4[0],
-                    "Q5": q5[0], "Q6": q6[0], "Q7": q7[0], "Q8": q8[0]
+                # Mappatura delle risposte selezionate (testo intero ed opzione corta)
+                full_responses = {
+                    "Q1": q1, "Q2": q2, "Q3": q3, "Q4": q4,
+                    "Q5": q5, "Q6": q6, "Q7": q7, "Q8": q8
                 }
+                user_answers = {k: v[0] for k, v in full_responses.items()}
                 
-                # Visualizzazione dell'esito immediato
+                # Visualizzazione dell'esito immediato a schermo
                 st.subheader("Esito del Quiz:")
                 for k in range(1, 9):
                     q_key = f"Q{k}"
@@ -5175,25 +5186,42 @@ if nav == "Consapevolezza":
                     **user_answers
                 }
 
-                # Generazione PDF
-                # Generazione PDF (con correzione FPDFException larghezza cella)
+                # Generazione PDF completo con tutte le domande e risposte
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", 'B', 16)
                 
-                # pdf.epw calcola la larghezza utile della pagina escludendo i margini
-                epw = pdf.epw 
+                epw = pdf.epw
                 
-                pdf.cell(epw, 10, "Risultati Quiz Consapevolezza", ln=True, align='C')
-                pdf.set_font("Arial", size=12)
-                pdf.cell(epw, 10, f"Utente: {nome} {cognome}", ln=True)
-                pdf.cell(epw, 10, f"Data invio: {data_ora_str}", ln=True)
-                pdf.ln(5)
+                pdf.cell(epw, 10, "Report Quiz Consapevolezza HSE", ln=True, align='C')
+                pdf.set_font("Arial", size=11)
+                pdf.cell(epw, 8, f"Utente: {nome} {cognome}", ln=True)
+                pdf.cell(epw, 8, f"Data invio: {data_ora_str}", ln=True)
+                pdf.ln(4)
                 
                 for k in range(1, 9):
-                    ans = risposte_dict[f"Q{k}"]
-                    is_correct = "Esatta" if ans == CORRECT_ANSWERS[f"Q{k}"] else "Sbagliata"
-                    pdf.multi_cell(epw, 8, f"Domanda {k}: Risposta ({ans}) - {is_correct}")
+                    q_key = f"Q{k}"
+                    ans_code = user_answers[q_key]
+                    ans_text = full_responses[q_key]
+                    is_correct = "ESATTA" if ans_code == CORRECT_ANSWERS[q_key] else "SBAGLIATA"
+                    
+                    # Sanificazione caratteri speciali per FPDF
+                    q_title = QUESTIONS_TEXT[q_key].encode('latin-1', 'replace').decode('latin-1')
+                    ans_clean = ans_text.encode('latin-1', 'replace').decode('latin-1')
+                    
+                    pdf.set_font("Arial", 'B', 10)
+                    pdf.multi_cell(epw, 6, q_title)
+                    pdf.set_font("Arial", size=10)
+                    pdf.multi_cell(epw, 6, f"Risposta data: {ans_clean}")
+                    
+                    if is_correct == "ESATTA":
+                        pdf.set_font("Arial", 'B', 10)
+                        pdf.cell(epw, 6, f"Esito: {is_correct}", ln=True)
+                    else:
+                        pdf.set_font("Arial", 'B', 10)
+                        pdf.cell(epw, 6, f"Esito: {is_correct} (Corretta: {CORRECT_ANSWERS[q_key]})", ln=True)
+                    
+                    pdf.ln(3)
                 
                 pdf_bytes = bytes(pdf.output())
 
@@ -5205,7 +5233,7 @@ if nav == "Consapevolezza":
                         message=f"Aggiunto PDF risposte per {nome} {cognome}",
                         content=pdf_bytes
                     )
-                    st.success("Report PDF salvato su GitHub!")
+                    st.success("📄 Report PDF completo salvato su GitHub!")
                 except Exception as e:
                     st.error(f"Errore nel salvataggio del file PDF su GitHub: {e}")
 
@@ -5225,7 +5253,7 @@ if nav == "Consapevolezza":
                         content=df_updated.to_csv(index=False),
                         sha=csv_file.sha
                     )
-                    st.success("CSV aggiornato con successo su GitHub!")
+                    st.success("📊 CSV aggiornato con successo su GitHub!")
                 except GithubException as ge:
                     if ge.status == 404:
                         repo.create_file(
@@ -5233,9 +5261,8 @@ if nav == "Consapevolezza":
                             message=f"Creato CSV risposte e inserito {nome} {cognome}",
                             content=new_row_df.to_csv(index=False)
                         )
-                        st.success("Nuovo file CSV creato e salvato su GitHub!")
+                        st.success("📊 Nuovo file CSV creato e salvato su GitHub!")
                     else:
                         st.error(f"Errore GitHub nell'aggiornamento CSV: {ge}")
                 except Exception as e:
                     st.error(f"Errore generico durante l'aggiornamento CSV: {e}")
-      
