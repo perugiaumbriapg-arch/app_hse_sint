@@ -5205,7 +5205,7 @@ if nav == "Consapevolezza":
                         message=f"Aggiunto PDF risposte per {nome} {cognome}",
                         content=pdf_bytes
                     )
-                    st.success("📄 Report PDF salvato su GitHub!")
+                    st.success("Report PDF salvato su GitHub!")
                 except Exception as e:
                     st.error(f"Errore nel salvataggio del file PDF su GitHub: {e}")
 
@@ -5225,7 +5225,7 @@ if nav == "Consapevolezza":
                         content=df_updated.to_csv(index=False),
                         sha=csv_file.sha
                     )
-                    st.success("📊 CSV aggiornato con successo su GitHub!")
+                    st.success("CSV aggiornato con successo su GitHub!")
                 except GithubException as ge:
                     if ge.status == 404:
                         repo.create_file(
@@ -5233,7 +5233,7 @@ if nav == "Consapevolezza":
                             message=f"Creato CSV risposte e inserito {nome} {cognome}",
                             content=new_row_df.to_csv(index=False)
                         )
-                        st.success("📊 Nuovo file CSV creato e salvato su GitHub!")
+                        st.success("Nuovo file CSV creato e salvato su GitHub!")
                     else:
                         st.error(f"Errore GitHub nell'aggiornamento CSV: {ge}")
                 except Exception as e:
