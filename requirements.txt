@@ -1,3 +1,4 @@
+opencv-python-headless==4.10.0.84
 streamlit>=1.35.0
 starlette<0.37.0
 pandas
@@ -9,9 +10,6 @@ matplotlib
 plotly
 qrcode
 pillow
-opencv-python-headless==4.10.0.84
 ultralytics
 reportlab
 PyGithub
-
-
