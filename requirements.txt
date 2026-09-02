@@ -1,6 +1,5 @@
 streamlit>=1.35.0
 starlette<0.37.0
-cv2
 pandas
 openpyxl
 fpdf2>=2.7.8
