@@ -1313,35 +1313,40 @@ if nav == "Segnalazione Near Miss":
                 }
 
                 # ---------------------------------------------------------
-                # SALVATAGGIO AUTOMATICO SU GITHUB
+                # CARICAMENTO SICURO E ACCODAMENTO SENZA CANCELLAZIONE
                 # ---------------------------------------------------------
-                df_n = pd.DataFrame([nuovo_record])
-                
-                # Gestione di sicurezza per il dataframe esistente
-                if 'df_analisi' not in locals() and 'df_analisi' not in globals():
-                    try:
-                        df_analisi = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';')
-                    except Exception:
-                        df_analisi = pd.DataFrame(columns=nuovo_record.keys())
+                try:
+                    # Legge il file esistente per preservare tutte le righe storiche precedenti
+                    df_esistente = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';')
+                except Exception:
+                    # Se il file non esiste o è vuoto, inizializza con le colonne obbligatorie
+                    df_esistente = pd.DataFrame(columns=list(nuovo_record.keys()))
 
-                # 1. Unisci il nuovo record con i dati esistenti
-                df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
+                # Crea il dataframe con il nuovo record inviato
+                df_nuovo_record = pd.DataFrame([nuovo_record])
+
+                # Concatena i vecchi record con il nuovo registro in fondo
+                df_totale = pd.concat([df_esistente, df_nuovo_record], ignore_index=True)
                 
-                # Assicura rigorosamente solo le colonne obbligatorie e nel giusto ordine
+                # Mantiene rigorosamente solo le 16 colonne obbligatorie nell'ordine corretto
                 df_totale = df_totale[list(nuovo_record.keys())]
                 
-                # Salvataggio con separatore ';' specificato
+                # Salva sul file CSV locale con separatore ';'
                 df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False)
 
-                # 2. Invia l'aggiornamento a GitHub tramite la funzione
+                # ---------------------------------------------------------
+                # SINCRONIZZAZIONE CON GITHUB
+                # ---------------------------------------------------------
                 if salva_csv_su_github(
                     df_totale,
                     FILE_SEGNALAZIONI_NM,
-                    f"Aggiunta segnalazione del {datetime.now().strftime('%d/%m/%Y')}",
+                    f"Aggiunta segnalazione Near Miss - {now_str}",
                 ):
                     st.success("Segnalazione salvata e sincronizzata con successo su GitHub!")
                     time.sleep(1)
                     st.rerun()
+                else:
+                    st.warning("Segnalazione salvata localmente, ma si è verificato un errore durante la sincronizzazione con GitHub.")
 # ==================================================================
 # --- SEZIONE 3: SCADENZARIO ADEMPIMENTI ---
 # ==================================================================
