@@ -1285,7 +1285,7 @@ if nav == "Segnalazione Near Miss":
 
                 now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-                # Pulizia approfondita dei campi di testo libero
+                # Pulizia testi da ritorni a capo
                 descrizione_pulita = descrizione.strip().replace("\r", " ").replace("\n", " ")
                 proposte_pulite = valutazioni_proposte.strip().replace("\r", " ").replace("\n", " ")
                 segnalatore_pulito = segnalatore.strip().replace("\r", " ").replace("\n", " ")
@@ -1314,28 +1314,33 @@ if nav == "Segnalazione Near Miss":
                 colonne_obbligatorie = list(nuovo_record.keys())
 
                 # ---------------------------------------------------------
-                # LETTURA E SCRITTURA SICURA SU CSV
+                # RECUPERO SICURO DELLO STORICO PRECEDENTE
                 # ---------------------------------------------------------
-                file_esiste = os.path.exists(FILE_SEGNALAZIONI_NM)
+                df_esistente = pd.DataFrame(columns=colonne_obbligatorie)
+                if os.path.exists(FILE_SEGNALAZIONI_NM):
+                    try:
+                        df_temp = pd.read_csv(
+                            FILE_SEGNALAZIONI_NM,
+                            sep=';',
+                            encoding='utf-8-sig',
+                            on_bad_lines='skip',
+                            engine='python'
+                        )
+                        if not df_temp.empty:
+                            for col in colonne_obbligatorie:
+                                if col not in df_temp.columns:
+                                    df_temp[col] = ""
+                            df_esistente = df_temp[colonne_obbligatorie]
+                    except Exception:
+                        pass
 
-                # Append sicuro della nuova riga mediante il modulo csv nativo
-                with open(FILE_SEGNALAZIONI_NM, mode='a', newline='', encoding='utf-8-sig') as f:
-                    writer = csv.DictWriter(f, fieldnames=colonne_obbligatorie, delimiter=';', quoting=csv.QUOTE_MINIMAL)
-                    if not file_esiste or os.path.getsize(FILE_SEGNALAZIONI_NM) == 0:
-                        writer.writeheader()
-                    writer.writerow(nuovo_record)
+                # Aggiunge il nuovo record in coda allo storico esistente
+                df_nuovo = pd.DataFrame([nuovo_record])
+                df_totale = pd.concat([df_esistente, df_nuovo], ignore_index=True)
+                df_totale = df_totale[colonne_obbligatorie]
 
-                # Lettura tollerante agli errori per evitare il crash 'ParserError'
-                try:
-                    df_totale = pd.read_csv(
-                        FILE_SEGNALAZIONI_NM,
-                        sep=';',
-                        encoding='utf-8-sig',
-                        on_bad_lines='skip',
-                        engine='python'
-                    )
-                except Exception:
-                    df_totale = pd.DataFrame([nuovo_record])
+                # Salvataggio del file locale con l'intero storico aggiornato
+                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False, encoding='utf-8-sig')
 
                 # ---------------------------------------------------------
                 # SINCRONIZZAZIONE CON GITHUB
