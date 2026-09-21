@@ -4350,7 +4350,7 @@ if nav == "Riconoscimento":
         rel_github_path = "Riconoscimento/Riconoscimento_Partecipazione_NM.csv"
         file_riconoscimenti_csv = os.path.join(base_dir, "Riconoscimento", "Riconoscimento_Partecipazione_NM.csv")
         
-        # Funzione di supporto per trovare file ignorando le maiuscole/minuscole nelle cartelle
+        # Funzione di supporto per trovare file ignorando le maiuscole/minuscole
         def trova_file_case_insensitive(base, subfolder, filename):
             target_path = os.path.join(base, subfolder, filename) if subfolder else os.path.join(base, filename)
             if os.path.exists(target_path):
@@ -4379,32 +4379,34 @@ if nav == "Riconoscimento":
                 return None
 
         # ---------------------------------------------------------
-        # Funzione di supporto: Lettura/Caricamento dati salvati e controllo dei 4 file
+        # Funzione di supporto: Lettura dati e controllo con Log Diagnostico
         # ---------------------------------------------------------
         def carica_o_inizializza_punteggi():
             nomi_fonti_dict = {}
             punti_seg_dict = {}
             punti_sk_dict = {}
+            log_diagnostica = []
 
-            # Funzione di supporto per leggere un CSV in modo robusto
             def leggi_csv_robusto(file_path):
                 if not file_path or not os.path.exists(file_path):
                     return None
                 for sep in [";", ",", "\t"]:
-                    for enc in ['utf-8', 'latin-1', 'cp1252']:
+                    for enc in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
                         try:
                             df = pd.read_csv(file_path, sep=sep, encoding=enc, on_bad_lines='skip')
                             if not df.empty:
-                                df.columns = [str(c).strip() for c in df.columns]
+                                # Pulisce le intestazioni da BOM e spazi
+                                df.columns = [str(c).replace('\ufeff', '').strip() for c in df.columns]
                                 return df
                         except Exception:
                             continue
                 return None
 
-            # 1. Caricamento da file esistente in Riconoscimento_Partecipazione_NM.csv (Colonna: "Nominativo")
+            # 1. Riconoscimento_Partecipazione_NM.csv
             file_ric_esistente_path = trova_file_case_insensitive(base_dir, "Riconoscimento", "Riconoscimento_Partecipazione_NM.csv")
             df_ric = leggi_csv_robusto(file_ric_esistente_path)
             if df_ric is not None and "Nominativo" in df_ric.columns:
+                count_caricati = 0
                 for _, row in df_ric.iterrows():
                     nom = str(row.get("Nominativo", "")).strip()
                     fonte = str(row.get("Fonte", "")).strip()
@@ -4419,29 +4421,40 @@ if nav == "Riconoscimento":
                                 nomi_fonti_dict[nom].add(f.strip())
                         punti_seg_dict[nom] = p_seg
                         punti_sk_dict[nom] = p_sk
+                        count_caricati += 1
+                log_diagnostica.append(f"✅ `Riconoscimento_Partecipazione_NM.csv`: Trovato. Letti {count_caricati} record salvati.")
+            else:
+                log_diagnostica.append(f"⚠️ `Riconoscimento_Partecipazione_NM.csv`: Non trovato o colonna 'Nominativo' assente (verrà creato al salvataggio).")
 
-            # Helper per estrarre da una colonna specifica (es. "Segnalatore")
-            def estrai_da_colonna(file_path, nome_colonna, default_fonte):
+            # Helper per estrazione file specifici
+            def estrai_da_colonna(file_path, nome_file, nome_colonna, default_fonte):
                 df = leggi_csv_robusto(file_path)
                 if df is not None:
                     match_col = next((col for col in df.columns if col.strip().lower() == nome_colonna.lower()), None)
                     if match_col:
                         vals = df[match_col].dropna().astype(str).str.strip()
+                        estratto_count = 0
                         for val in vals:
                             if val and val.lower() not in ["nan", "n/d", "none", "", "nat"]:
                                 if val not in nomi_fonti_dict:
                                     nomi_fonti_dict[val] = set()
                                 nomi_fonti_dict[val].add(default_fonte)
+                                estratto_count += 1
+                        log_diagnostica.append(f"✅ `{nome_file}`: Trovato. Colonna '{nome_colonna}' identificata. Aggiunti {estratto_count} valori.")
+                    else:
+                        log_diagnostica.append(f"❌ `{nome_file}`: Trovato, ma colonna '{nome_colonna}' NON trovata. Colonne presenti: {list(df.columns)}")
+                else:
+                    log_diagnostica.append(f"❌ `{nome_file}`: File non trovato nel percorso previsto.")
 
-            # 2. Controllo file: segnalazioni_near_miss.csv (Colonna: "Segnalatore")
+            # 2. segnalazioni_near_miss.csv (Colonna: "Segnalatore")
             file_nm = trova_file_case_insensitive(base_dir, "", "segnalazioni_near_miss.csv")
-            estrai_da_colonna(file_nm, "Segnalatore", "Segnalazione Near Miss")
+            estrai_da_colonna(file_nm, "segnalazioni_near_miss.csv", "Segnalatore", "Segnalazione Near Miss")
 
-            # 3. Controllo file: Segnalazione_NM_Manutenzione/manutenzione.csv (Colonna: "Segnalatore")
+            # 3. manutenzione.csv (Colonna: "Segnalatore")
             file_manutenzione = trova_file_case_insensitive(base_dir, "Segnalazione_NM_Manutenzione", "manutenzione.csv")
-            estrai_da_colonna(file_manutenzione, "Segnalatore", "Manutenzione")
+            estrai_da_colonna(file_manutenzione, "Segnalazione_NM_Manutenzione/manutenzione.csv", "Segnalatore", "Manutenzione")
 
-            # 4. Controllo file: Skill_Matrix/Skill_Matrix_Panoramica_Generale.csv (Colonne: "Nome" e "Cognome")
+            # 4. Skill_Matrix_Panoramica_Generale.csv (Colonne: "Nome" e "Cognome")
             file_skill_gen = trova_file_case_insensitive(base_dir, "Skill_Matrix", "Skill_Matrix_Panoramica_Generale.csv")
             df_skill = leggi_csv_robusto(file_skill_gen)
             if df_skill is not None:
@@ -4449,6 +4462,7 @@ if nav == "Riconoscimento":
                 col_cognome = next((c for c in df_skill.columns if c.strip().lower() == "cognome"), None)
                 
                 if col_nome and col_cognome:
+                    estratto_sk = 0
                     for _, row in df_skill.iterrows():
                         n = str(row.get(col_nome, "")).strip()
                         c = str(row.get(col_cognome, "")).strip()
@@ -4457,6 +4471,12 @@ if nav == "Riconoscimento":
                             if nom not in nomi_fonti_dict:
                                 nomi_fonti_dict[nom] = set()
                             nomi_fonti_dict[nom].add("Skill Matrix")
+                            estratto_sk += 1
+                    log_diagnostica.append(f"✅ `Skill_Matrix_Panoramica_Generale.csv`: Trovato. Colonne 'Nome'/'Cognome' ok. Aggiunti {estratto_sk} nominativi.")
+                else:
+                    log_diagnostica.append(f"❌ `Skill_Matrix_Panoramica_Generale.csv`: Trovato, ma mancano le colonne 'Nome' o 'Cognome'. Colonne presenti: {list(df_skill.columns)}")
+            else:
+                log_diagnostica.append(f"❌ `Skill_Matrix_Panoramica_Generale.csv`: File non trovato nel percorso previsto.")
 
             # Costruzione del DataFrame finale combinato
             rows = []
@@ -4473,7 +4493,7 @@ if nav == "Riconoscimento":
                     "Punteggio Totale": 0
                 })
 
-            return pd.DataFrame(rows if rows else [{
+            df_res = pd.DataFrame(rows if rows else [{
                 "Nominativo": "Esempio", 
                 "Fonte": "N/D", 
                 "Punti Segnalazione (+50)": 0, 
@@ -4481,9 +4501,18 @@ if nav == "Riconoscimento":
                 "Punteggio Totale": 0
             }])
 
-        # Carica il dataframe generale
-        df_riconoscimenti = carica_o_inizializza_punteggi()
+            return df_res, log_diagnostica
+
+        # Carica il dataframe generale e i log
+        df_riconoscimenti, log_diagnostica = carica_o_inizializza_punteggi()
         
+        # Visualizzazione box diagnostico utile per capire cosa non va
+        with st.expander("🔍 Diagnostica File e Colonne (Clicca per aprire)", expanded=False):
+            st.markdown("Verifica dello stato di lettura dei file sorgente:")
+            for log in log_diagnostica:
+                st.markdown(log)
+            st.info(f"Totale nominativi unici caricati in memoria: **{len(df_riconoscimenti)}**")
+
         # Normalizzazione tipi e ricalcolo totale
         df_riconoscimenti["Punti Segnalazione (+50)"] = pd.to_numeric(df_riconoscimenti["Punti Segnalazione (+50)"], errors='coerce').fillna(0).astype(int)
         df_riconoscimenti["Punti Skill Matrix (+25)"] = pd.to_numeric(df_riconoscimenti["Punti Skill Matrix (+25)"], errors='coerce').fillna(0).astype(int)
