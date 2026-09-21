@@ -4390,12 +4390,21 @@ if nav == "Riconoscimento":
             def leggi_csv_robusto(file_path):
                 if not file_path or not os.path.exists(file_path):
                     return None
-                for sep in [";", ",", "\t"]:
+                # 1. Tenta l'auto-rilevamento del delimitatore tramite il motore python di pandas
+                for enc in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+                    try:
+                        df = pd.read_csv(file_path, sep=None, engine='python', encoding=enc)
+                        if not df.empty:
+                            df.columns = [str(c).replace('\ufeff', '').strip() for c in df.columns]
+                            return df
+                    except Exception:
+                        continue
+                # 2. Fallback con priorità alla VIRGOLA (",") prima del punto e virgola (";")
+                for sep in [",", ";", "\t"]:
                     for enc in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
                         try:
                             df = pd.read_csv(file_path, sep=sep, encoding=enc, on_bad_lines='skip')
-                            if not df.empty:
-                                # Pulisce le intestazioni da BOM e spazi
+                            if not df.empty and len(df.columns) > 1:
                                 df.columns = [str(c).replace('\ufeff', '').strip() for c in df.columns]
                                 return df
                         except Exception:
@@ -4424,23 +4433,25 @@ if nav == "Riconoscimento":
                         count_caricati += 1
                 log_diagnostica.append(f"✅ `Riconoscimento_Partecipazione_NM.csv`: Trovato. Letti {count_caricati} record salvati.")
             else:
-                log_diagnostica.append(f"⚠️ `Riconoscimento_Partecipazione_NM.csv`: Non trovato o colonna 'Nominativo' assente (verrà creato al salvataggio).")
+                log_diagnostica.append(f"⚠️ `Riconoscimento_Partecipazione_NM.csv`: Non trovato o colonna 'Nominativo' assente.")
 
-            # Helper per estrazione file specifici
+            # Helper per estrazione file specifici con log esteso dei valori trovati
             def estrai_da_colonna(file_path, nome_file, nome_colonna, default_fonte):
                 df = leggi_csv_robusto(file_path)
                 if df is not None:
                     match_col = next((col for col in df.columns if col.strip().lower() == nome_colonna.lower()), None)
                     if match_col:
-                        vals = df[match_col].dropna().astype(str).str.strip()
+                        col_series = df[match_col].dropna().astype(str).str.strip()
+                        valori_grezzi = list(col_series.unique())
+                        
                         estratto_count = 0
-                        for val in vals:
-                            if val and val.lower() not in ["nan", "n/d", "none", "", "nat"]:
+                        for val in col_series:
+                            if val and val.lower() not in ["nan", "n/d", "none", "", "nat", "null"]:
                                 if val not in nomi_fonti_dict:
                                     nomi_fonti_dict[val] = set()
                                 nomi_fonti_dict[val].add(default_fonte)
                                 estratto_count += 1
-                        log_diagnostica.append(f"✅ `{nome_file}`: Trovato. Colonna '{nome_colonna}' identificata. Aggiunti {estratto_count} valori.")
+                        log_diagnostica.append(f"✅ `{nome_file}`: Trovata colonna '{match_col}'. Valori letti: {valori_grezzi} | Aggiunti validi: {estratto_count}")
                     else:
                         log_diagnostica.append(f"❌ `{nome_file}`: Trovato, ma colonna '{nome_colonna}' NON trovata. Colonne presenti: {list(df.columns)}")
                 else:
@@ -4506,8 +4517,8 @@ if nav == "Riconoscimento":
         # Carica il dataframe generale e i log
         df_riconoscimenti, log_diagnostica = carica_o_inizializza_punteggi()
         
-        # Visualizzazione box diagnostico utile per capire cosa non va
-        with st.expander("🔍 Diagnostica File e Colonne (Clicca per aprire)", expanded=False):
+        # Visualizzazione box diagnostico
+        with st.expander("🔍 Diagnostica File e Colonne (Clicca per aprire)", expanded=True):
             st.markdown("Verifica dello stato di lettura dei file sorgente:")
             for log in log_diagnostica:
                 st.markdown(log)
