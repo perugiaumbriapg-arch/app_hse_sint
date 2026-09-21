@@ -1276,19 +1276,20 @@ if nav == "Segnalazione Near Miss":
                 # ---------------------------------------------------------
                 # SALVATAGGIO AUTOMATICO SU GITHUB (segnalazioni_near_miss.csv)
                 # ---------------------------------------------------------
-                if submit_button:
-                    # 1. Unisci il nuovo record con i dati esistenti
-                    df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
+                df_n = pd.DataFrame([nuovo_record])
                 
-                    # 2. Invia l'aggiornamento a GitHub
-                    if salva_csv_su_github(
-                        df_totale,
-                        FILE_ANALISI_NM,
-                        f"Aggiunta analisi del {datetime.now().strftime('%d/%m/%Y')}",
-                    ):
-                        st.success("Analisi salvata e sincronizzata con successo su GitHub!")
-                        time.sleep(1)
-                        st.rerun()
+                # 1. Unisci il nuovo record con i dati esistenti
+                df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
+              
+                # 2. Invia l'aggiornamento a GitHub
+                if salva_csv_su_github(
+                    df_totale,
+                    FILE_ANALISI_NM,
+                    f"Aggiunta analisi del {datetime.now().strftime('%d/%m/%Y')}",
+                ):
+                    st.success("Analisi salvata e sincronizzata con successo su GitHub!")
+                    time.sleep(1)
+                    st.rerun()
 
 # ==================================================================
 # --- SEZIONE 3: SCADENZARIO ADEMPIMENTI ---
