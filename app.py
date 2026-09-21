@@ -1327,6 +1327,9 @@ if nav == "Segnalazione Near Miss":
                 # 1. Unisci il nuovo record con i dati esistenti
                 df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
                 
+                # Assicura rigorosamente solo le colonne obbligatorie e nel giusto ordine
+                df_totale = df_totale[list(nuovo_record.keys())]
+                
                 # Salvataggio con separatore ';' specificato
                 df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False)
 
