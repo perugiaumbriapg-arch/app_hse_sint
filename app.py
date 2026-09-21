@@ -3421,37 +3421,26 @@ if nav == "Piano Miglioramento":
             return False
         return True
 
-    # UTILITY PER CARICAMENTO EVENTI (Inclusione sicura di manutenzione.csv)
+    # UTILITY PER CARICAMENTO EVENTI (Unicamente da analisi_near_miss.csv con formato AN)
     def load_events():
         events = []
-        file_sources = [
-            ("segnalazioni_near_miss.csv", "segnalazione"),
-            ("analisi_near_miss.csv", "analisi"),
-            (os.path.join("Segnalazione_NM_Manutenzione", "manutenzione.csv"), "manutenzione"),
-            (os.path.join("Segnalazioni_NM_Manutenzione", "manutenzione.csv"), "manutenzione")
-        ]
-        
-        for filepath, tipo in file_sources:
-            if os.path.exists(filepath):
-                try:
-                    df = pd.read_csv(filepath)
-                    if not df.empty:
-                        for val in df.iloc[:, 0].dropna().astype(str).tolist():
-                            events.append(f"{val} ({tipo})")
-                except Exception:
-                    pass
+        filepath = "analisi_near_miss.csv"
+        if os.path.exists(filepath):
+            try:
+                df = pd.read_csv(filepath, sep=";", on_bad_lines="skip", engine="python")
+                if not df.empty and "Data Analisi" in df.columns and "Segnalazione Collegata" in df.columns:
+                    for _, row in df.iterrows():
+                        data_an = str(row.get("Data Analisi", "")).strip()
+                        seg_col = str(row.get("Segnalazione Collegata", "")).strip()
+                        events.append(f"AN - {data_an} - {seg_col}")
+            except Exception:
+                pass
         return sorted(list(set(events))) if events else ["Nessun evento disponibile"]
 
     # UTILITY PER ACCORCIARE IL NOME DELL'EVENTO
     def format_event_name_short(evento_str):
         import re
-        tipo = "evento"
-        if "(segnalazione)" in evento_str.lower():
-            tipo = "segnalazione"
-        elif "(analisi)" in evento_str.lower():
-            tipo = "analisi"
-        elif "(manutenzione)" in evento_str.lower():
-            tipo = "manutenzione"
+        tipo = "analisi"
         
         match_date = re.search(r'(\d{4}[-/.]?\d{2}[-/.]?\d{2}|\d{2}[-/.]?\d{2}[-/.]?\d{4})', evento_str)
         if match_date:
