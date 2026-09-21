@@ -1283,31 +1283,24 @@ if nav == "Segnalazione Near Miss":
 
                 now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-                # Pulizia dei testi liberi da a capo per evitare corruzioni del file CSV
+                # Pulizia dei testi liberi da ritorni a capo per garantire una sola riga nel CSV
                 descrizione_pulita = descrizione.strip().replace("\r", " ").replace("\n", " ")
                 proposte_pulite = valutazioni_proposte.strip().replace("\r", " ").replace("\n", " ")
+                segnalatore_pulito = segnalatore.strip().replace("\r", " ").replace("\n", " ")
+                reparto_pulito = reparto_aziendale.strip().replace("\r", " ").replace("\n", " ")
+                fascia_lav_pulita = fascia_lavoratore.strip().replace("\r", " ").replace("\n", " ")
 
                 nuovo_record = {
                     "Data Segnalazione": now_str,
                     "Tipo Evento": tipo_evento,
-                    "Segnalatore": (
-                        segnalatore.strip() if segnalatore.strip() else "Anonimo"
-                    ),
+                    "Segnalatore": segnalatore_pulito if segnalatore_pulito else "Anonimo",
                     "Sesso": sesso,
                     "Fascia Eta": fascia_eta,
                     "Data Evento": data_evento.strftime("%d/%m/%Y"),
                     "Luogo": luogo,
-                    "Reparto": (
-                        reparto_aziendale.strip()
-                        if reparto_aziendale.strip()
-                        else "N/D"
-                    ),
+                    "Reparto": reparto_pulito if reparto_pulito else "N/D",
                     "Fascia Oraria": fascia_oraria,
-                    "Ora Lavorativa Lavoratore": (
-                        fascia_lavoratore.strip()
-                        if fascia_lavoratore.strip()
-                        else "N/D"
-                    ),
+                    "Ora Lavorativa Lavoratore": fascia_lav_pulita if fascia_lav_pulita else "N/D",
                     "Descrizione": descrizione_pulita,
                     "Percorso Immagine": immagine_salvata_nome,
                     "Cause Rilevate": ", ".join(cause_selezionate),
@@ -1316,32 +1309,25 @@ if nav == "Segnalazione Near Miss":
                     "Stato Presa in Carico": "Da firmare",
                 }
 
-                colonne_obbligatorie = list(nuovo_record.keys())
-
                 # ---------------------------------------------------------
-                # LETTURA SICURA DELLO STORICO (PRESERVA TUTTE LE RIGHE PRECEDENTI)
+                # REGISTRAZIONE REGISTRO/RIGA SU CSV (MODE APPEND 'a')
                 # ---------------------------------------------------------
-                df_esistente = pd.DataFrame(columns=colonne_obbligatorie)
-                if os.path.exists(FILE_SEGNALAZIONI_NM):
-                    try:
-                        df_temp = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';', encoding='utf-8-sig')
-                        if not df_temp.empty:
-                            for col in colonne_obbligatorie:
-                                if col not in df_temp.columns:
-                                    df_temp[col] = ""
-                            df_esistente = df_temp[colonne_obbligatorie]
-                    except Exception:
-                        pass
-
-                # Aggiunge il nuovo record in coda allo storico esistente
+                file_esiste = os.path.exists(FILE_SEGNALAZIONI_NM)
+                
                 df_nuovo = pd.DataFrame([nuovo_record])
-                df_totale = pd.concat([df_esistente, df_nuovo], ignore_index=True)
                 
-                # Mantiene rigorosamente solo le 16 colonne obbligatorie nell'ordine stabilito
-                df_totale = df_totale[colonne_obbligatorie]
-                
-                # Salvataggio su file locale con separatore punto e virgola (;)
-                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False, encoding='utf-8-sig')
+                # Salva aggiungendo la riga in coda al file esistente senza sovrascriverlo
+                df_nuovo.to_csv(
+                    FILE_SEGNALAZIONI_NM,
+                    mode='a',
+                    sep=';',
+                    index=False,
+                    header=not file_esiste,  # Mette l'intestazione solo se il file non esiste
+                    encoding='utf-8-sig'
+                )
+
+                # Rilegge l'intero DataFrame aggiornato per la sincronizzazione su GitHub
+                df_totale = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';', encoding='utf-8-sig')
 
                 # ---------------------------------------------------------
                 # SINCRONIZZAZIONE CON GITHUB
