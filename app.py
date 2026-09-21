@@ -1034,16 +1034,8 @@ if nav == "Home Dashboard":
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
 # ==================================================================
 
-# Controllo di sicurezza per evitare NameError se la funzione è definita più in basso
-if 'salva_csv_su_github' not in globals():
-    def salva_csv_su_github(df, file_path, commit_message):
-        try:
-            # Fallback di salvataggio locale se la funzione principale non è ancora dichiarata
-            df.to_csv(file_path, index=False)
-            return True
-        except Exception as e:
-            st.error(f"Errore di salvataggio: {e}")
-            return False
+# Nome del file CSV per le segnalazioni nella stessa cartella di app.py
+FILE_SEGNALAZIONI_NM = "segnalazioni_near_miss.csv"
 
 if nav == "Segnalazione Near Miss":
     st.info(
@@ -1286,27 +1278,27 @@ if nav == "Segnalazione Near Miss":
                 }
 
                 # ---------------------------------------------------------
-                # SALVATAGGIO AUTOMATICO SU GITHUB (segnalazioni_near_miss.csv)
+                # SALVATAGGIO AUTOMATICO SU GITHUB
                 # ---------------------------------------------------------
                 df_n = pd.DataFrame([nuovo_record])
                 
-                # Controllo di sicurezza per df_analisi
+                # Gestione di sicurezza per il dataframe esistente
                 if 'df_analisi' not in locals() and 'df_analisi' not in globals():
                     try:
-                        df_analisi = pd.read_csv(FILE_ANALISI_NM)
+                        df_analisi = pd.read_csv(FILE_SEGNALAZIONI_NM)
                     except Exception:
                         df_analisi = pd.DataFrame(columns=nuovo_record.keys())
 
                 # 1. Unisci il nuovo record con i dati esistenti
                 df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
               
-                # 2. Invia l'aggiornamento a GitHub
+                # 2. Invia l'aggiornamento a GitHub tramite la funzione
                 if salva_csv_su_github(
                     df_totale,
-                    FILE_ANALISI_NM,
-                    f"Aggiunta analisi del {datetime.now().strftime('%d/%m/%Y')}",
+                    FILE_SEGNALAZIONI_NM,
+                    f"Aggiunta segnalazione del {datetime.now().strftime('%d/%m/%Y')}",
                 ):
-                    st.success("Analisi salvata e sincronizzata con successo su GitHub!")
+                    st.success("Segnalazione salvata e sincronizzata con successo su GitHub!")
                     time.sleep(1)
                     st.rerun()
 # ==================================================================
