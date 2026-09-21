@@ -4515,7 +4515,19 @@ if nav == "Riconoscimento":
 
             # Helper per estrazione file specifici con log esteso dei valori trovati
             def estrai_da_colonna(file_path, nome_file, nome_colonna, default_fonte):
-                df = leggi_csv_robusto(file_path)
+                df = None
+                if "segnalazioni_near_miss.csv" in nome_file.lower() and file_path and os.path.exists(file_path):
+                    for enc in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+                        try:
+                            df = pd.read_csv(file_path, sep=';', encoding=enc, on_bad_lines='skip')
+                            if not df.empty:
+                                df.columns = [str(c).replace('\ufeff', '').strip() for c in df.columns]
+                                break
+                        except Exception:
+                            continue
+                if df is None:
+                    df = leggi_csv_robusto(file_path)
+
                 if df is not None:
                     match_col = next((col for col in df.columns if col.strip().lower() == nome_colonna.lower()), None)
                     if match_col:
