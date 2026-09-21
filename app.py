@@ -1069,8 +1069,6 @@ if nav == "Home Dashboard":
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
 # ==================================================================
 
-import csv
-
 # Nome del file CSV per le segnalazioni nella stessa cartella di app.py
 FILE_SEGNALAZIONI_NM = "segnalazioni_near_miss.csv"
 
@@ -1285,76 +1283,62 @@ if nav == "Segnalazione Near Miss":
 
                 now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-                # Pulizia testi da ritorni a capo
-                descrizione_pulita = descrizione.strip().replace("\r", " ").replace("\n", " ")
-                proposte_pulite = valutazioni_proposte.strip().replace("\r", " ").replace("\n", " ")
-                segnalatore_pulito = segnalatore.strip().replace("\r", " ").replace("\n", " ")
-                reparto_pulito = reparto_aziendale.strip().replace("\r", " ").replace("\n", " ")
-                fascia_lav_pulita = fascia_lavoratore.strip().replace("\r", " ").replace("\n", " ")
-
                 nuovo_record = {
                     "Data Segnalazione": now_str,
                     "Tipo Evento": tipo_evento,
-                    "Segnalatore": segnalatore_pulito if segnalatore_pulito else "Anonimo",
+                    "Segnalatore": (
+                        segnalatore.strip() if segnalatore.strip() else "Anonimo"
+                    ),
                     "Sesso": sesso,
                     "Fascia Eta": fascia_eta,
                     "Data Evento": data_evento.strftime("%d/%m/%Y"),
                     "Luogo": luogo,
-                    "Reparto": reparto_pulito if reparto_pulito else "N/D",
+                    "Reparto": (
+                        reparto_aziendale.strip()
+                        if reparto_aziendale.strip()
+                        else "N/D"
+                    ),
                     "Fascia Oraria": fascia_oraria,
-                    "Ora Lavorativa Lavoratore": fascia_lav_pulita if fascia_lav_pulita else "N/D",
-                    "Descrizione": descrizione_pulita,
+                    "Ora Lavorativa Lavoratore": (
+                        fascia_lavoratore.strip()
+                        if fascia_lavoratore.strip()
+                        else "N/D"
+                    ),
+                    "Descrizione": descrizione.strip(),
                     "Percorso Immagine": immagine_salvata_nome,
                     "Cause Rilevate": ", ".join(cause_selezionate),
                     "Presentata in Passato": storico_riscontro,
-                    "Proposte Miglioramento": proposte_pulite,
+                    "Proposte Miglioramento": valutazioni_proposte.strip(),
                     "Stato Presa in Carico": "Da firmare",
                 }
 
-                colonne_obbligatorie = list(nuovo_record.keys())
-
                 # ---------------------------------------------------------
-                # RECUPERO SICURO DELLO STORICO PRECEDENTE
+                # SALVATAGGIO AUTOMATICO SU GITHUB
                 # ---------------------------------------------------------
-                df_esistente = pd.DataFrame(columns=colonne_obbligatorie)
-                if os.path.exists(FILE_SEGNALAZIONI_NM):
+                df_n = pd.DataFrame([nuovo_record])
+                
+                # Gestione di sicurezza per il dataframe esistente
+                if 'df_analisi' not in locals() and 'df_analisi' not in globals():
                     try:
-                        df_temp = pd.read_csv(
-                            FILE_SEGNALAZIONI_NM,
-                            sep=';',
-                            encoding='utf-8-sig',
-                            on_bad_lines='skip',
-                            engine='python'
-                        )
-                        if not df_temp.empty:
-                            for col in colonne_obbligatorie:
-                                if col not in df_temp.columns:
-                                    df_temp[col] = ""
-                            df_esistente = df_temp[colonne_obbligatorie]
+                        df_analisi = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';')
                     except Exception:
-                        pass
+                        df_analisi = pd.DataFrame(columns=nuovo_record.keys())
 
-                # Aggiunge il nuovo record in coda allo storico esistente
-                df_nuovo = pd.DataFrame([nuovo_record])
-                df_totale = pd.concat([df_esistente, df_nuovo], ignore_index=True)
-                df_totale = df_totale[colonne_obbligatorie]
+                # 1. Unisci il nuovo record con i dati esistenti
+                df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
+                
+                # Salvataggio con separatore ';' specificato
+                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False)
 
-                # Salvataggio del file locale con l'intero storico aggiornato
-                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False, encoding='utf-8-sig')
-
-                # ---------------------------------------------------------
-                # SINCRONIZZAZIONE CON GITHUB
-                # ---------------------------------------------------------
+                # 2. Invia l'aggiornamento a GitHub tramite la funzione
                 if salva_csv_su_github(
                     df_totale,
                     FILE_SEGNALAZIONI_NM,
-                    f"Aggiunta segnalazione Near Miss - {now_str}",
+                    f"Aggiunta segnalazione del {datetime.now().strftime('%d/%m/%Y')}",
                 ):
                     st.success("Segnalazione salvata e sincronizzata con successo su GitHub!")
                     time.sleep(1)
                     st.rerun()
-                else:
-                    st.warning("Segnalazione salvata localmente, ma si è verificato un errore durante la sincronizzazione con GitHub.")
 # ==================================================================
 # --- SEZIONE 3: SCADENZARIO ADEMPIMENTI ---
 # ==================================================================
@@ -1528,7 +1512,26 @@ if nav == "Analisi Segnalazioni Near Miss":
         if not os.path.exists(DIR_IMMAGINI_ANALISI):
             os.makedirs(DIR_IMMAGINI_ANALISI)
             
-        # Funzione di supporto per salvare l'intero DataFrame aggiornato su GitHub
+        # Colonne obbligatorie per analisi_near_miss.csv
+        COLONNE_ANALISI = [
+            "Data Analisi",
+            "Segnalazione Collegata",
+            "Descrizione",
+            "Incidente",
+            "Attività",
+            "Cause",
+            "Storico",
+            "Criticità",
+            "Danno Strutture",
+            "Danno Produttività",
+            "Danno Persone",
+            "Frequenza",
+            "Commento RSPP",
+            "Firma RSPP (Stato)",
+            "Allegato Analisi"
+        ]
+
+        # Funzione di supporto per salvare l'intero DataFrame aggiornato su GitHub con separatore ';'
         def salva_df_analisi_su_github(
             df_target, message="Aggiornamento analisi_near_miss.csv"
         ):
@@ -1537,6 +1540,13 @@ if nav == "Analisi Segnalazioni Near Miss":
                 repo_name = st.secrets["REPO_NAME"]
                 g = Github(github_token)
                 repo = g.get_repo(repo_name)
+                
+                # Assicura che tutte le colonne siano presenti e nell'ordine corretto
+                for col in COLONNE_ANALISI:
+                    if col not in df_target.columns:
+                        df_target[col] = ""
+                df_target = df_target[COLONNE_ANALISI]
+
                 csv_buffer = df_target.to_csv(index=False, sep=";")
                 try:
                     file_content = repo.get_contents(FILE_ANALISI_NM)
@@ -1569,7 +1579,6 @@ if nav == "Analisi Segnalazioni Near Miss":
         # 1. Lettura File "segnalazioni_near_miss.csv" con supporto sia per la virgola (,) che per il punto e virgola (;)
         if os.path.exists(FILE_NEAR_MISS):
             df_nm = None
-            # Tentativo 1: con separatore virgola (,)
             try:
                 temp_df = pd.read_csv(
                     FILE_NEAR_MISS,
@@ -1582,7 +1591,6 @@ if nav == "Analisi Segnalazioni Near Miss":
             except Exception:
                 pass
                 
-            # Tentativo 2: se non ha funzionato o ha solo 1 colonna, proviamo con il punto e virgola (;)
             if df_nm is None or df_nm.shape[1] <= 1:
                 try:
                     temp_df = pd.read_csv(
@@ -1631,14 +1639,22 @@ if nav == "Analisi Segnalazioni Near Miss":
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_MANUTENZIONE}: {e}")
                 
-        # Lettura file delle analisi
-        df_analisi = (
-            pd.read_csv(
-                FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python"
-            )
-            if os.path.exists(FILE_ANALISI_NM)
-            else pd.DataFrame()
-        )
+        # Lettura file delle analisi con separatore ';' e verifica colonne
+        if os.path.exists(FILE_ANALISI_NM):
+            try:
+                df_analisi = pd.read_csv(
+                    FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python"
+                )
+            except Exception:
+                df_analisi = pd.DataFrame(columns=COLONNE_ANALISI)
+        else:
+            df_analisi = pd.DataFrame(columns=COLONNE_ANALISI)
+
+        # Garantisce la presenza di tutte le colonne nel DataFrame letto
+        for col in COLONNE_ANALISI:
+            if col not in df_analisi.columns:
+                df_analisi[col] = ""
+
         if "sub_sezione_rspp" not in st.session_state:
             st.session_state.sub_sezione_rspp = "compilazione"
         col_m1, col_m2 = st.columns(2)
@@ -1847,7 +1863,7 @@ if nav == "Analisi Segnalazioni Near Miss":
             # PULSANTE DI INVIO
             if submit_button:
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # Costruzione riga dati
+                # Costruzione riga dati rispettando rigorosamente l'ordine delle colonne
                 nuova_risposta = {
                     "Data Analisi": now_str,
                     "Segnalazione Collegata": selezione_nm,
@@ -1953,6 +1969,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                             )
                             time.sleep(1)
                             st.rerun()
+
 
 # ==================================================================
 # --- SEZIONE 5: Consultazione CONFORMITÀ LEGISLATIVA (RIFERIMENTI REALI) ---
@@ -3331,26 +3348,37 @@ if nav == "Piano Miglioramento":
             return False
         return True
 
-    # UTILITY PER CARICAMENTO EVENTI (Unicamente da analisi_near_miss.csv con formato AN)
+    # UTILITY PER CARICAMENTO EVENTI (Inclusione sicura di manutenzione.csv)
     def load_events():
         events = []
-        filepath = "analisi_near_miss.csv"
-        if os.path.exists(filepath):
-            try:
-                df = pd.read_csv(filepath, sep=";", on_bad_lines="skip", engine="python")
-                if not df.empty and "Data Analisi" in df.columns and "Segnalazione Collegata" in df.columns:
-                    for _, row in df.iterrows():
-                        data_an = str(row.get("Data Analisi", "")).strip()
-                        seg_col = str(row.get("Segnalazione Collegata", "")).strip()
-                        events.append(f"AN - {data_an} - {seg_col}")
-            except Exception:
-                pass
+        file_sources = [
+            ("segnalazioni_near_miss.csv", "segnalazione"),
+            ("analisi_near_miss.csv", "analisi"),
+            (os.path.join("Segnalazione_NM_Manutenzione", "manutenzione.csv"), "manutenzione"),
+            (os.path.join("Segnalazioni_NM_Manutenzione", "manutenzione.csv"), "manutenzione")
+        ]
+        
+        for filepath, tipo in file_sources:
+            if os.path.exists(filepath):
+                try:
+                    df = pd.read_csv(filepath)
+                    if not df.empty:
+                        for val in df.iloc[:, 0].dropna().astype(str).tolist():
+                            events.append(f"{val} ({tipo})")
+                except Exception:
+                    pass
         return sorted(list(set(events))) if events else ["Nessun evento disponibile"]
 
     # UTILITY PER ACCORCIARE IL NOME DELL'EVENTO
     def format_event_name_short(evento_str):
         import re
-        tipo = "analisi"
+        tipo = "evento"
+        if "(segnalazione)" in evento_str.lower():
+            tipo = "segnalazione"
+        elif "(analisi)" in evento_str.lower():
+            tipo = "analisi"
+        elif "(manutenzione)" in evento_str.lower():
+            tipo = "manutenzione"
         
         match_date = re.search(r'(\d{4}[-/.]?\d{2}[-/.]?\d{2}|\d{2}[-/.]?\d{2}[-/.]?\d{4})', evento_str)
         if match_date:
@@ -5217,13 +5245,12 @@ if nav == "Consapevolezza":
     QUESTIONS_TEXT = {
         "Q1": "1. Quale di questi esempi e un Near Miss o quasi infortunio?",
         "Q2": "2. Indica tutte le icone dell'immagine che rappresentano un near miss:",
-        "Q3": "3. Sei nell’area magazzino di prodotti finiti, devi passare con il carrello elevatore nella zona abilitata, stai circolando, gli scafali del magazzino sono pieni. Stai collocando la merce sullo scafale e ti rendi conto che lo scafale è innestabile perché non ancorato alla parete. Cosa fai?",
-        "Q4": "4. Guardando la seguente immagine, sceglie i DPI che si devono indossare obbligatori nell’ambiente di lavoro comuni a tutti gli operai della fabbrica di carta e cartone:",
+        "Q3": "3. Sei nell'area magazzino... ti rendi conto che lo scaffale e instabile. Cosa fai?",
+        "Q4": "4. Scegli i DPI obbligatori comuni a tutti gli operai della fabbrica:",
         "Q5": "5. Devi passare a piedi dietro un carrello elevatore in manovra. Come ti comporti?",
-        "Q6": "6. Sei un manutentore in azienda, devi andare a sostituire una guarnizione della macchina stampante a colori per il cartone. Guarda l’immagine e sceglie la risposta giusta:",
-        "Q7": "7. Sei in fabbrica e scontri che vicino alla macchina di stampaggio c’è una macchia di inchiostro fresco. Cosa fai?",
+        "Q6": "6. Sei un manutentore... devi sostituire una guarnizione. Scegli la sequenza corretta:",
+        "Q7": "7. Macchia di inchiostro fresco vicino alla macchina di stampaggio. Cosa fai?",
         "Q8": "8. Quale errore/near miss riscontri nell'immagine?"
-      
     }
 
     # Tabs per organizzare Informazione e Quiz
@@ -5295,8 +5322,8 @@ if nav == "Consapevolezza":
             # DOMANDA 3
             st.markdown(f"**{QUESTIONS_TEXT['Q3']}**")
             q3 = st.radio("Seleziona una risposta:", [
-                "a. Smetto di caricare le merci nello scafale. Lascio il carrello elevatore lì nella zona abilitata alla movimentazione merci ed informo al responsabile di magazzino.",
-                "b. Smetto di caricare le merci nello scafale. Accosto il carrello alla zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSSL.",
+                "a. Smetto di caricare le merci nello scafale. Lascio il carrello elevatore lì nella zona abilitata ed informo al responsabile di magazzino.",
+                "b. Smetto di caricare le merci nello scafale. Accosto lo scafale alla zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSSL.",
                 "c. Carico la merce comunque nello scafale. Metto un cartello che dice “Attenzione, scafale innestabile”."
             ], key="q3", index=None)
 
@@ -5407,7 +5434,6 @@ if nav == "Consapevolezza":
             ], key="q8", index=None)
 
             st.divider()
-
             
             submit = st.form_submit_button("Invia Risposte e Salva su GitHub")
 
