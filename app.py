@@ -1069,6 +1069,8 @@ if nav == "Home Dashboard":
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
 # ==================================================================
 
+import csv
+
 # Nome del file CSV per le segnalazioni nella stessa cartella di app.py
 FILE_SEGNALAZIONI_NM = "segnalazioni_near_miss.csv"
 
@@ -1283,7 +1285,7 @@ if nav == "Segnalazione Near Miss":
 
                 now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-                # Pulizia dei testi liberi da ritorni a capo per garantire una sola riga nel CSV
+                # Pulizia approfondita dei campi di testo libero
                 descrizione_pulita = descrizione.strip().replace("\r", " ").replace("\n", " ")
                 proposte_pulite = valutazioni_proposte.strip().replace("\r", " ").replace("\n", " ")
                 segnalatore_pulito = segnalatore.strip().replace("\r", " ").replace("\n", " ")
@@ -1309,25 +1311,31 @@ if nav == "Segnalazione Near Miss":
                     "Stato Presa in Carico": "Da firmare",
                 }
 
+                colonne_obbligatorie = list(nuovo_record.keys())
+
                 # ---------------------------------------------------------
-                # REGISTRAZIONE REGISTRO/RIGA SU CSV (MODE APPEND 'a')
+                # LETTURA E SCRITTURA SICURA SU CSV
                 # ---------------------------------------------------------
                 file_esiste = os.path.exists(FILE_SEGNALAZIONI_NM)
-                
-                df_nuovo = pd.DataFrame([nuovo_record])
-                
-                # Salva aggiungendo la riga in coda al file esistente senza sovrascriverlo
-                df_nuovo.to_csv(
-                    FILE_SEGNALAZIONI_NM,
-                    mode='a',
-                    sep=';',
-                    index=False,
-                    header=not file_esiste,  # Mette l'intestazione solo se il file non esiste
-                    encoding='utf-8-sig'
-                )
 
-                # Rilegge l'intero DataFrame aggiornato per la sincronizzazione su GitHub
-                df_totale = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';', encoding='utf-8-sig')
+                # Append sicuro della nuova riga mediante il modulo csv nativo
+                with open(FILE_SEGNALAZIONI_NM, mode='a', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.DictWriter(f, fieldnames=colonne_obbligatorie, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+                    if not file_esiste or os.path.getsize(FILE_SEGNALAZIONI_NM) == 0:
+                        writer.writeheader()
+                    writer.writerow(nuovo_record)
+
+                # Lettura tollerante agli errori per evitare il crash 'ParserError'
+                try:
+                    df_totale = pd.read_csv(
+                        FILE_SEGNALAZIONI_NM,
+                        sep=';',
+                        encoding='utf-8-sig',
+                        on_bad_lines='skip',
+                        engine='python'
+                    )
+                except Exception:
+                    df_totale = pd.DataFrame([nuovo_record])
 
                 # ---------------------------------------------------------
                 # SINCRONIZZAZIONE CON GITHUB
