@@ -1559,17 +1559,12 @@ if nav == "Analisi Segnalazioni Near Miss":
                     engine="python",
                 )
                 for idx, row in df_nm.iterrows():
-                    data_ev = str(
-                        row.get(
-                            "Data Segnalazione", row.get("Data Evento", "N/D")
-                        )
-                    )
-                    segnalatore = str(
-                        row.get(
-                            "Segnalatore", row.get("Nome Segnalatore", "N/D")
-                        )
-                    )
-                    label = f"{data_ev} | Segnalazione NM | {segnalatore}"
+                    data_ev = str(row.get("Data Evento", "N/D"))
+                    tipo_ev = str(row.get("Tipo Evento", "N/D"))
+                    segnalatore = str(row.get("Segnalatore", "N/D"))
+                    luogo = str(row.get("Luogo", "N/D"))
+                    reparto = str(row.get("Reparto", "N/D"))
+                    label = f"{data_ev} | Segnalazione NM | {tipo_ev} | {segnalatore} | {luogo} | {reparto}"
                     lista_segnalazioni.append(label)
                     mappa_descrizioni[label] = str(row.get("Descrizione", ""))
             except Exception as e:
@@ -1584,17 +1579,13 @@ if nav == "Analisi Segnalazioni Near Miss":
                     engine="python",
                 )
                 for idx, row in df_man.iterrows():
-                    data_ev = str(
-                        row.get(
-                            "Data Segnalazione", row.get("Data Evento", "N/D")
-                        )
-                    )
-                    segnalatore = str(
-                        row.get(
-                            "Segnalatore", row.get("Nome Segnalatore", "N/D")
-                        )
-                    )
-                    label = f"{data_ev} | NM_Manutenzione | {segnalatore}"
+                    data_ev = str(row.get("Data Evento", "N/D"))
+                    tipologia = str(row.get("Tipologia", "N/D"))
+                    tipo_ev = str(row.get("Tipo Evento", "N/D"))
+                    segnalatore = str(row.get("Segnalatore", "N/D"))
+                    manutenzione_in = str(row.get("Manutenzione In", "N/D"))
+                    reparto = str(row.get("Reparto", "N/D"))
+                    label = f"{data_ev} | NM_Manutenzione | {tipologia} | {tipo_ev} | {segnalatore} | {manutenzione_in} | {reparto}"
                     lista_segnalazioni.append(label)
                     mappa_descrizioni[label] = str(row.get("Descrizione", ""))
             except Exception as e:
