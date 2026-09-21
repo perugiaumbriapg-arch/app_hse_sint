@@ -141,6 +141,41 @@ def load_events():
                 pass
     return sorted(list(set(events))) if events else ["Nessun evento disponibile"]
 
+# =================================================================
+# ---- 0.3. SALVATAGGIO SEGNALAZIONI NEAR MISS ----
+# =================================================================
+def salva_csv_su_github(df, file_path, commit_message):
+    try:
+        # Assicurati di aver configurato GITHUB_TOKEN e GITHUB_REPO in st.secrets su Streamlit Cloud
+        token = st.secrets["GITHUB_TOKEN"]
+        repo_name = st.secrets["GITHUB_REPO"]  # Esempio: "tuonome/app_hse_sint"
+        
+        g = Github(token)
+        repo = g.get_repo(repo_name)
+        
+        # Converte il DataFrame in formato stringa CSV
+        csv_content = df.to_csv(index=False)
+        
+        try:
+            # Cerca il file esistente per ottenerne lo SHA (necessario per aggiornarlo)
+            contents = repo.get_contents(file_path)
+            repo.update_file(
+                path=contents.path,
+                message=commit_message,
+                content=csv_content,
+                sha=contents.sha
+            )
+        except GithubException:
+            # Se il file non esiste ancora su GitHub, lo crea da zero
+            repo.create_file(
+                path=file_path,
+                message=commit_message,
+                content=csv_content
+            )
+        return True
+    except Exception as e:
+        st.error(f"Errore di comunicazione con GitHub: {e}")
+        return False
 
 # ==================================================================
 # --- 1. CONFIGURAZIONI INIZIALI E DATABASE LOCALI ---
