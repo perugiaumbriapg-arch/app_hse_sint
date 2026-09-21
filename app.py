@@ -1291,25 +1291,25 @@ if nav == "Segnalazione Near Miss":
                     ),
                     "Sesso": sesso,
                     "Fascia Eta": fascia_eta,
-                    "Data Evento Real": data_evento.strftime("%d/%m/%Y"),
+                    "Data Evento": data_evento.strftime("%d/%m/%Y"),
                     "Luogo": luogo,
                     "Reparto": (
                         reparto_aziendale.strip()
                         if reparto_aziendale.strip()
                         else "N/D"
                     ),
-                    "Fascia Oraria Accadimento": fascia_oraria,
-                    "Fascia Oraria Lavoratore": (
+                    "Fascia Oraria": fascia_oraria,
+                    "Ora Lavorativa Lavoratore": (
                         fascia_lavoratore.strip()
                         if fascia_lavoratore.strip()
                         else "N/D"
                     ),
                     "Descrizione": descrizione.strip(),
-                    "Immagine Allegata": immagine_salvata_nome,
+                    "Percorso Immagine": immagine_salvata_nome,
                     "Cause Rilevate": ", ".join(cause_selezionate),
-                    "Verificato in Passato": storico_riscontro,
+                    "Presentata in Passato": storico_riscontro,
                     "Proposte Miglioramento": valutazioni_proposte.strip(),
-                    "Firma Presa in Carico": "Da firmare",
+                    "Stato Presa in Carico": "Da firmare",
                 }
 
                 # ---------------------------------------------------------
