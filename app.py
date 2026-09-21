@@ -4305,9 +4305,9 @@ if nav == "Skill Matrix":
                     )
             else:
                 st.info("Nessuna autovalutazione trovata nella cartella 'Skill_Matrix/Autovalutazione'.")
-#------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------
 # SEZIONE 12: RICONOSCIMENTO SEGNALANTI NEAR MISS
-#------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------
 if nav == "Riconoscimento":
     st.header("Sezione Riconoscimento")
     st.markdown("Gestione delle classifiche e assegnazione dei punteggi di riconoscimento.")
@@ -4351,70 +4351,81 @@ if nav == "Riconoscimento":
         file_riconoscimenti_csv = os.path.join(base_dir, "Riconoscimento", "Riconoscimento_Partecipazione_NM.csv")
         
         # ---------------------------------------------------------
-        # Funzione di supporto: Lettura/Caricamento dati salvati
+        # Funzione di supporto: Lettura/Caricamento dati salvati e controllo dei 4 file
         # ---------------------------------------------------------
         def carica_o_inizializza_punteggi():
-            # Tentativo 1: Caricamento da file locale in Riconoscimento/Riconoscimento_Partecipazione_NM.csv
+            nomi_fonti_dict = {}
+            punti_seg_dict = {}
+            punti_sk_dict = {}
+
+            # 1. Caricamento da file esistente in Riconoscimento/Riconoscimento_Partecipazione_NM.csv
             if os.path.exists(file_riconoscimenti_csv):
                 try:
-                    df_ric = pd.read_csv(file_riconoscimenti_csv, sep=";")
-                    if not df_ric.empty:
-                        return df_ric
+                    df_ric_esistente = pd.read_csv(file_riconoscimenti_csv, sep=";")
+                    if not df_ric_esistente.empty:
+                        for _, row in df_ric_esistente.iterrows():
+                            nom = str(row.get("Nominativo", "")).strip()
+                            fonte = str(row.get("Fonte", "")).strip()
+                            p_seg = row.get("Punti Segnalazione (+50)", 0)
+                            p_sk = row.get("Punti Skill Matrix (+25)", 0)
+                            
+                            if nom and nom.lower() != "nan":
+                                if nom not in nomi_fonti_dict:
+                                    nomi_fonti_dict[nom] = set()
+                                if fonte and fonte.lower() != "nan":
+                                    for f in fonte.split("&"):
+                                        nomi_fonti_dict[nom].add(f.strip())
+                                punti_seg_dict[nom] = p_seg
+                                punti_sk_dict[nom] = p_sk
                 except Exception:
                     pass
-            
-            # Recupero nominativi da segnalazioni e Skill Matrix se non esiste ancora il file principale
-            segnalatori_set = set()
+
+            # Helper per estrarre e aggiungere nominativi dai file di controllo
+            def estrai_nominativi(file_path, possible_col_names, default_fonte):
+                if os.path.exists(file_path):
+                    for sep in [";", ","]:
+                        try:
+                            df = pd.read_csv(file_path, sep=sep)
+                            if not df.empty:
+                                found_cols = [col for col in df.columns if any(p in col.strip().lower() for p in possible_col_names)]
+                                for col in found_cols:
+                                    vals = df[col].dropna().astype(str).str.strip()
+                                    for val in vals:
+                                        if val and val.lower() != "nan" and val.lower() != "n/d":
+                                            if val not in nomi_fonti_dict:
+                                                nomi_fonti_dict[val] = set()
+                                            nomi_fonti_dict[val].add(default_fonte)
+                                break
+                        except Exception:
+                            continue
+
+            # 2. Controllo file: segnalazioni_near_miss.csv
             file_nm = os.path.join(base_dir, "segnalazioni_near_miss.csv")
-            if os.path.exists(file_nm):
-                try:
-                    df_nm = pd.read_csv(file_nm, sep=";")
-                    col_seg = [c for c in df_nm.columns if c.strip().lower() == "segnalatore"]
-                    if col_seg:
-                        col_name = col_seg[0]
-                        segnalatori_validi = df_nm[col_name].dropna().astype(str).str.strip()
-                        for s in segnalatori_validi:
-                            if s != "" and s.lower() != "nan":
-                                segnalatori_set.add(s)
-                except Exception as e:
-                    st.warning(f"Errore nella lettura di segnalazioni_near_miss.csv: {e}")
-                    
-            skill_set = set()
-            autoval_dir = os.path.join(base_dir, "Skill_Matrix", "Autovalutazione")
-            if not os.path.exists(autoval_dir):
-                autoval_dir = os.path.join(base_dir, "APP HSE", "Skill_Matrix", "Autovalutazione")
-            if os.path.exists(autoval_dir):
-                files_csv_sm = [f for f in os.listdir(autoval_dir) if f.endswith(".csv")]
-                for f_csv in files_csv_sm:
-                    f_path = os.path.join(autoval_dir, f_csv)
-                    try:
-                        df_sm = pd.read_csv(f_path, sep=";")
-                        nome_val = df_sm.loc[df_sm["Campo"] == "Nome", "Valore"]
-                        cognome_val = df_sm.loc[df_sm["Campo"] == "Cognome", "Valore"]
-                        nome_str = str(nome_val.values[0]).strip() if not nome_val.empty else ""
-                        cognome_str = str(cognome_val.values[0]).strip() if not cognome_val.empty else ""
-                        full_name = f"{nome_str} {cognome_str}".strip()
-                        if full_name and full_name != "N/D N/D":
-                            skill_set.add(full_name)
-                    except Exception:
-                        pass
-                        
-            tutti_nominativi = list(segnalatori_set.union(skill_set))
-            
+            estrai_nominativi(file_nm, ["segnalatore", "nominativo", "nome"], "Segnalazione Near Miss")
+
+            # 3. Controllo file: Segnalazione_NM_Manutenzione/manutenzione.csv
+            file_manutenzione = os.path.join(base_dir, "Segnalazione_NM_Manutenzione", "manutenzione.csv")
+            estrai_nominativi(file_manutenzione, ["segnalatore", "operatore", "tecnico", "nominativo", "manutentore"], "Manutenzione")
+
+            # 4. Controllo file: Skill_Matrix/Skill_Matrix_Panoramica_Generale.csv
+            file_skill_gen = os.path.join(base_dir, "Skill_Matrix", "Skill_Matrix_Panoramica_Generale.csv")
+            estrai_nominativi(file_skill_gen, ["nominativo", "nome", "dipendente", "operatore"], "Skill Matrix")
+
+            # Costruzione del DataFrame finale
             rows = []
-            for nom in tutti_nominativi:
-                is_seg = nom in segnalatori_set
-                is_sk = nom in skill_set
-                fonte = "Segnalatore & Skill Matrix" if (is_seg and is_sk) else ("Segnalatore" if is_seg else "Skill Matrix")
+            for nom, fonti_set in nomi_fonti_dict.items():
+                fonte_str = " & ".join(sorted(list(fonti_set))) if fonti_set else "N/D"
+                p_seg = punti_seg_dict.get(nom, 0)
+                p_sk = punti_sk_dict.get(nom, 0)
                 
                 rows.append({
                     "Nominativo": nom,
-                    "Fonte": fonte,
-                    "Punti Segnalazione (+50)": 0,
-                    "Punti Skill Matrix (+25)": 0,
+                    "Fonte": fonte_str,
+                    "Punti Segnalazione (+50)": p_seg,
+                    "Punti Skill Matrix (+25)": p_sk,
                     "Punteggio Totale": 0
                 })
-            
+
             return pd.DataFrame(rows if rows else [{
                 "Nominativo": "Esempio", 
                 "Fonte": "N/D", 
