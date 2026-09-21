@@ -1512,7 +1512,26 @@ if nav == "Analisi Segnalazioni Near Miss":
         if not os.path.exists(DIR_IMMAGINI_ANALISI):
             os.makedirs(DIR_IMMAGINI_ANALISI)
             
-        # Funzione di supporto per salvare l'intero DataFrame aggiornato su GitHub
+        # Colonne obbligatorie per analisi_near_miss.csv
+        COLONNE_ANALISI = [
+            "Data Analisi",
+            "Segnalazione Collegata",
+            "Descrizione",
+            "Incidente",
+            "Attività",
+            "Cause",
+            "Storico",
+            "Criticità",
+            "Danno Strutture",
+            "Danno Produttività",
+            "Danno Persone",
+            "Frequenza",
+            "Commento RSPP",
+            "Firma RSPP (Stato)",
+            "Allegato Analisi"
+        ]
+
+        # Funzione di supporto per salvare l'intero DataFrame aggiornato su GitHub con separatore ';'
         def salva_df_analisi_su_github(
             df_target, message="Aggiornamento analisi_near_miss.csv"
         ):
@@ -1521,6 +1540,13 @@ if nav == "Analisi Segnalazioni Near Miss":
                 repo_name = st.secrets["REPO_NAME"]
                 g = Github(github_token)
                 repo = g.get_repo(repo_name)
+                
+                # Assicura che tutte le colonne siano presenti e nell'ordine corretto
+                for col in COLONNE_ANALISI:
+                    if col not in df_target.columns:
+                        df_target[col] = ""
+                df_target = df_target[COLONNE_ANALISI]
+
                 csv_buffer = df_target.to_csv(index=False, sep=";")
                 try:
                     file_content = repo.get_contents(FILE_ANALISI_NM)
@@ -1553,7 +1579,6 @@ if nav == "Analisi Segnalazioni Near Miss":
         # 1. Lettura File "segnalazioni_near_miss.csv" con supporto sia per la virgola (,) che per il punto e virgola (;)
         if os.path.exists(FILE_NEAR_MISS):
             df_nm = None
-            # Tentativo 1: con separatore virgola (,)
             try:
                 temp_df = pd.read_csv(
                     FILE_NEAR_MISS,
@@ -1566,7 +1591,6 @@ if nav == "Analisi Segnalazioni Near Miss":
             except Exception:
                 pass
                 
-            # Tentativo 2: se non ha funzionato o ha solo 1 colonna, proviamo con il punto e virgola (;)
             if df_nm is None or df_nm.shape[1] <= 1:
                 try:
                     temp_df = pd.read_csv(
@@ -1615,14 +1639,22 @@ if nav == "Analisi Segnalazioni Near Miss":
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_MANUTENZIONE}: {e}")
                 
-        # Lettura file delle analisi
-        df_analisi = (
-            pd.read_csv(
-                FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python"
-            )
-            if os.path.exists(FILE_ANALISI_NM)
-            else pd.DataFrame()
-        )
+        # Lettura file delle analisi con separatore ';' e verifica colonne
+        if os.path.exists(FILE_ANALISI_NM):
+            try:
+                df_analisi = pd.read_csv(
+                    FILE_ANALISI_NM, sep=";", on_bad_lines="skip", engine="python"
+                )
+            except Exception:
+                df_analisi = pd.DataFrame(columns=COLONNE_ANALISI)
+        else:
+            df_analisi = pd.DataFrame(columns=COLONNE_ANALISI)
+
+        # Garantisce la presenza di tutte le colonne nel DataFrame letto
+        for col in COLONNE_ANALISI:
+            if col not in df_analisi.columns:
+                df_analisi[col] = ""
+
         if "sub_sezione_rspp" not in st.session_state:
             st.session_state.sub_sezione_rspp = "compilazione"
         col_m1, col_m2 = st.columns(2)
@@ -1831,7 +1863,7 @@ if nav == "Analisi Segnalazioni Near Miss":
             # PULSANTE DI INVIO
             if submit_button:
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # Costruzione riga dati
+                # Costruzione riga dati rispettando rigorosamente l'ordine delle colonne
                 nuova_risposta = {
                     "Data Analisi": now_str,
                     "Segnalazione Collegata": selezione_nm,
