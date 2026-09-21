@@ -3898,6 +3898,63 @@ if nav == "Skill Matrix":
         if os.path.exists(os.path.join(base_dir, "APP HSE")) or "APP HSE" in base_dir:
             skill_matrix_dir = skill_matrix_dir_alt
 
+    autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
+    file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
+    master_local_path = os.path.join(skill_matrix_dir, file_name_master)
+    github_master_path = f"Skill_Matrix/{file_name_master}"
+
+    # Funzione di utilità per leggere e aggregare tutti i CSV presenti in 'Autovalutazione'
+    def rigenera_master_da_csv(dir_autoval, path_master):
+        lista_righe = []
+        if os.path.exists(dir_autoval):
+            for f_item in os.listdir(dir_autoval):
+                if f_item.lower().endswith(".csv") and f_item != "Skill_Matrix_Panoramica_Generale.csv":
+                    f_path = os.path.join(dir_autoval, f_item)
+                    try:
+                        df_temp = pd.read_csv(f_path, sep=";")
+                        if "Campo" in df_temp.columns and "Valore" in df_temp.columns:
+                            def get_csv_val(c_str, def_val):
+                                res = df_temp.loc[df_temp["Campo"] == c_str, "Valore"]
+                                return res.values[0] if not res.empty else def_val
+                            
+                            def get_csv_num(c_str, def_val=3.0):
+                                v = get_csv_val(c_str, def_val)
+                                try:
+                                    return float(v)
+                                except ValueError:
+                                    return float(def_val)
+
+                            lista_righe.append({
+                                "Nome": str(get_csv_val("Nome", "N/D")),
+                                "Cognome": str(get_csv_val("Cognome", "N/D")),
+                                "Inquadramento-Mansione": str(get_csv_val("Inquadramento-Mansione", "")),
+                                "Ambito lavorativo": str(get_csv_val("Ambito lavorativo", "Produzione")),
+                                "Data Autovalutazione": str(get_csv_val("Data Autovalutazione", "")),
+                                "Processi produttivi mansione": get_csv_num("Processi produttivi mansione"),
+                                "Rapporto colleghi": get_csv_num("Rapporto colleghi"),
+                                "Interfaccia fornitori-clienti": get_csv_num("Interfaccia fornitori-clienti"),
+                                "Processi cartone-scatole": get_csv_num("Processi cartone-scatole"),
+                                "Processo pallettizzazione": get_csv_num("Processo pallettizzazione"),
+                                "Competenze legali-tecniche": get_csv_num("Competenze legali-tecniche"),
+                                "Individuazione rischi-fabbisogni": get_csv_num("Individuazione rischi-fabbisogni"),
+                                "Capacità d'adattamento": get_csv_num("Capacità d'adattamento"),
+                                "Capacità comunicative": get_csv_num("Capacità comunicative"),
+                                "Precisione lavoro": get_csv_num("Precisione lavoro"),
+                                "Persuasione": get_csv_num("Persuasione"),
+                                "Analisi critica contesto": get_csv_num("Analisi critica contesto"),
+                                "Turnazioni": get_csv_num("Turnazioni"),
+                                "Responsabilità supervisione": get_csv_num("Responsabilità supervisione"),
+                                "File Sorgente": f_item
+                            })
+                    except Exception:
+                        pass
+        if lista_righe:
+            df_m = pd.DataFrame(lista_righe)
+            os.makedirs(os.path.dirname(path_master), exist_ok=True)
+            df_m.to_csv(path_master, index=False, sep=";")
+            return df_m
+        return pd.DataFrame()
+
     # Credentials GitHub dai Secrets
     token = st.secrets.get("GITHUB_TOKEN", "")
     repo_name = st.secrets.get("REPO_NAME", "")
@@ -3993,7 +4050,6 @@ if nav == "Skill Matrix":
                     clean_date = re.sub(r'[\\/*?:"<>|]', "", str(data_compilazione))
                     file_name_csv = f"{clean_name}_{clean_date}_Autovalutazione_SkillMatrix.csv"
                     
-                    autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
                     local_save_path = os.path.join(autoval_dir, file_name_csv)
                     github_path = f"Skill_Matrix/Autovalutazione/{file_name_csv}"
                     
@@ -4021,64 +4077,14 @@ if nav == "Skill Matrix":
                     except Exception as e:
                         st.warning(f"Impossibile salvare in locale: {e}")
 
-                    # 1.1 AGGIORNAMENTO AUTOMATICO DEL FILE MASTER 'Skill_Matrix_Panoramica_Generale.csv'
-                    file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
-                    master_local_path = os.path.join(skill_matrix_dir, file_name_master)
-                    github_master_path = f"Skill_Matrix/{file_name_master}"
-                    
-                    new_master_row = {
-                        "Nome": nome_utente.strip(),
-                        "Cognome": cognome_utente.strip(),
-                        "Inquadramento-Mansione": inquadramento_mansione.strip(),
-                        "Ambito lavorativo": ambito_lavorativo,
-                        "Data Autovalutazione": str(data_compilazione),
-                        "Processi produttivi mansione": float(q1),
-                        "Rapporto colleghi": float(q2),
-                        "Interfaccia fornitori-clienti": float(q3),
-                        "Processi cartone-scatole": float(q4),
-                        "Processo pallettizzazione": float(q5),
-                        "Competenze legali-tecniche": float(q6),
-                        "Individuazione rischi-fabbisogni": float(q7),
-                        "Capacità d'adattamento": float(q8),
-                        "Capacità comunicative": float(q9),
-                        "Precisione lavoro": float(q10),
-                        "Persuasione": float(q11),
-                        "Analisi critica contesto": float(q12),
-                        "Turnazioni": float(q13),
-                        "Responsabilità supervisione": float(q14),
-                        "File Sorgente": file_name_csv
-                    }
-                    
-                    # Leggi o crea il dataframe master esistente
-                    if os.path.exists(master_local_path):
-                        try:
-                            df_master_sm = pd.read_csv(master_local_path, sep=";")
-                        except Exception:
-                            df_master_sm = pd.DataFrame()
-                    else:
-                        df_master_sm = pd.DataFrame()
-                        
-                    # Aggiungi o aggiorna la riga nel master
-                    if not df_master_sm.empty and "File Sorgente" in df_master_sm.columns:
-                        if file_name_csv in df_master_sm["File Sorgente"].values:
-                            for k, v in new_master_row.items():
-                                df_master_sm.loc[df_master_sm["File Sorgente"] == file_name_csv, k] = v
-                        else:
-                            df_master_sm = pd.concat([df_master_sm, pd.DataFrame([new_master_row])], ignore_index=True)
-                    else:
-                        df_master_sm = pd.DataFrame([new_master_row])
-                        
-                    csv_master_data = df_master_sm.to_csv(index=False, sep=";")
-                    
-                    # Salva il master aggiornato in locale
+                    # 1.1 RIGENERAZIONE AUTOMATICA DEL MASTER leggendo tutti i CSV in 'Autovalutazione'
+                    df_master_sm = rigenera_master_da_csv(autoval_dir, master_local_path)
                     try:
-                        os.makedirs(skill_matrix_dir, exist_ok=True)
-                        with open(master_local_path, "w", encoding="utf-8") as f:
-                            f.write(csv_master_data)
-                    except Exception as e:
-                        st.warning(f"Impossibile aggiornare il master in locale: {e}")
+                        csv_master_data = df_master_sm.to_csv(index=False, sep=";")
+                    except Exception:
+                        csv_master_data = ""
 
-                    # 2. Salvataggio via API GitHub (sia del file singolo che del master)
+                    # 2. Salvataggio via API GitHub (singolo file + file master aggiornato)
                     if not token or not repo_name:
                         st.error("⚠️ GITHUB_TOKEN o REPO_NAME mancanti nei secrets di Streamlit. Salvataggio limitato alla sessione.")
                     else:
@@ -4103,22 +4109,23 @@ if nav == "Skill Matrix":
                                 )
                                 
                             # B) Caricamento file master aggiornato su GitHub
-                            try:
-                                master_existing = repo.get_contents(github_master_path)
-                                repo.update_file(
-                                    path=github_master_path,
-                                    message="Aggiornato Skill_Matrix_Panoramica_Generale.csv con nuova compilazione",
-                                    content=csv_master_data,
-                                    sha=master_existing.sha
-                                )
-                            except GithubException:
-                                repo.create_file(
-                                    path=github_master_path,
-                                    message="Creato Skill_Matrix_Panoramica_Generale.csv con nuova compilazione",
-                                    content=csv_master_data
-                                )
-                                
-                            st.success(f"✅ Autovalutazione salvata e inserita in `Skill_Matrix_Panoramica_Generale.csv` permanentemente su GitHub!")
+                            if not df_master_sm.empty:
+                                try:
+                                    master_existing = repo.get_contents(github_master_path)
+                                    repo.update_file(
+                                        path=github_master_path,
+                                        message="Aggiornato Skill_Matrix_Panoramica_Generale.csv leggendo i CSV di autovalutazione",
+                                        content=csv_master_data,
+                                        sha=master_existing.sha
+                                    )
+                                except GithubException:
+                                    repo.create_file(
+                                        path=github_master_path,
+                                        message="Creato Skill_Matrix_Panoramica_Generale.csv leggendo i CSV di autovalutazione",
+                                        content=csv_master_data
+                                    )
+                                    
+                            st.success(f"✅ Autovalutazione salvata e `Skill_Matrix_Panoramica_Generale.csv` aggiornato permanentemente su GitHub!")
                         except Exception as e:
                             st.error(f"Errore durante il salvataggio su GitHub: {e}")
 
@@ -4146,17 +4153,12 @@ if nav == "Skill Matrix":
                 st.rerun()
                 
             st.subheader("Skill Matrix - Panoramica Generale e Tabella Dinamica")
-            st.markdown("Visualizza e modifica direttamente i dati estratti dalle autovalutazioni inserite dal personale.")
+            st.markdown("Visualizza e modifica direttamente i dati letti automaticamente dai file CSV presenti nella cartella 'Autovalutazione'.")
             st.markdown("---")
                 
-            autoval_dir = os.path.join(skill_matrix_dir, "Autovalutazione")
-            file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
-            master_local_path = os.path.join(skill_matrix_dir, file_name_master)
-            github_master_path = f"Skill_Matrix/{file_name_master}"
-            
             lista_righe_tabella = []
 
-            # --- ESTRAZIONE E UNIFICAZIONE SORGENTI (PDF & CSV) ---
+            # --- ESTRAZIONE E UNIFICAZIONE SORGENTI (Lettura da cartella Autovalutazione) ---
             if os.path.exists(autoval_dir):
                 files_in_folder = os.listdir(autoval_dir)
                 
@@ -4164,7 +4166,7 @@ if nav == "Skill Matrix":
                     f_path = os.path.join(autoval_dir, f_item)
                     
                     # A) GESTIONE FILE CSV
-                    if f_item.lower().endswith(".csv"):
+                    if f_item.lower().endswith(".csv") and f_item != "Skill_Matrix_Panoramica_Generale.csv":
                         try:
                             df_temp = pd.read_csv(f_path, sep=";")
                             if "Campo" in df_temp.columns and "Valore" in df_temp.columns:
