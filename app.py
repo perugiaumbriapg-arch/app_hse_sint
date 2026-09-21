@@ -148,7 +148,7 @@ def salva_csv_su_github(df, file_path, commit_message):
     try:
         # Assicurati di aver configurato GITHUB_TOKEN e GITHUB_REPO in st.secrets su Streamlit Cloud
         token = st.secrets["GITHUB_TOKEN"]
-        repo_name = st.secrets["GITHUB_REPO"]  # Esempio: "tuonome/app_hse_sint"
+        repo_name = st.secrets["REPO_NAME"]  
         
         g = Github(token)
         repo = g.get_repo(repo_name)
