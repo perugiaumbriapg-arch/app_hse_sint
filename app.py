@@ -1320,13 +1320,16 @@ if nav == "Segnalazione Near Miss":
                 # Gestione di sicurezza per il dataframe esistente
                 if 'df_analisi' not in locals() and 'df_analisi' not in globals():
                     try:
-                        df_analisi = pd.read_csv(FILE_SEGNALAZIONI_NM)
+                        df_analisi = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';')
                     except Exception:
                         df_analisi = pd.DataFrame(columns=nuovo_record.keys())
 
                 # 1. Unisci il nuovo record con i dati esistenti
                 df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
-              
+                
+                # Salvataggio con separatore ';' specificato
+                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False)
+
                 # 2. Invia l'aggiornamento a GitHub tramite la funzione
                 if salva_csv_su_github(
                     df_totale,
