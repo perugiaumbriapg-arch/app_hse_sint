@@ -1549,15 +1549,40 @@ if nav == "Analisi Segnalazioni Near Miss":
         # --- LETTURA DELLE SEGNALAZIONI DAI DUE FILE ---
         lista_segnalazioni = []
         mappa_descrizioni = {}
-        # 1. Lettura File "segnalazioni_near_miss.csv"
+        
+        # 1. Lettura File "segnalazioni_near_miss.csv" con supporto sia per la virgola (,) che per il punto e virgola (;)
         if os.path.exists(FILE_NEAR_MISS):
+            df_nm = None
+            # Tentativo 1: con separatore virgola (,)
             try:
-                df_nm = pd.read_csv(
+                temp_df = pd.read_csv(
                     FILE_NEAR_MISS,
-                    sep=";",
+                    sep=",",
                     on_bad_lines="skip",
                     engine="python",
                 )
+                if temp_df.shape[1] > 1:
+                    df_nm = temp_df
+            except Exception:
+                pass
+                
+            # Tentativo 2: se non ha funzionato o ha solo 1 colonna, proviamo con il punto e virgola (;)
+            if df_nm is None or df_nm.shape[1] <= 1:
+                try:
+                    temp_df = pd.read_csv(
+                        FILE_NEAR_MISS,
+                        sep=";",
+                        on_bad_lines="skip",
+                        engine="python",
+                    )
+                    if temp_df.shape[1] > 1:
+                        df_nm = temp_df
+                    elif df_nm is None:
+                        df_nm = temp_df
+                except Exception as e:
+                    st.warning(f"Impossibile leggere {FILE_NEAR_MISS}: {e}")
+
+            if df_nm is not None and not df_nm.empty:
                 for idx, row in df_nm.iterrows():
                     data_ev = str(row.get("Data Evento", "N/D"))
                     tipo_ev = str(row.get("Tipo Evento", "N/D"))
@@ -1567,9 +1592,8 @@ if nav == "Analisi Segnalazioni Near Miss":
                     label = f"{data_ev} | Segnalazione NM | {tipo_ev} | {segnalatore} | {luogo} | {reparto}"
                     lista_segnalazioni.append(label)
                     mappa_descrizioni[label] = str(row.get("Descrizione", ""))
-            except Exception as e:
-                st.warning(f"Impossibile leggere {FILE_NEAR_MISS}: {e}")
-        # 2. Lettura File "manutenzione.csv"
+                
+        # 2. Lettura File "manutenzione.csv" (utilizzando il punto e virgola ';' come separatore)
         if os.path.exists(FILE_MANUTENZIONE):
             try:
                 df_man = pd.read_csv(
@@ -1590,6 +1614,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                     mappa_descrizioni[label] = str(row.get("Descrizione", ""))
             except Exception as e:
                 st.warning(f"Impossibile leggere {FILE_MANUTENZIONE}: {e}")
+                
         # Lettura file delle analisi
         df_analisi = (
             pd.read_csv(
@@ -1696,8 +1721,8 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Fuoriuscita di gas, fumi, aerosol e liquidi",
                         "Contatto con organi lavoratori in movimento",
                         "Contatto con oggetti o materiali caldi, fiamme libere, etc. (nella loro abituale sede)",
-                        "Contatto con gas, fumi, aerosol e liquidi (nella loro abituale sede",
-                        "Contatto con oggetti o materiali a bassissima temperatura (nella loro abituale sed",
+                        "Contatto con gas, fumi, aerosol e liquidi (nella loro abituale sede)",
+                        "Contatto con oggetti o materiali a bassissima temperatura (nella loro abituale sede)",
                         "Stretto, schiacciato da",
                         "Travolta, sommerso da",
                         "Travolto, investito da",
@@ -1738,7 +1763,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Errore procedurale (disattenzione, scarsa conoscenza procedure operative, …)",
                         "Illuminazione non idonea o assente",
                         "Problema di comunicazione (lingua, incertezza nei ruoli e/o compiti)",
-                        "Assenza o inadeguatezza di barriere, protezioni, parapetti, armatur",
+                        "Assenza o inadeguatezza di barriere, protezioni, parapetti, armature",
                         "Mancanza/inadeguatezza di procedure operative",
                         "Spazi inadeguati su postazioni di lavoro",
                         "Mancanza di protezioni sull'attrezzatura",
@@ -1758,7 +1783,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "DPI non fornito",
                         "DPI inadeguato",
                         "Segnaletica di sicurezza/Cartellonistica inadeguata o assente",
-                        "Assenza o inadeguatezza di percorsi in sicurezza, vie di transito, uscite di emergenza (ingombro di materiali, irregolarità su pavimentazioni)"
+                        "Assenza o inadeguatezza di percorsi in sicurezza, vie di transito, uscite di emergenza (ingombro di materiali, irregolarità su pavimentazioni)",
                         "Altro",
                     ],
                 )
@@ -1773,7 +1798,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Dvr/duvri/psc/pos",
                         "Emergenze e Antincendio",
                         "Piani di manutenzione e pulizia",
-                        "Informazione"
+                        "Informazione",
                         "Formazione carente",
                         "Sorveglianza sanitaria",
                         "Verifiche periodiche e certificazione conformità impianti",
@@ -1912,7 +1937,6 @@ if nav == "Analisi Segnalazioni Near Miss":
                             )
                             time.sleep(1)
                             st.rerun()
-
 
 
 # ==================================================================
