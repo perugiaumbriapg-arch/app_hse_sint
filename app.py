@@ -4013,7 +4013,7 @@ if nav == "Skill Matrix":
                     df_res = pd.DataFrame(dati_form)
                     csv_content = df_res.to_csv(index=False, sep=";")
                     
-                    # 1. Salvataggio Locale
+                    # 1. Salvataggio Locale del singolo file di autovalutazione
                     try:
                         os.makedirs(autoval_dir, exist_ok=True)
                         with open(local_save_path, "w", encoding="utf-8") as f:
@@ -4021,13 +4021,72 @@ if nav == "Skill Matrix":
                     except Exception as e:
                         st.warning(f"Impossibile salvare in locale: {e}")
 
-                    # 2. Salvataggio via API GitHub
+                    # 1.1 AGGIORNAMENTO AUTOMATICO DEL FILE MASTER 'Skill_Matrix_Panoramica_Generale.csv'
+                    file_name_master = "Skill_Matrix_Panoramica_Generale.csv"
+                    master_local_path = os.path.join(skill_matrix_dir, file_name_master)
+                    github_master_path = f"Skill_Matrix/{file_name_master}"
+                    
+                    new_master_row = {
+                        "Nome": nome_utente.strip(),
+                        "Cognome": cognome_utente.strip(),
+                        "Inquadramento-Mansione": inquadramento_mansione.strip(),
+                        "Ambito lavorativo": ambito_lavorativo,
+                        "Data Autovalutazione": str(data_compilazione),
+                        "Processi produttivi mansione": float(q1),
+                        "Rapporto colleghi": float(q2),
+                        "Interfaccia fornitori-clienti": float(q3),
+                        "Processi cartone-scatole": float(q4),
+                        "Processo pallettizzazione": float(q5),
+                        "Competenze legali-tecniche": float(q6),
+                        "Individuazione rischi-fabbisogni": float(q7),
+                        "Capacità d'adattamento": float(q8),
+                        "Capacità comunicative": float(q9),
+                        "Precisione lavoro": float(q10),
+                        "Persuasione": float(q11),
+                        "Analisi critica contesto": float(q12),
+                        "Turnazioni": float(q13),
+                        "Responsabilità supervisione": float(q14),
+                        "File Sorgente": file_name_csv
+                    }
+                    
+                    # Leggi o crea il dataframe master esistente
+                    if os.path.exists(master_local_path):
+                        try:
+                            df_master_sm = pd.read_csv(master_local_path, sep=";")
+                        except Exception:
+                            df_master_sm = pd.DataFrame()
+                    else:
+                        df_master_sm = pd.DataFrame()
+                        
+                    # Aggiungi o aggiorna la riga nel master
+                    if not df_master_sm.empty and "File Sorgente" in df_master_sm.columns:
+                        if file_name_csv in df_master_sm["File Sorgente"].values:
+                            for k, v in new_master_row.items():
+                                df_master_sm.loc[df_master_sm["File Sorgente"] == file_name_csv, k] = v
+                        else:
+                            df_master_sm = pd.concat([df_master_sm, pd.DataFrame([new_master_row])], ignore_index=True)
+                    else:
+                        df_master_sm = pd.DataFrame([new_master_row])
+                        
+                    csv_master_data = df_master_sm.to_csv(index=False, sep=";")
+                    
+                    # Salva il master aggiornato in locale
+                    try:
+                        os.makedirs(skill_matrix_dir, exist_ok=True)
+                        with open(master_local_path, "w", encoding="utf-8") as f:
+                            f.write(csv_master_data)
+                    except Exception as e:
+                        st.warning(f"Impossibile aggiornare il master in locale: {e}")
+
+                    # 2. Salvataggio via API GitHub (sia del file singolo che del master)
                     if not token or not repo_name:
                         st.error("⚠️ GITHUB_TOKEN o REPO_NAME mancanti nei secrets di Streamlit. Salvataggio limitato alla sessione.")
                     else:
                         try:
                             g = Github(token)
                             repo = g.get_repo(repo_name)
+                            
+                            # A) Caricamento file singolo su GitHub
                             try:
                                 file_existing = repo.get_contents(github_path)
                                 repo.update_file(
@@ -4042,13 +4101,30 @@ if nav == "Skill Matrix":
                                     message=f"Aggiunta nuova autovalutazione: {file_name_csv}",
                                     content=csv_content
                                 )
-                            st.success(f"✅ Autovalutazione salvata permanentemente su GitHub nel percorso: `{github_path}`")
+                                
+                            # B) Caricamento file master aggiornato su GitHub
+                            try:
+                                master_existing = repo.get_contents(github_master_path)
+                                repo.update_file(
+                                    path=github_master_path,
+                                    message="Aggiornato Skill_Matrix_Panoramica_Generale.csv con nuova compilazione",
+                                    content=csv_master_data,
+                                    sha=master_existing.sha
+                                )
+                            except GithubException:
+                                repo.create_file(
+                                    path=github_master_path,
+                                    message="Creato Skill_Matrix_Panoramica_Generale.csv con nuova compilazione",
+                                    content=csv_master_data
+                                )
+                                
+                            st.success(f"✅ Autovalutazione salvata e inserita in `Skill_Matrix_Panoramica_Generale.csv` permanentemente su GitHub!")
                         except Exception as e:
                             st.error(f"Errore durante il salvataggio su GitHub: {e}")
 
-    # =========================================================
-    # 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX
-    # =========================================================
+# =========================================================
+# 2. SOTTOSEZIONE RISERVATA - SKILL MATRIX
+# =========================================================
     elif sotto_sec_sm == "Skill Matrix":
         # Autenticazione PASSWORD_SEZIONE
         password_secrets = st.secrets.get("PASSWORD_SEZIONE", st.secrets.get("SKILL_MATRIX_PASSWORD", "hse2026"))
