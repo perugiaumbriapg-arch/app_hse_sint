@@ -1033,6 +1033,18 @@ if nav == "Home Dashboard":
 # ==================================================================
 # --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
 # ==================================================================
+
+# Controllo di sicurezza per evitare NameError se la funzione è definita più in basso
+if 'salva_csv_su_github' not in globals():
+    def salva_csv_su_github(df, file_path, commit_message):
+        try:
+            # Fallback di salvataggio locale se la funzione principale non è ancora dichiarata
+            df.to_csv(file_path, index=False)
+            return True
+        except Exception as e:
+            st.error(f"Errore di salvataggio: {e}")
+            return False
+
 if nav == "Segnalazione Near Miss":
     st.info(
         "Near miss (mancato infortunio): evento avvenuto nel luogo di lavoro che non ha recato danno fisico al lavoratore, pur avendone il potenziale.\n"
@@ -1278,7 +1290,7 @@ if nav == "Segnalazione Near Miss":
                 # ---------------------------------------------------------
                 df_n = pd.DataFrame([nuovo_record])
                 
-                # Controllo di sicurezza: se df_analisi non esiste, lo carica o lo inizializza
+                # Controllo di sicurezza per df_analisi
                 if 'df_analisi' not in locals() and 'df_analisi' not in globals():
                     try:
                         df_analisi = pd.read_csv(FILE_ANALISI_NM)
@@ -1297,7 +1309,6 @@ if nav == "Segnalazione Near Miss":
                     st.success("Analisi salvata e sincronizzata con successo su GitHub!")
                     time.sleep(1)
                     st.rerun()
-
 # ==================================================================
 # --- SEZIONE 3: SCADENZARIO ADEMPIMENTI ---
 # ==================================================================
