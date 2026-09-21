@@ -1283,6 +1283,10 @@ if nav == "Segnalazione Near Miss":
 
                 now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
+                # Pulizia dei testi liberi da a capo per evitare corruzioni del file CSV
+                descrizione_pulita = descrizione.strip().replace("\r", " ").replace("\n", " ")
+                proposte_pulite = valutazioni_proposte.strip().replace("\r", " ").replace("\n", " ")
+
                 nuovo_record = {
                     "Data Segnalazione": now_str,
                     "Tipo Evento": tipo_evento,
@@ -1304,35 +1308,40 @@ if nav == "Segnalazione Near Miss":
                         if fascia_lavoratore.strip()
                         else "N/D"
                     ),
-                    "Descrizione": descrizione.strip(),
+                    "Descrizione": descrizione_pulita,
                     "Percorso Immagine": immagine_salvata_nome,
                     "Cause Rilevate": ", ".join(cause_selezionate),
                     "Presentata in Passato": storico_riscontro,
-                    "Proposte Miglioramento": valutazioni_proposte.strip(),
+                    "Proposte Miglioramento": proposte_pulite,
                     "Stato Presa in Carico": "Da firmare",
                 }
 
-                # ---------------------------------------------------------
-                # CARICAMENTO SICURO E ACCODAMENTO SENZA CANCELLAZIONE
-                # ---------------------------------------------------------
-                try:
-                    # Legge il file esistente per preservare tutte le righe storiche precedenti
-                    df_esistente = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';')
-                except Exception:
-                    # Se il file non esiste o è vuoto, inizializza con le colonne obbligatorie
-                    df_esistente = pd.DataFrame(columns=list(nuovo_record.keys()))
+                colonne_obbligatorie = list(nuovo_record.keys())
 
-                # Crea il dataframe con il nuovo record inviato
-                df_nuovo_record = pd.DataFrame([nuovo_record])
+                # ---------------------------------------------------------
+                # LETTURA SICURA DELLO STORICO (PRESERVA TUTTE LE RIGHE PRECEDENTI)
+                # ---------------------------------------------------------
+                df_esistente = pd.DataFrame(columns=colonne_obbligatorie)
+                if os.path.exists(FILE_SEGNALAZIONI_NM):
+                    try:
+                        df_temp = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';', encoding='utf-8-sig')
+                        if not df_temp.empty:
+                            for col in colonne_obbligatorie:
+                                if col not in df_temp.columns:
+                                    df_temp[col] = ""
+                            df_esistente = df_temp[colonne_obbligatorie]
+                    except Exception:
+                        pass
 
-                # Concatena i vecchi record con il nuovo registro in fondo
-                df_totale = pd.concat([df_esistente, df_nuovo_record], ignore_index=True)
+                # Aggiunge il nuovo record in coda allo storico esistente
+                df_nuovo = pd.DataFrame([nuovo_record])
+                df_totale = pd.concat([df_esistente, df_nuovo], ignore_index=True)
                 
-                # Mantiene rigorosamente solo le 16 colonne obbligatorie nell'ordine corretto
-                df_totale = df_totale[list(nuovo_record.keys())]
+                # Mantiene rigorosamente solo le 16 colonne obbligatorie nell'ordine stabilito
+                df_totale = df_totale[colonne_obbligatorie]
                 
-                # Salva sul file CSV locale con separatore ';'
-                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False)
+                # Salvataggio su file locale con separatore punto e virgola (;)
+                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False, encoding='utf-8-sig')
 
                 # ---------------------------------------------------------
                 # SINCRONIZZAZIONE CON GITHUB
