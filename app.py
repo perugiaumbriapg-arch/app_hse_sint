@@ -4350,6 +4350,34 @@ if nav == "Riconoscimento":
         rel_github_path = "Riconoscimento/Riconoscimento_Partecipazione_NM.csv"
         file_riconoscimenti_csv = os.path.join(base_dir, "Riconoscimento", "Riconoscimento_Partecipazione_NM.csv")
         
+        # Funzione di supporto per trovare file ignorando le maiuscole/minuscole nelle cartelle
+        def trova_file_case_insensitive(base, subfolder, filename):
+            target_path = os.path.join(base, subfolder, filename) if subfolder else os.path.join(base, filename)
+            if os.path.exists(target_path):
+                return target_path
+            
+            try:
+                current = base
+                parts = []
+                if subfolder:
+                    parts.extend(subfolder.replace("\\", "/").split("/"))
+                parts.append(filename)
+                
+                for part in parts:
+                    if not os.path.exists(current):
+                        return None
+                    found = False
+                    for entry in os.listdir(current):
+                        if entry.lower() == part.lower():
+                            current = os.path.join(current, entry)
+                            found = True
+                            break
+                    if not found:
+                        return None
+                return current if os.path.exists(current) else None
+            except Exception:
+                return None
+
         # ---------------------------------------------------------
         # Funzione di supporto: Lettura/Caricamento dati salvati e controllo dei 4 file
         # ---------------------------------------------------------
@@ -4358,75 +4386,79 @@ if nav == "Riconoscimento":
             punti_seg_dict = {}
             punti_sk_dict = {}
 
-            # 1. Caricamento da file esistente in Riconoscimento/Riconoscimento_Partecipazione_NM.csv
-            if os.path.exists(file_riconoscimenti_csv):
-                try:
-                    df_ric_esistente = pd.read_csv(file_riconoscimenti_csv, sep=";")
-                    if not df_ric_esistente.empty:
-                        for _, row in df_ric_esistente.iterrows():
-                            nom = str(row.get("Nominativo", "")).strip()
-                            fonte = str(row.get("Fonte", "")).strip()
-                            p_seg = row.get("Punti Segnalazione (+50)", 0)
-                            p_sk = row.get("Punti Skill Matrix (+25)", 0)
-                            
-                            if nom and nom.lower() != "nan":
-                                if nom not in nomi_fonti_dict:
-                                    nomi_fonti_dict[nom] = set()
-                                if fonte and fonte.lower() != "nan":
-                                    for f in fonte.split("&"):
-                                        nomi_fonti_dict[nom].add(f.strip())
-                                punti_seg_dict[nom] = p_seg
-                                punti_sk_dict[nom] = p_sk
-                except Exception:
-                    pass
-
-            # Helper generale per gli altri file
-            def estrai_nominativi(file_path, possible_col_names, default_fonte):
-                if os.path.exists(file_path):
-                    for sep in [";", ","]:
+            # Funzione di supporto per leggere un CSV in modo robusto
+            def leggi_csv_robusto(file_path):
+                if not file_path or not os.path.exists(file_path):
+                    return None
+                for sep in [";", ",", "\t"]:
+                    for enc in ['utf-8', 'latin-1', 'cp1252']:
                         try:
-                            df = pd.read_csv(file_path, sep=sep)
+                            df = pd.read_csv(file_path, sep=sep, encoding=enc, on_bad_lines='skip')
                             if not df.empty:
-                                found_cols = [col for col in df.columns if any(p in col.strip().lower() for p in possible_col_names)]
-                                for col in found_cols:
-                                    vals = df[col].dropna().astype(str).str.strip()
-                                    for val in vals:
-                                        if val and val.lower() != "nan" and val.lower() != "n/d":
-                                            if val not in nomi_fonti_dict:
-                                                nomi_fonti_dict[val] = set()
-                                            nomi_fonti_dict[val].add(default_fonte)
-                                break
+                                df.columns = [str(c).strip() for c in df.columns]
+                                return df
                         except Exception:
                             continue
+                return None
 
-            # 2. Controllo specifico per segnalazioni_near_miss.csv (Colonna: "Segnalatore")
-            file_nm = os.path.join(base_dir, "segnalazioni_near_miss.csv")
-            if os.path.exists(file_nm):
-                for sep in [";", ","]:
-                    try:
-                        df_nm = pd.read_csv(file_nm, sep=sep)
-                        if not df_nm.empty:
-                            col_seg = [col for col in df_nm.columns if col.strip().lower() == "segnalatore"]
-                            if col_seg:
-                                vals = df_nm[col_seg[0]].dropna().astype(str).str.strip()
-                                for val in vals:
-                                    if val and val.lower() != "nan" and val.lower() != "n/d":
-                                        if val not in nomi_fonti_dict:
-                                            nomi_fonti_dict[val] = set()
-                                        nomi_fonti_dict[val].add("Segnalazione Near Miss")
-                            break
-                    except Exception:
-                        continue
+            # 1. Caricamento da file esistente in Riconoscimento_Partecipazione_NM.csv (Colonna: "Nominativo")
+            file_ric_esistente_path = trova_file_case_insensitive(base_dir, "Riconoscimento", "Riconoscimento_Partecipazione_NM.csv")
+            df_ric = leggi_csv_robusto(file_ric_esistente_path)
+            if df_ric is not None and "Nominativo" in df_ric.columns:
+                for _, row in df_ric.iterrows():
+                    nom = str(row.get("Nominativo", "")).strip()
+                    fonte = str(row.get("Fonte", "")).strip()
+                    p_seg = row.get("Punti Segnalazione (+50)", 0)
+                    p_sk = row.get("Punti Skill Matrix (+25)", 0)
+                    
+                    if nom and nom.lower() not in ["nan", "none", ""]:
+                        if nom not in nomi_fonti_dict:
+                            nomi_fonti_dict[nom] = set()
+                        if fonte and fonte.lower() not in ["nan", "none", ""]:
+                            for f in fonte.split("&"):
+                                nomi_fonti_dict[nom].add(f.strip())
+                        punti_seg_dict[nom] = p_seg
+                        punti_sk_dict[nom] = p_sk
 
-            # 3. Controllo file: Segnalazione_NM_Manutenzione/manutenzione.csv
-            file_manutenzione = os.path.join(base_dir, "Segnalazione_NM_Manutenzione", "manutenzione.csv")
-            estrai_nominativi(file_manutenzione, ["segnalatore", "operatore", "tecnico", "nominativo", "manutentore"], "Manutenzione")
+            # Helper per estrarre da una colonna specifica (es. "Segnalatore")
+            def estrai_da_colonna(file_path, nome_colonna, default_fonte):
+                df = leggi_csv_robusto(file_path)
+                if df is not None:
+                    match_col = next((col for col in df.columns if col.strip().lower() == nome_colonna.lower()), None)
+                    if match_col:
+                        vals = df[match_col].dropna().astype(str).str.strip()
+                        for val in vals:
+                            if val and val.lower() not in ["nan", "n/d", "none", "", "nat"]:
+                                if val not in nomi_fonti_dict:
+                                    nomi_fonti_dict[val] = set()
+                                nomi_fonti_dict[val].add(default_fonte)
 
-            # 4. Controllo file: Skill_Matrix/Skill_Matrix_Panoramica_Generale.csv
-            file_skill_gen = os.path.join(base_dir, "Skill_Matrix", "Skill_Matrix_Panoramica_Generale.csv")
-            estrai_nominativi(file_skill_gen, ["nominativo", "nome", "dipendente", "operatore"], "Skill Matrix")
+            # 2. Controllo file: segnalazioni_near_miss.csv (Colonna: "Segnalatore")
+            file_nm = trova_file_case_insensitive(base_dir, "", "segnalazioni_near_miss.csv")
+            estrai_da_colonna(file_nm, "Segnalatore", "Segnalazione Near Miss")
 
-            # Costruzione del DataFrame finale
+            # 3. Controllo file: Segnalazione_NM_Manutenzione/manutenzione.csv (Colonna: "Segnalatore")
+            file_manutenzione = trova_file_case_insensitive(base_dir, "Segnalazione_NM_Manutenzione", "manutenzione.csv")
+            estrai_da_colonna(file_manutenzione, "Segnalatore", "Manutenzione")
+
+            # 4. Controllo file: Skill_Matrix/Skill_Matrix_Panoramica_Generale.csv (Colonne: "Nome" e "Cognome")
+            file_skill_gen = trova_file_case_insensitive(base_dir, "Skill_Matrix", "Skill_Matrix_Panoramica_Generale.csv")
+            df_skill = leggi_csv_robusto(file_skill_gen)
+            if df_skill is not None:
+                col_nome = next((c for c in df_skill.columns if c.strip().lower() == "nome"), None)
+                col_cognome = next((c for c in df_skill.columns if c.strip().lower() == "cognome"), None)
+                
+                if col_nome and col_cognome:
+                    for _, row in df_skill.iterrows():
+                        n = str(row.get(col_nome, "")).strip()
+                        c = str(row.get(col_cognome, "")).strip()
+                        if n and n.lower() not in ["nan", "none", ""] and c and c.lower() not in ["nan", "none", ""]:
+                            nom = f"{n} {c}"
+                            if nom not in nomi_fonti_dict:
+                                nomi_fonti_dict[nom] = set()
+                            nomi_fonti_dict[nom].add("Skill Matrix")
+
+            # Costruzione del DataFrame finale combinato
             rows = []
             for nom, fonti_set in nomi_fonti_dict.items():
                 fonte_str = " & ".join(sorted(list(fonti_set))) if fonti_set else "N/D"
