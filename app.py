@@ -1074,7 +1074,7 @@ FILE_SEGNALAZIONI_NM = "segnalazioni_near_miss.csv"
 
 if nav == "Segnalazione Near Miss":
     st.info(
-        "Near miss (mancato infortunio): evento avvenuto nel luogo di lavoro che non ha recato danno fisico al lavoratore, pur avendone il potenziale.\n"
+        "Near miss (mancato infortunio): evento avvenuto nel luogo di lavoro che non ha recato danno fisico al lavoratore, pur avendone il potenziale."
         "Esempi: caduta di materiale imballato durante movimentazione con carrello elevatore; improvvisa fuoriuscita di liquido da tubazione; lavoratore scivola su pavimento bagnato senza riportare danni.\n\n"
         "Non conformità: situazione di pericolo che non genera alcun incidente/infortunio ma rilevabile su procedure operative, attrezzature, ambienti di lavoro, dpi.\n"
         "Esempi: macchinario senza protezione, casco di sicurezza non indossato, area di lavoro priva di percorsi sicuri."
@@ -1337,6 +1337,39 @@ if nav == "Segnalazione Near Miss":
                     f"Aggiunta segnalazione del {datetime.now().strftime('%d/%m/%Y')}",
                 ):
                     st.success("Segnalazione salvata e sincronizzata con successo su GitHub!")
+
+                    # 3. Invio notifica email alla direzione tramite i secrets di Streamlit
+                    try:
+                        import smtplib
+                        from email.message import EmailMessage
+
+                        smtp_server = st.secrets["email"]["smtp_server"]
+                        smtp_port = st.secrets["email"]["smtp_port"]
+                        sender_email = st.secrets["email"]["sender_email"]
+                        sender_password = st.secrets["email"]["sender_password"]
+                        receiver_email = st.secrets["email"]["receiver_email"]
+
+                        msg = EmailMessage()
+                        msg.set_content(
+                            f"Nuova segnalazione Near Miss registrata in data {now_str}.\n\n"
+                            f"Tipo Evento: {tipo_evento}\n"
+                            f"Segnalatore: {segnalatore.strip() if segnalatore.strip() else 'Anonimo'}\n"
+                            f"Luogo: {luogo}\n"
+                            f"Reparto: {reparto_aziendale.strip() if reparto_aziendale.strip() else 'N/D'}\n"
+                            f"Descrizione: {descrizione.strip()}"
+                        )
+                        msg["Subject"] = "Nuova segnalazione Near Miss"
+                        msg["From"] = sender_email
+                        msg["To"] = receiver_email
+
+                        with smtplib.SMTP_SSL(smtp_server, int(smtp_port)) as server:
+                            server.login(sender_email, sender_password)
+                            server.send_message(msg)
+
+                        st.success("Notifica email inviata con successo alla direzione.")
+                    except Exception as e:
+                        st.warning(f"Segnalazione salvata su GitHub, ma si è verificato un errore nell'invio dell'email: {e}")
+
                     time.sleep(1)
                     st.rerun()
 # ==================================================================
