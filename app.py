@@ -1066,11 +1066,83 @@ if nav == "Home Dashboard":
         st.error("Il file PDF 'FLOWCHART SEGNALAZIONE NEAR MISS.pdf' non è stato trovato nella cartella 'documenti_conformita'.")
 
 # ==================================================================
-# --- SEZIONE 2: SEGNALAZIONE NEAR MISS ---
+# --- SEZIONE 2: SEGNALAZIONE NEAR MISS (ONLINE GITHUB) ---
 # ==================================================================
-
-# Nome del file CSV per le segnalazioni nella stessa cartella di app.py
+# Nome del file CSV per le segnalazioni sul repository di GitHub
 FILE_SEGNALAZIONI_NM = "segnalazioni_near_miss.csv"
+
+# ==================================================================
+# --- FUNZIONI DI SUPPORTO PER GITHUB ONLINE ---
+# ==================================================================
+def leggi_csv_da_github(nome_file):
+    """
+    Legge un file CSV direttamente dal repository GitHub online usando Streamlit Secrets.
+    Restituisce una tupla (DataFrame, sha).
+    """
+    try:
+        token = st.secrets["GITHUB_TOKEN"]
+        repo_name = st.secrets["REPO_NAME"]
+        branch = st.secrets.get("GITHUB_BRANCH", "main")
+
+        g = Github(token)
+        repo = g.get_repo(repo_name)
+        file_content = repo.get_contents(nome_file, ref=branch)
+        data_str = file_content.decoded_content.decode("utf-8")
+
+        # Legge il CSV scaricato da GitHub usando ';' come separatore
+        df = pd.read_csv(io.StringIO(data_str), sep=";", dtype=str)
+        return df, file_content.sha
+    except Exception:
+        # Se il file non esiste ancora su GitHub o si verifica un errore di lettura
+        return None, None
+
+
+def salva_csv_su_github_online(df_totale, nome_file, messaggio_commit):
+    """
+    Aggiorna o crea il file CSV direttamente su GitHub Online tramite API.
+    """
+    try:
+        token = st.secrets["GITHUB_TOKEN"]
+        repo_name = st.secrets["REPO_NAME"]
+        branch = st.secrets.get("GITHUB_BRANCH", "main")
+
+        g = Github(token)
+        repo = g.get_repo(repo_name)
+
+        # Converte il DataFrame in stringa CSV con separatore ';'
+        csv_buffer = io.StringIO()
+        df_totale.to_csv(csv_buffer, sep=";", index=False)
+        contenuto_csv = csv_buffer.getvalue()
+
+        # Verifica se il file esiste già su GitHub per recuperare lo SHA
+        _, sha_esistente = leggi_csv_da_github(nome_file)
+
+        if sha_esistente:
+            # Aggiorna il file esistente mantenendo i dati passati
+            repo.update_file(
+                path=nome_file,
+                message=messaggio_commit,
+                content=contenuto_csv,
+                sha=sha_esistente,
+                branch=branch,
+            )
+        else:
+            # Crea un nuovo file su GitHub se non è ancora presente
+            repo.create_file(
+                path=nome_file,
+                message=messaggio_commit,
+                content=contenuto_csv,
+                branch=branch,
+            )
+        return True
+    except Exception as e:
+        st.error(f"Errore durante il salvataggio su GitHub Online: {e}")
+        return False
+
+
+# ==================================================================
+# --- INTERFACCIA E FORM SEGNALAZIONE ---
+# ==================================================================
 
 if nav == "Segnalazione Near Miss":
     st.info(
@@ -1278,11 +1350,16 @@ if nav == "Segnalazione Near Miss":
                         cause_selezionate.append(nome_c)
                 if altro_specificare.strip():
                     cause_selezionate.append(
-                        f"Altro: {altro_specificare.strip()}"
+                        f"Altro: {altro_specificare.strip().replace('\n', ' ')}"
                     )
 
                 now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
+                # Pulizia stringhe da ritorni a capo
+                descrizione_clean = descrizione.strip().replace("\r\n", " ").replace("\n", " ")
+                proposte_clean = valutazioni_proposte.strip().replace("\r\n", " ").replace("\n", " ")
+
+                # Costruzione della riga singola da aggiungere
                 nuovo_record = {
                     "Data Segnalazione": now_str,
                     "Tipo Evento": tipo_evento,
@@ -1304,39 +1381,35 @@ if nav == "Segnalazione Near Miss":
                         if fascia_lavoratore.strip()
                         else "N/D"
                     ),
-                    "Descrizione": descrizione.strip(),
+                    "Descrizione": descrizione_clean,
                     "Percorso Immagine": immagine_salvata_nome,
                     "Cause Rilevate": ", ".join(cause_selezionate),
                     "Presentata in Passato": storico_riscontro,
-                    "Proposte Miglioramento": valutazioni_proposte.strip(),
+                    "Proposte Miglioramento": proposte_clean,
                     "Stato Presa in Carico": "Da firmare",
                 }
 
-                # ---------------------------------------------------------
-                # SALVATAGGIO AUTOMATICO SU GITHUB
-                # ---------------------------------------------------------
-                df_n = pd.DataFrame([nuovo_record])
-                
-                # Gestione di sicurezza per il dataframe esistente
-                if 'df_analisi' not in locals() and 'df_analisi' not in globals():
-                    try:
-                        df_analisi = pd.read_csv(FILE_SEGNALAZIONI_NM, sep=';')
-                    except Exception:
-                        df_analisi = pd.DataFrame(columns=nuovo_record.keys())
+                df_nuovo = pd.DataFrame([nuovo_record])
 
-                # 1. Unisci il nuovo record con i dati esistenti
-                df_totale = pd.concat([df_analisi, df_n], ignore_index=True)
-                
-                # Salvataggio con separatore ';' specificato
-                df_totale.to_csv(FILE_SEGNALAZIONI_NM, sep=';', index=False)
+                with st.spinner("Sincronizzazione in corso con GitHub Online..."):
+                    # 1. Scarica i vecchi registri direttamente dal repository GitHub
+                    df_esistente, _ = leggi_csv_da_github(FILE_SEGNALAZIONI_NM)
 
-                # 2. Invia l'aggiornamento a GitHub tramite la funzione
-                if salva_csv_su_github(
-                    df_totale,
-                    FILE_SEGNALAZIONI_NM,
-                    f"Aggiunta segnalazione del {datetime.now().strftime('%d/%m/%Y')}",
-                ):
-                    st.success("Segnalazione salvata e sincronizzata con successo su GitHub!")
+                    # 2. Accoda la nuova riga mantenendo i vecchi dati
+                    if df_esistente is not None and not df_esistente.empty:
+                        df_totale = pd.concat([df_esistente, df_nuovo], ignore_index=True)
+                    else:
+                        df_totale = df_nuovo
+
+                    # 3. Invia il file CSV aggiornato su GitHub
+                    esito = salva_csv_su_github_online(
+                        df_totale,
+                        FILE_SEGNALAZIONI_NM,
+                        f"Aggiunta segnalazione online del {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
+                    )
+
+                if esito:
+                    st.success("Segnalazione salvata e registrata con successo su GitHub!")
                     time.sleep(1)
                     st.rerun()
 # ==================================================================
