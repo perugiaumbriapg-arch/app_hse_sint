@@ -4380,7 +4380,7 @@ if nav == "Riconoscimento":
                 except Exception:
                     pass
 
-            # Helper per estrarre e aggiungere nominativi dai file di controllo
+            # Helper generale per gli altri file
             def estrai_nominativi(file_path, possible_col_names, default_fonte):
                 if os.path.exists(file_path):
                     for sep in [";", ","]:
@@ -4399,9 +4399,24 @@ if nav == "Riconoscimento":
                         except Exception:
                             continue
 
-            # 2. Controllo file: segnalazioni_near_miss.csv
+            # 2. Controllo specifico per segnalazioni_near_miss.csv (Colonna: "Segnalatore")
             file_nm = os.path.join(base_dir, "segnalazioni_near_miss.csv")
-            estrai_nominativi(file_nm, ["segnalatore", "nominativo", "nome"], "Segnalazione Near Miss")
+            if os.path.exists(file_nm):
+                for sep in [";", ","]:
+                    try:
+                        df_nm = pd.read_csv(file_nm, sep=sep)
+                        if not df_nm.empty:
+                            col_seg = [col for col in df_nm.columns if col.strip().lower() == "segnalatore"]
+                            if col_seg:
+                                vals = df_nm[col_seg[0]].dropna().astype(str).str.strip()
+                                for val in vals:
+                                    if val and val.lower() != "nan" and val.lower() != "n/d":
+                                        if val not in nomi_fonti_dict:
+                                            nomi_fonti_dict[val] = set()
+                                        nomi_fonti_dict[val].add("Segnalazione Near Miss")
+                            break
+                    except Exception:
+                        continue
 
             # 3. Controllo file: Segnalazione_NM_Manutenzione/manutenzione.csv
             file_manutenzione = os.path.join(base_dir, "Segnalazione_NM_Manutenzione", "manutenzione.csv")
