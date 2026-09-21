@@ -1780,11 +1780,8 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Movimentazione e trasporto con apparecchi",
                         "Movimentazione e trasporto con apparecchi mobili",
                         "Smistamento, manovra",
-                        "Andare avanti e indietro",
                         "Pulizia, riordino locali",
-                        "Lavaggio, cambio abiti",
                         "Pausa, ristoro",
-                        "Attività sportive, giochi, liti",
                         "Contatto con animali vivi",
                         "Altro",
                     ],
@@ -1827,7 +1824,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                     "Criticità:",
                     [
                         "Vigilanza/Coordinamento",
-                        "Dvr/duvri/psc/pos",
+                        "DVR/DUVRI/PSC/POS",
                         "Emergenze e Antincendio",
                         "Piani di manutenzione e pulizia",
                         "Informazione",
@@ -1837,6 +1834,7 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Primo soccorso",
                         "Verifica idoneità tecnico-professionale",
                         "Nomine e designazioni",
+                        "Aggiornamento Procedure/Istruzioni",
                         "Nessuna",
                     ],
                 )
