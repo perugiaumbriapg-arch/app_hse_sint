@@ -1,0 +1,20 @@
+{
+    "Data Generazione Report": "21-09-2026 08:45:20",
+    "File Obbligatorio Associato": "analisi_near_miss.csv",
+    "File Facoltativo Associato": "Non utilizzato / Assente",
+    "Riferimento Selezionato": "AN | 2026-09-21 08:24:00 | Collegamento: ,21-09-2026 08:17:00,Near Miss,Giovanni Bianchi,Maschio,31-50 anni,21/09/2026,In Azienda,Ondulatore,12-18,4,\"Mentre controllavo la viscosità dell'incollate, c'è stato un fuoriuscita di vapore vicino ai cilindri preriscaldati, dallo spavento ho quasi sfiorato i cilindri. Però enz austionarmi.\",Nessuna,\"Errore procedurale, Presenza gas\",No,,Da firmare | Segnalazione NM | nan",
+    "4M": {
+        "Macchina": "Una guarnizione del cilindro di preriscaldamento si è usurato.",
+        "Materiale": "Nessuna",
+        "Metodo": "Procedura non realizzata correttamente. Non si è verificato previamente il livello di viscosità della cabina di controllo. L'accesso alla zona dei cilindri preriscaldati dell'ondulatore è vietato tranne personale autorizzato. Non era il caso.",
+        "Manodopera": "Non utilizzo dei DPI adeguati alla mansione. Non indossava i guanti protettivi."
+    },
+    "5Whys": [
+        "Mancanza conoscenza dei DPI da utilizzare.",
+        "Piano di manutenzione dell'ondulatore, non eseguito seguendo lo scadenzario previsto.",
+        "Possibilità d'accesso di personale non autorizzata alla zona di cilindri preriscaldati quando ondulatore è in funzione.",
+        "Mancanza consegna dei DPI e controllo dell'utilizzo.",
+        "Procedura e istruzioni sull'uso dell'ondulatore in tutte le sue fasi produttive e sezioni non disponibili a piede macchina. Sì disponibili in cabina di controllo."
+    ],
+    "Conclusioni": "L'accesso alla zona dei cilindri di preriscaldamento dell'ondulatore deve essere effettivamente ristretta. Da valutare un aggiornamento delle procedure e istruzioni che devono essere presenti per la consulta a piede macchina. Realizzare un controllo effettivo da parte del preposto sull'utilizzo e consegna dei DPI da parte di lavoratori del reparto a cui appartiene. Aggiornare e controllare l'effettiva applicazione del piano di manutenzione dell'ondulatore. L'ondulatore è la macchina con più guasti e inefficienza del parco macchine aziendale. La manutenzione viene fatta parzialmente o non comunicata ai responsabili RSGSSL e ai preposti del reparto da parte del Responsabile della Manutenzione. Si potrebbe individuare una metodologia di monitoraggio effettivo sull'implementazione del piano di manutenzione del parco macchine, specialmente dall'ondulatore."
+}
