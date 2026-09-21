@@ -3348,7 +3348,7 @@ if nav == "Piano Miglioramento":
             return False
         return True
 
-    # UTILITY PER CARICAMENTO EVENTI (Inclusione sicura di manutenzione.csv)
+    # UTILITY PER CARICAMENTO EVENTI (Inclusione aggiornata con formato AN per analisi_near_miss.csv)
     def load_events():
         events = []
         file_sources = [
@@ -3361,10 +3361,18 @@ if nav == "Piano Miglioramento":
         for filepath, tipo in file_sources:
             if os.path.exists(filepath):
                 try:
-                    df = pd.read_csv(filepath)
-                    if not df.empty:
-                        for val in df.iloc[:, 0].dropna().astype(str).tolist():
-                            events.append(f"{val} ({tipo})")
+                    if filepath == "analisi_near_miss.csv":
+                        df = pd.read_csv(filepath, sep=";", on_bad_lines="skip", engine="python")
+                        if not df.empty and "Data Analisi" in df.columns and "Segnalazione Collegata" in df.columns:
+                            for _, row in df.iterrows():
+                                data_an = str(row.get("Data Analisi", ""))
+                                seg_col = str(row.get("Segnalazione Collegata", ""))
+                                events.append(f"AN | {data_an} | {seg_col} (analisi)")
+                    else:
+                        df = pd.read_csv(filepath)
+                        if not df.empty:
+                            for val in df.iloc[:, 0].dropna().astype(str).tolist():
+                                events.append(f"{val} ({tipo})")
                 except Exception:
                     pass
         return sorted(list(set(events))) if events else ["Nessun evento disponibile"]
