@@ -5234,7 +5234,7 @@ if nav == "Consapevolezza":
     QUESTIONS_TEXT = {
         "Q1": "1. Quale di questi esempi e un Near Miss o quasi infortunio?",
         "Q2": "2. Indica tutte le icone dell'immagine che rappresentano un near miss:",
-        "Q3": "3. Sei nell'area magazzino... ti rendi conto che lo scaffale e instabile. Cosa fai?",
+        "Q3": "3. Sei nell'area magazzino... ti rendi conto che lo scaffale è instabile. Cosa fai?",
         "Q4": "4. Scegli i DPI obbligatori comuni a tutti gli operai della fabbrica:",
         "Q5": "5. Devi passare a piedi dietro un carrello elevatore in manovra. Come ti comporti?",
         "Q6": "6. Sei un manutentore... devi sostituire una guarnizione. Scegli la sequenza corretta:",
@@ -5311,8 +5311,8 @@ if nav == "Consapevolezza":
             # DOMANDA 3
             st.markdown(f"**{QUESTIONS_TEXT['Q3']}**")
             q3 = st.radio("Seleziona una risposta:", [
-                "a. Smetto di caricare le merci nello scafale. Lascio il carrello elevatore lì nella zona abilitata ed informo al responsabile di magazzino.",
-                "b. Smetto di caricare le merci nello scafale. Accosto lo scafale alla zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSSL.",
+                "a. Smetto di caricare le merci nello scafale. Lascio il carrello elevatore lì nella zona abilitata per la movimentazione dei carichi ed informo al responsabile di magazzino.",
+                "b. Smetto di caricare le merci nello scafale. Accosto il carrello nella zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSSL.",
                 "c. Carico la merce comunque nello scafale. Metto un cartello che dice “Attenzione, scafale innestabile”."
             ], key="q3", index=None)
 
