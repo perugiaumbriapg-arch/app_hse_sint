@@ -4031,7 +4031,7 @@ if nav == "Skill Matrix":
 
         if pdf_bytes:
             st.download_button(
-                label="📥 Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
+                label="📥Scarica / Apri PDF 'Skill Matrix Autovalutazione'",
                 data=pdf_bytes,
                 file_name=pdf_filename,
                 mime="application/pdf",
@@ -4187,7 +4187,7 @@ if nav == "Skill Matrix":
                 else:
                     st.error("Password errata o non valida.")
         else:
-            if st.button("🚪 Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
+            if st.button("Disconnetti Sezione Riservata", key="btn_logout_skill_matrix"):
                 st.session_state.auth_skill_matrix = False
                 st.rerun()
                 
@@ -4363,7 +4363,7 @@ if nav == "Skill Matrix":
                 
                 # Button 1: Salvataggio nel file CSV (Locale + GitHub)
                 with col_b1:
-                    if st.button("💾 Salva Modifiche (CSV Master)", use_container_width=True, key="btn_save_master_sm"):
+                    if st.button("Salva Modifiche", use_container_width=True, key="btn_save_master_sm"):
                         salvati_local = False
                         try:
                             os.makedirs(skill_matrix_dir, exist_ok=True)
@@ -4402,7 +4402,7 @@ if nav == "Skill Matrix":
                 # Button 2: Download CSV
                 with col_b2:
                     st.download_button(
-                        label="📥 Scarica CSV Master",
+                        label="Scarica CSV Master",
                         data=csv_master_data,
                         file_name="Skill_Matrix_Panoramica_Generale.csv",
                         mime="text/csv",
@@ -4413,7 +4413,7 @@ if nav == "Skill Matrix":
                 # Button 3: Download Excel
                 with col_b3:
                     st.download_button(
-                        label="📊 Scarica Excel (.xlsx)",
+                        label="Scarica Excel (.xlsx)",
                         data=excel_master_data,
                         file_name="Skill_Matrix_Panoramica_Generale.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -4436,7 +4436,7 @@ if nav == "Riconoscimento":
         st.session_state.auth_riconoscimento = False
 
     if not st.session_state.auth_riconoscimento:
-        st.markdown("🔒 **Area Riservata:** Inserisci la password per accedere.")
+        st.markdown("**Area Riservata:** Inserisci la password per accedere.")
         pwd_riconoscimento = st.text_input("Password Riconoscimento", type="password", key="pwd_riconoscimento_input")
         if st.button("Accedi", use_container_width=True, key="btn_auth_riconoscimento"):
             correct_pwd = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
@@ -4647,7 +4647,7 @@ if nav == "Riconoscimento":
         df_riconoscimenti, log_diagnostica = carica_o_inizializza_punteggi()
         
         # Visualizzazione box diagnostico
-        with st.expander("🔍 Diagnostica File e Colonne (Clicca per aprire)", expanded=True):
+        with st.expander("Diagnostica File e Colonne (Clicca per aprire)", expanded=True):
             st.markdown("Verifica dello stato di lettura dei file sorgente:")
             for log in log_diagnostica:
                 st.markdown(log)
@@ -4843,9 +4843,9 @@ if nav == "Controllo DPI":
                     )
                     
                     if esito_mail:
-                        st.info(f"📧 Notifica e-mail con immagine YOLO inviata con successo a `{st.secrets.get('EMAIL', '')}`.")
+                        st.info(f"Notifica e-mail con immagine inviata con successo a `{st.secrets.get('EMAIL', '')}`.")
                     else:
-                        st.warning(f"⚠️ Impossibile inviare l'e-mail: {msg_mail}")
+                        st.warning(f"Impossibile inviare l'e-mail: {msg_mail}")
 
                 except Exception as e:
                     st.error(f"Errore durante l'esecuzione del modello YOLO: {e}")
@@ -5188,7 +5188,7 @@ if nav == "Segnalazione Manutenzione":
 # SEZIONE CONSAPEVOLEZZA
 # ============================================================================================================================
 if nav == "Consapevolezza":
-    st.title("💡 Sezione Consapevolezza")
+    st.title("💡 Consapevolezza")
 
     # Configurazione GitHub
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -5512,7 +5512,7 @@ if nav == "Consapevolezza":
                         message=f"Aggiunto PDF risposte per {nome} {cognome}",
                         content=pdf_bytes
                     )
-                    st.success("📄 Report PDF (Formato A4 Singola Pagina) salvato su GitHub!")
+                    st.success("Report PDF salvato su GitHub!")
                 except Exception as e:
                     st.error(f"Errore nel salvataggio del file PDF su GitHub: {e}")
 
@@ -5532,7 +5532,7 @@ if nav == "Consapevolezza":
                         content=df_updated.to_csv(index=False),
                         sha=csv_file.sha
                     )
-                    st.success("📊 CSV aggiornato con successo su GitHub!")
+                    st.success("CSV aggiornato con successo su GitHub!")
                 except GithubException as ge:
                     if ge.status == 404:
                         repo.create_file(
@@ -5540,7 +5540,7 @@ if nav == "Consapevolezza":
                             message=f"Creato CSV risposte e inserito {nome} {cognome}",
                             content=new_row_df.to_csv(index=False)
                         )
-                        st.success("📊 Nuovo file CSV creato e salvato su GitHub!")
+                        st.success("Nuovo file CSV creato e salvato su GitHub!")
                     else:
                         st.error(f"Errore GitHub nell'aggiornamento CSV: {ge}")
                 except Exception as e:
