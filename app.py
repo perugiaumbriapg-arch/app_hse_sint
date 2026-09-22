@@ -1853,11 +1853,9 @@ if nav == "Analisi Segnalazioni Near Miss":
                         "Movimentazione e trasporto con apparecchi",
                         "Movimentazione e trasporto con apparecchi mobili",
                         "Smistamento, manovra",
-                        "Andare avanti e indietro",
                         "Pulizia, riordino locali",
                         "Lavaggio, cambio abiti",
                         "Pausa, ristoro",
-                        "Attività sportive, giochi, liti",
                         "Contatto con animali vivi",
                         "Altro",
                     ],
@@ -5307,11 +5305,11 @@ if nav == "Consapevolezza":
     QUESTIONS_TEXT = {
         "Q1": "1. Quale di questi esempi e un Near Miss o quasi infortunio?",
         "Q2": "2. Indica tutte le icone dell'immagine che rappresentano un near miss:",
-        "Q3": "3. Sei nell'area magazzino... ti rendi conto che lo scaffale e instabile. Cosa fai?",
-        "Q4": "4. Scegli i DPI obbligatori comuni a tutti gli operai della fabbrica:",
+        "Q3": "3. Sei nell’area magazzino di prodotti finiti, devi passare con il carrello elevatore nella zona abilitata, stai circolando, gli scafali del magazzino sono pieni. Stai collocando la merce sullo scafale e ti rendi conto che lo scafale è innestabile perché non ancorato alla parete. Cosa fai?",
+        "Q4": "4. Guardando la seguente immagine, sceglie i DPI che si devono indossare obbligatori nell’ambiente di lavoro comuni a tutti gli operai della fabbrica di carta e cartone:",
         "Q5": "5. Devi passare a piedi dietro un carrello elevatore in manovra. Come ti comporti?",
-        "Q6": "6. Sei un manutentore... devi sostituire una guarnizione. Scegli la sequenza corretta:",
-        "Q7": "7. Macchia di inchiostro fresco vicino alla macchina di stampaggio. Cosa fai?",
+        "Q6": "6. Sei un manutentore in azienda, devi andare a sostituire una guarnizione della macchina stampante a colori per il cartone. Guarda l’immagine e sceglie la risposta giusta:",
+        "Q7": "7. Sei in fabbrica e scontri che vicino alla macchina di stampaggio c’è una macchia di inchiostro fresco. Cosa fai?",
         "Q8": "8. Quale errore/near miss riscontri nell'immagine?"
     }
 
@@ -5385,7 +5383,7 @@ if nav == "Consapevolezza":
             st.markdown(f"**{QUESTIONS_TEXT['Q3']}**")
             q3 = st.radio("Seleziona una risposta:", [
                 "a. Smetto di caricare le merci nello scafale. Lascio il carrello elevatore lì nella zona abilitata ed informo al responsabile di magazzino.",
-                "b. Smetto di caricare le merci nello scafale. Accosto lo scafale alla zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSSL.",
+                "b. Smetto di caricare le merci nello scafale. Accosto lo scafale alla zona di parcheggio. Comunico al responsabile di magazzino e invio il form attraverso l’app al RSSL.",
                 "c. Carico la merce comunque nello scafale. Metto un cartello che dice “Attenzione, scafale innestabile”."
             ], key="q3", index=None)
 
