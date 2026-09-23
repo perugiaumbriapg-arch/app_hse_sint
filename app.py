@@ -3866,11 +3866,16 @@ if nav == "Piano Miglioramento":
 # ==================================================================
 if nav == "Stima Costo Economico":
     st.header("Stima Costo Economico del Near Miss")
-    
+
     # Helper function per formattazione in valuta italiana (es. 1.234,56 €)
     def format_euro(valore):
         try:
-            return f"{valore:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+            return (
+                f"{valore:,.2f} €"
+                .replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".")
+            )
         except Exception:
             return "0,00 €"
 
@@ -3884,11 +3889,20 @@ if nav == "Stima Costo Economico":
     # Gestione autenticazione per la Sezione 9 tramite Streamlit Secrets
     if "auth_stima_economico" not in st.session_state:
         st.session_state.auth_stima_economico = False
-        
+
     if not st.session_state.auth_stima_economico:
-        st.markdown("🔒 Inserisci la password per accedere all'area di stima del costo economico.")
-        pwd_sec9 = st.text_input("Password Sezione 9", type="password", key="pwd_sec9_input")
-        if st.button("Verifica Password", use_container_width=True, key="btn_verify_pwd_sec9"):
+        st.markdown(
+            "🔒 Inserisci la password per accedere all'area di stima del costo"
+            " economico."
+        )
+        pwd_sec9 = st.text_input(
+            "Password Sezione 9", type="password", key="pwd_sec9_input"
+        )
+        if st.button(
+            "Verifica Password",
+            use_container_width=True,
+            key="btn_verify_pwd_sec9",
+        ):
             correct_pwd = st.secrets.get("PASSWORD_SEZIONE", "hse2026")
             if pwd_sec9 == correct_pwd:
                 st.session_state.auth_stima_economico = True
@@ -3896,145 +3910,278 @@ if nav == "Stima Costo Economico":
                 st.rerun()
             else:
                 st.error("Password errata.")
-    
+
     if st.session_state.auth_stima_economico:
         # Sottosezioni della Sezione 9
         sotto_sec_9 = st.radio(
-            "Seleziona Sottosezione", 
-            ["Documentazione di Riferimento", "Calcolo economico NM"], 
-            horizontal=True, 
-            key="radio_sotto_sec_9"
+            "Seleziona Sottosezione",
+            ["Documentazione di Riferimento", "Calcolo economico NM"],
+            horizontal=True,
+            key="radio_sotto_sec_9",
         )
-        
+
         # --------------------------------------------------
         # SOTTOSEZIONE: Documentazione di Riferimento
         # --------------------------------------------------
         if sotto_sec_9 == "Documentazione di Riferimento":
             st.subheader("Consultazione Documento Stima Economica")
-            st.markdown("Consulta o scarica il documento PDF ufficiale relativo alla stima economica del near miss.")
-            
+            st.markdown(
+                "Consulta o scarica il documento PDF ufficiale relativo alla"
+                " stima economica del near miss."
+            )
+
             try:
                 base_dir = os.path.dirname(os.path.abspath(__file__))
             except NameError:
                 base_dir = os.getcwd()
-                
-            file_pdf_path = os.path.join(base_dir, "Stima_Economica", "Stima Economica del Near Miss.pdf")
-            
+
+            file_pdf_path = os.path.join(
+                base_dir,
+                "Stima_Economica",
+                "Stima Economica del Near Miss.pdf",
+            )
+
             if not os.path.exists(file_pdf_path):
                 percorsi_alternativi = [
-                    os.path.join("Stima_Economica", "Stima Economica del Near Miss.pdf"),
-                    os.path.join("stima_economica", "Stima Economica del Near Miss.pdf"),
-                    os.path.join(base_dir, "stima_economica", "Stima Economica del Near Miss.pdf")
+                    os.path.join(
+                        "Stima_Economica", "Stima Economica del Near Miss.pdf"
+                    ),
+                    os.path.join(
+                        "stima_economica", "Stima Economica del Near Miss.pdf"
+                    ),
+                    os.path.join(
+                        base_dir,
+                        "stima_economica",
+                        "Stima Economica del Near Miss.pdf",
+                    ),
                 ]
                 for p in percorsi_alternativi:
                     if os.path.exists(p):
                         file_pdf_path = os.path.abspath(p)
                         break
-            
+
             if os.path.exists(file_pdf_path):
                 with open(file_pdf_path, "rb") as f:
                     pdf_bytes = f.read()
-                
+
                 st.download_button(
-                    label="📥 Scarica / Apri Documento Stima Economica (.pdf)",
+                    label=(
+                        "📥 Scarica / Apri Documento Stima Economica (.pdf)"
+                    ),
                     data=pdf_bytes,
                     file_name="Stima Economica del Near Miss.pdf",
                     mime="application/pdf",
-                    use_container_width=True
+                    use_container_width=True,
                 )
-                
+
                 try:
                     import base64
-                    base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>'
+
+                    base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+                    pdf_display = (
+                        f'<iframe src="data:application/pdf;base64,{base64_pdf}"'
+                        ' width="100%" height="700px"'
+                        ' type="application/pdf"></iframe>'
+                    )
                     st.markdown(pdf_display, unsafe_allow_html=True)
                 except Exception as e:
-                    st.info("Utilizza il pulsante di download sopra per consultare il documento nel lettore PDF del tuo computer.")
+                    st.info(
+                        "Utilizza il pulsante di download sopra per consultare"
+                        " il documento nel lettore PDF del tuo computer."
+                    )
             else:
-                st.error("Il file PDF 'Stima Economica del Near Miss.pdf' non è stato trovato nella cartella 'Stima_Economica'.")
-                
+                st.error(
+                    "Il file PDF 'Stima Economica del Near Miss.pdf' non è stato"
+                    " trovato nella cartella 'Stima_Economica'."
+                )
+
         # --------------------------------------------------
         # SOTTOSEZIONE: Calcolo Economico NM
         # --------------------------------------------------
         elif sotto_sec_9 == "Calcolo economico NM":
             st.subheader("Calcolo economico NM - Tabella Dinamica e Parametri")
-            st.markdown("Configura i parametri di inquadramento (Manodopera) e il fatturato dell'anno precedente (Vendite e Reputazione) per i calcoli automatici.")
-            
+            st.markdown(
+                "Configura i parametri di inquadramento (Manodopera) e il"
+                " fatturato dell'anno precedente (Vendite e Reputazione) per i"
+                " calcoli automatici."
+            )
+
             opzioni = ["Nessuna (Nuova analisi)"]
-                                            
+
             # Leggi Near Miss
-            if 'FILE_NEAR_MISS' in globals() and os.path.exists(FILE_NEAR_MISS):
+            if "FILE_NEAR_MISS" in globals() and os.path.exists(FILE_NEAR_MISS):
                 try:
                     df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
                     for idx, r in df_nm.iterrows():
-                        opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
+                        opzioni.append(
+                            f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}"
+                        )
                 except Exception:
                     pass
-                                            
+
             # Leggi Analisi già fatte
-            if 'FILE_ANALISI_NM' in globals() and os.path.exists(FILE_ANALISI_NM):
+            if "FILE_ANALISI_NM" in globals() and os.path.exists(FILE_ANALISI_NM):
                 try:
                     df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
                     for idx, r in df_an.iterrows():
-                        opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
+                        opzioni.append(
+                            f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}"
+                        )
                 except Exception:
                     pass
-                                            
-            scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
-            
+
+            scelta_rif = st.selectbox(
+                "Seleziona evento/analisi collegata:", opzioni
+            )
+
             # Parametri specifici per la gestione della Manodopera
             st.markdown("#### Configurazione Condizioni Area Manodopera")
             col_m1, col_m2, col_m3 = st.columns(3)
             with col_m1:
                 inquadramento_mansione = st.selectbox(
-                    "Inquadramento", 
-                    ["Q", "AS", "A", "B1", "B2S", "B2", "C1S", "C1", "C2", "C3", "D1", "D2", "E"], 
-                    key="inquadramento_sel"
+                    "Inquadramento",
+                    [
+                        "Q",
+                        "AS",
+                        "A",
+                        "B1",
+                        "B2S",
+                        "B2",
+                        "C1S",
+                        "C1",
+                        "C2",
+                        "C3",
+                        "D1",
+                        "D2",
+                        "E",
+                    ],
+                    key="inquadramento_sel",
                 )
             with col_m2:
-                inf_1gg = st.selectbox("Infortunio sul lavoro 1gg", ["No", "Sì"], key="inf_1gg_sel")
-                inf_2_4gg = st.selectbox("Infortunio sul lavoro 2<4gg", ["No", "Sì"], key="inf_2_4gg_sel")
+                inf_1gg = st.selectbox(
+                    "Infortunio sul lavoro 1gg",
+                    ["No", "Sì"],
+                    key="inf_1gg_sel",
+                )
+                inf_2_4gg = st.selectbox(
+                    "Infortunio sul lavoro 2<4gg",
+                    ["No", "Sì"],
+                    key="inf_2_4gg_sel",
+                )
             with col_m3:
-                inf_5gg = st.selectbox("Infortunio sul lavoro >=5gg", ["No", "Sì"], key="inf_5gg_sel")
-            
+                inf_5gg = st.selectbox(
+                    "Infortunio sul lavoro >=5gg",
+                    ["No", "Sì"],
+                    key="inf_5gg_sel",
+                )
+
             inquadramento_mapping = {
-                "Q": 2882.91, "AS": 2873.55, "A": 2521.80, "B1": 2292.49, "B2S": 2234.61, "B2": 2159.89,
-                "C1S": 2034.87, "C1": 1960.11, "C2": 1826.94, "C3": 1732.11, "D1": 1656.25, "D2": 1561.08, "E": 1456.61
+                "Q": 2882.91,
+                "AS": 2873.55,
+                "A": 2521.80,
+                "B1": 2292.49,
+                "B2S": 2234.61,
+                "B2": 2159.89,
+                "C1S": 2034.87,
+                "C1": 1960.11,
+                "C2": 1826.94,
+                "C3": 1732.11,
+                "D1": 1656.25,
+                "D2": 1561.08,
+                "E": 1456.61,
             }
-            valore_inquadramento = inquadramento_mapping.get(inquadramento_mansione, 2159.89)
-            
+            valore_inquadramento = inquadramento_mapping.get(
+                inquadramento_mansione, 2159.89
+            )
+
             perc_indennita_val = 0.0
             ral_mansione_calc = 0.0
-            
+
             if inf_1gg == "Sì":
                 perc_indennita_val = 100.0
-                ral_mansione_calc = (valore_inquadramento / 30.0) * 3.0 * (perc_indennita_val / 100.0)
+                ral_mansione_calc = (
+                    (valore_inquadramento / 30.0)
+                    * 3.0
+                    * (perc_indennita_val / 100.0)
+                )
             elif inf_2_4gg == "Sì":
                 perc_indennita_val = 40.0
-                ral_mansione_calc = ((valore_inquadramento / 30.0) * 3.0 * (perc_indennita_val / 100.0)) + (valore_inquadramento / 30.0)
+                ral_mansione_calc = (
+                    (valore_inquadramento / 30.0)
+                    * 3.0
+                    * (perc_indennita_val / 100.0)
+                ) + (valore_inquadramento / 30.0)
             elif inf_5gg == "Sì":
                 perc_indennita_val = 25.0
-                ral_mansione_calc = ((valore_inquadramento / 30.0) * 3.0 * (perc_indennita_val / 100.0)) + (valore_inquadramento / 30.0)
+                ral_mansione_calc = (
+                    (valore_inquadramento / 30.0)
+                    * 3.0
+                    * (perc_indennita_val / 100.0)
+                ) + (valore_inquadramento / 30.0)
             else:
                 ral_mansione_calc = valore_inquadramento
 
             # Parametri specifici per Vendite e Reputazione
-            st.markdown("#### Configurazione Condizioni Aree Vendite e Reputazione")
+            st.markdown(
+                "#### Configurazione Condizioni Aree Vendite e Reputazione"
+            )
             col_v1, col_v2 = st.columns(2)
             with col_v1:
-                fatturato_vendite = st.number_input("Fatturato anno precedente (Vendite) [€]", value=1000000.0, step=10000.0, key="fat_vendite_input")
-                vendite_1pct = st.selectbox("Diminuzione vendite 1% (Vendite)", ["No", "Sì"], key="vendite_1_sel")
-                vendite_5pct = st.selectbox("Diminuzione vendite 5% (Vendite)", ["No", "Sì"], key="vendite_5_sel")
+                fatturato_vendite = st.number_input(
+                    "Fatturato anno precedente (Vendite) [€]",
+                    value=1000000.0,
+                    step=10000.0,
+                    key="fat_vendite_input",
+                )
+                vendite_1pct = st.selectbox(
+                    "Diminuzione vendite 1% (Vendite)",
+                    ["No", "Sì"],
+                    key="vendite_1_sel",
+                )
+                vendite_5pct = st.selectbox(
+                    "Diminuzione vendite 5% (Vendite)",
+                    ["No", "Sì"],
+                    key="vendite_5_sel",
+                )
             with col_v2:
-                fatturato_reputazione = st.number_input("Fatturato anno precedente (Reputazione) [€]", value=1000000.0, step=10000.0, key="fat_reputazione_input")
-                rep_10pct = st.selectbox("Diminuzione fatturato 10% (Reputazione)", ["No", "Sì"], key="rep_10_sel")
-                rep_15pct = st.selectbox("Diminuzione fatturato 15% (Reputazione)", ["No", "Sì"], key="rep_15_sel")
+                fatturato_reputazione = st.number_input(
+                    "Fatturato anno precedente (Reputazione) [€]",
+                    value=1000000.0,
+                    step=10000.0,
+                    key="fat_reputazione_input",
+                )
+                rep_10pct = st.selectbox(
+                    "Diminuzione fatturato 10% (Reputazione)",
+                    ["No", "Sì"],
+                    key="rep_10_sel",
+                )
+                rep_15pct = st.selectbox(
+                    "Diminuzione fatturato 15% (Reputazione)",
+                    ["No", "Sì"],
+                    key="rep_15_sel",
+                )
 
             # Calcoli condizionali Vendite e Reputazione
-            val_vendite_1 = fatturato_vendite * (1.0 / 100.0) if vendite_1pct == "Sì" else 0.0
-            val_vendite_5 = fatturato_vendite * (5.0 / 100.0) if vendite_5pct == "Sì" else 0.0
-            val_rep_10 = fatturato_reputazione * (10.0 / 100.0) if rep_10pct == "Sì" else 0.0
-            val_rep_15 = fatturato_reputazione * (15.0 / 100.0) if rep_15pct == "Sì" else 0.0
+            val_vendite_1 = (
+                fatturato_vendite * (1.0 / 100.0)
+                if vendite_1pct == "Sì"
+                else 0.0
+            )
+            val_vendite_5 = (
+                fatturato_vendite * (5.0 / 100.0)
+                if vendite_5pct == "Sì"
+                else 0.0
+            )
+            val_rep_10 = (
+                fatturato_reputazione * (10.0 / 100.0)
+                if rep_10pct == "Sì"
+                else 0.0
+            )
+            val_rep_15 = (
+                fatturato_reputazione * (15.0 / 100.0)
+                if rep_15pct == "Sì"
+                else 0.0
+            )
 
             # Inizializzazione DataFrame Tabella Dinamica in session_state
             if "df_calcolo_economico_nm" not in st.session_state:
@@ -4063,104 +4210,283 @@ if nav == "Stima Costo Economico":
                     ["Metodo", "Periodo adattamento", 0.0],
                     ["Metodo", "Redistribuzione aziendale", 0.0],
                     # Vendite
-                    ["Vendite", "Diminuzione delle vendite del 1% rispetto all’anno precedente", 0.0],
-                    ["Vendite", "Diminuzione del fatturato del 5% rispetto all’anno precedente", 0.0],
+                    [
+                        "Vendite",
+                        "Diminuzione delle vendite del 1% rispetto all’anno"
+                        " precedente",
+                        0.0,
+                    ],
+                    [
+                        "Vendite",
+                        "Diminuzione del fatturato del 5% rispetto all’anno"
+                        " precedente",
+                        0.0,
+                    ],
                     # Reputazione
-                    ["Reputazione", "Diminuzione del fatturato del 10% rispetto all’anno precedente", 0.0],
-                    ["Reputazione", "Diminuzione del fatturato del 15% rispetto all’anno precedente", 0.0],
+                    [
+                        "Reputazione",
+                        "Diminuzione del fatturato del 10% rispetto all’anno"
+                        " precedente",
+                        0.0,
+                    ],
+                    [
+                        "Reputazione",
+                        "Diminuzione del fatturato del 15% rispetto all’anno"
+                        " precedente",
+                        0.0,
+                    ],
                     # Sanzioni
-                    ["Sanzioni", "Sanzioni amministrative / penali (scaglionate)", 0.0]
+                    [
+                        "Sanzioni",
+                        "Sanzioni amministrative / penali (scaglionate)",
+                        0.0,
+                    ],
                 ]
-                st.session_state.df_calcolo_economico_nm = pd.DataFrame(data_nm, columns=[
-                    "Area d'impatto", "Sottocategoria", "Stima costo (€)"
-                ])
-            
+                st.session_state.df_calcolo_economico_nm = pd.DataFrame(
+                    data_nm,
+                    columns=[
+                        "Area d'impatto",
+                        "Sottocategoria",
+                        "Stima costo (€)",
+                    ],
+                )
+
             df_ce = st.session_state.df_calcolo_economico_nm
-            
+
             # Assegnazione automatica dei valori calcolati
-            df_ce.loc[df_ce["Sottocategoria"] == "Percentuale di indennità", "Stima costo (€)"] = perc_indennita_val
-            df_ce.loc[df_ce["Sottocategoria"] == "RAL per mansione", "Stima costo (€)"] = ral_mansione_calc
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione delle vendite del 1% rispetto all’anno precedente", "Stima costo (€)"] = val_vendite_1
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 5% rispetto all’anno precedente", "Stima costo (€)"] = val_vendite_5
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 10% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_10
-            df_ce.loc[df_ce["Sottocategoria"] == "Diminuzione del fatturato del 15% rispetto all’anno precedente", "Stima costo (€)"] = val_rep_15
-            
+            df_ce.loc[
+                df_ce["Sottocategoria"] == "Percentuale di indennità",
+                "Stima costo (€)",
+            ] = perc_indennita_val
+            df_ce.loc[
+                df_ce["Sottocategoria"] == "RAL per mansione",
+                "Stima costo (€)",
+            ] = ral_mansione_calc
+            df_ce.loc[
+                df_ce["Sottocategoria"]
+                == "Diminuzione delle vendite del 1% rispetto all’anno"
+                " precedente",
+                "Stima costo (€)",
+            ] = val_vendite_1
+            df_ce.loc[
+                df_ce["Sottocategoria"]
+                == "Diminuzione del fatturato del 5% rispetto all’anno"
+                " precedente",
+                "Stima costo (€)",
+            ] = val_vendite_5
+            df_ce.loc[
+                df_ce["Sottocategoria"]
+                == "Diminuzione del fatturato del 10% rispetto all’anno"
+                " precedente",
+                "Stima costo (€)",
+            ] = val_rep_10
+            df_ce.loc[
+                df_ce["Sottocategoria"]
+                == "Diminuzione del fatturato del 15% rispetto all’anno"
+                " precedente",
+                "Stima costo (€)",
+            ] = val_rep_15
+
             # Editor della tabella dinamica
             edited_ce = st.data_editor(
                 df_ce,
                 use_container_width=True,
                 num_rows="fixed",
                 column_config={
-                    "Area d'impatto": st.column_config.TextColumn("Area d'impatto", disabled=True),
-                    "Sottocategoria": st.column_config.TextColumn("Sottocategoria", disabled=True),
+                    "Area d'impatto": st.column_config.TextColumn(
+                        "Area d'impatto", disabled=True
+                    ),
+                    "Sottocategoria": st.column_config.TextColumn(
+                        "Sottocategoria", disabled=True
+                    ),
                     "Stima costo (€)": st.column_config.NumberColumn(
-                        "Valore / Costo (€ o %)", 
-                        min_value=0.0, 
-                        step=10.0, 
-                        format="%.2f €"
-                    )
+                        "Valore / Costo (€ o %)",
+                        min_value=0.0,
+                        step=10.0,
+                        format="%.2f €",
+                    ),
                 },
-                key="editor_calcolo_economico_nm"
+                key="editor_calcolo_economico_nm",
             )
-            
+
             st.session_state.df_calcolo_economico_nm = edited_ce
-            
+
             # Esclusione della riga "Percentuale di indennità" dal calcolo monetario
-            df_costi_monetari = edited_ce[edited_ce["Sottocategoria"] != "Percentuale di indennità"]
-            
+            df_costi_monetari = edited_ce[
+                edited_ce["Sottocategoria"] != "Percentuale di indennità"
+            ]
+
             # Calcolo automatico del totale
             st.markdown("### Riepilogo Costi per Area e Totale Generale")
             totale_generale = df_costi_monetari["Stima costo (€)"].sum()
-            
+
             col_tot1, col_tot2 = st.columns(2)
             with col_tot1:
-                st.metric(label="💰 STIMA ECONOMICA TOTALE", value=format_euro(totale_generale))
-                
+                st.metric(
+                    label="💰 STIMA ECONOMICA TOTALE",
+                    value=format_euro(totale_generale),
+                )
+
             with col_tot2:
-                riepilogo_aree = df_costi_monetari.groupby("Area d'impatto")["Stima costo (€)"].sum()
+                riepilogo_aree = df_costi_monetari.groupby("Area d'impatto")[
+                    "Stima costo (€)"
+                ].sum()
                 st.markdown("**Totali parziali per Area (esclusa % indennità):**")
                 for area, val in riepilogo_aree.items():
                     st.text(f"- {area}: {format_euro(val)}")
-            
+
             st.markdown("---")
-            
+
             # Preparazione DataFrame per Export con formato italiano (virgola per i decimali)
             df_export = edited_ce.copy()
             df_export.insert(0, "Evento / Analisi Collegata", scelta_rif)
-            df_export["Stima costo (€)"] = df_export["Stima costo (€)"].apply(format_csv_number)
-            
-            riga_totale = pd.DataFrame([[scelta_rif, "TOTALE GENERALE", "SOMMA TUTTI I COSTI", format_csv_number(totale_generale)]], columns=df_export.columns)
+            df_export["Stima costo (€)"] = df_export["Stima costo (€)"].apply(
+                format_csv_number
+            )
+
+            riga_totale = pd.DataFrame(
+                [[
+                    scelta_rif,
+                    "TOTALE GENERALE",
+                    "SOMMA TUTTI I COSTI",
+                    format_csv_number(totale_generale),
+                ]],
+                columns=df_export.columns,
+            )
             df_export = pd.concat([df_export, riga_totale], ignore_index=True)
-            
-            # Generazione del nome file dinamico
+
+            # ==================================================================
+            # LOGICA DI GENERAZIONE DEL NOME FILE (MAX 50 CARATTERI)
+            # Schema: AN_yy-mm-dd_NM/Manutenzione_dd_mm_yy_Nome-Cognome_Stima_Costo_Eco_NM.csv
+            # ==================================================================
             import re
-            clean_rif = re.sub(r'[\\/*?:"<>|]', "", scelta_rif)
-            clean_rif = clean_rif.replace(" ", "_")
-            file_name_export = f"{clean_rif}_Stima_Costo_Economico_NM.csv"
-            
+            from datetime import datetime
+
+            # 1. Data Corrente (yy-mm-dd)
+            data_oggi_yy = datetime.now().strftime("%y-%m-%d")
+
+            # 2. Determinazione dell'Origine (NM o Manutenzione)
+            testo_rif_upper = scelta_rif.upper()
+            if "MANUTENZIONE" in testo_rif_upper:
+                origine = "Manutenzione"
+            else:
+                origine = "NM"
+
+            # 3. Estrazione Data della Segnalazione (formato dd_mm_yy)
+            match_data = re.search(
+                r"\b(\d{2})[-/\.](\d{2})[-/\.](\d{2,4})\b", scelta_rif
+            )
+            if match_data:
+                gg = match_data.group(1)
+                mm = match_data.group(2)
+                anno_full = match_data.group(3)
+                yy_seg = anno_full[-2:] if len(anno_full) == 4 else anno_full
+                data_seg_fmt = f"{gg}_{mm}_{yy_seg}"
+            else:
+                data_seg_fmt = datetime.now().strftime("%d_%m_%y")
+
+            # 4. Estrazione Nome e Cognome del Segnalatore
+            nome_cognome_segnalatore = "Anonimo"
+
+            if "FILE_NEAR_MISS" in globals() and os.path.exists(FILE_NEAR_MISS) and "NM |" in scelta_rif:
+                try:
+                    df_check = pd.read_csv(FILE_NEAR_MISS, sep=";")
+                    for idx_c, r_c in df_check.iterrows():
+                        str_check = f"NM | {r_c.get('Data Segnalazione', 'N/D')} | {r_c.get('Tipo Evento', 'Evento')}"
+                        if str_check == scelta_rif:
+                            nome_comp = str(
+                                r_c.get(
+                                    "Segnalante",
+                                    r_c.get(
+                                        "Nome", r_c.get("Nome e Cognome", "")
+                                    ),
+                                )
+                            ).strip()
+                            if nome_comp and nome_comp.lower() != "nan":
+                                nome_cognome_segnalatore = nome_comp
+                            break
+                except Exception:
+                    pass
+
+            if nome_cognome_segnalatore == "Anonimo":
+                parole = re.sub(r"[^\w\s]", " ", scelta_rif).split()
+                parole_filtrate = [
+                    p
+                    for p in parole
+                    if p.upper()
+                    not in [
+                        "NM",
+                        "AN",
+                        "COLLEGAMENTO",
+                        "NESSUNA",
+                        "NUOVA",
+                        "ANALISI",
+                        "MANUTENZIONE",
+                        "EVENTO",
+                        "N",
+                        "D",
+                    ]
+                    and not re.search(r"\d", p)
+                ]
+                if parole_filtrate:
+                    nome_cognome_segnalatore = " ".join(parole_filtrate)
+
+            # Sanificazione Nome e Cognome (sostituisce spazi e caratteri speciali con trattino)
+            segnalatore_clean = re.sub(r"[^\w]", "-", nome_cognome_segnalatore)
+            segnalatore_clean = re.sub(r"-+", "-", segnalatore_clean).strip("-")
+
+            # 5. Assemblaggio prefisso e suffisso
+            prefisso = f"AN_{data_oggi_yy}_{origine}_{data_seg_fmt}_"
+            suffisso = "_Stima_Costo_Eco_NM"
+            estensione = ".csv"
+
+            # 6. Calcolo dinamico dello spazio rimasto per Nome-Cognome (Limite rigido max 50 caratteri)
+            spazio_usato_fisso = len(prefisso) + len(suffisso) + len(estensione)
+            spazio_disponibile_nome = 50 - spazio_usato_fisso
+
+            if spazio_disponibile_nome > 0:
+                segnalatore_cut = segnalatore_clean[:spazio_disponibile_nome].strip("-")
+                if segnalatore_cut:
+                    base_filename = f"{prefisso}{segnalatore_cut}{suffisso}"
+                else:
+                    base_filename = f"{prefisso.rstrip('_')}{suffisso}"
+            else:
+                base_filename = f"{prefisso}{segnalatore_clean}{suffisso}"[:50].rstrip("_")
+
+            file_name_export = f"{base_filename}{estensione}"
+
             # Percorso su GitHub: Stima_Economica/Report/<nome_file>.csv
             github_repo_path = f"Stima_Economica/Report/{file_name_export}"
-            
+
             # Converti in stringa CSV codificata in utf-8
             csv_content_str = df_export.to_csv(index=False, sep=";")
             csv_bytes = csv_content_str.encode("utf-8")
-            
+
             col_save1, col_save2 = st.columns(2)
             with col_save1:
                 if st.button("Salva Report Online", key="btn_save_stima_gh"):
-                    if 'save_to_github' in globals():
-                        if save_to_github(github_repo_path, csv_bytes, f"Add {file_name_export}"):
-                            st.success(f"Report salvato con successo su GitHub in: `{github_repo_path}`")
+                    if "save_to_github" in globals():
+                        if save_to_github(
+                            github_repo_path,
+                            csv_bytes,
+                            f"Add {file_name_export}",
+                        ):
+                            st.success(
+                                "Report salvato con successo su GitHub in:"
+                                f" `{github_repo_path}`"
+                            )
                     else:
-                        st.error("Funzione `save_to_github` non trovata nel sistema.")
-            
+                        st.error(
+                            "Funzione `save_to_github` non trovata nel sistema."
+                        )
+
             with col_save2:
                 st.download_button(
                     label="Scarica Report CSV",
                     data=csv_bytes,
                     file_name=file_name_export,
                     mime="text/csv",
-                    use_container_width=True
+                    use_container_width=True,
                 )
 # ==================================================================
 # --- SEZIONE: Skill Matrix ---
