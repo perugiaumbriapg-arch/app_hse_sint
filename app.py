@@ -4007,15 +4007,16 @@ if nav == "Stima Costo Economico":
             )
 
             opzioni = ["Nessuna (Nuova analisi)"]
+            mappa_opzioni = {}  # Mantiene il riferimento al file e alla riga esatta
 
             # Leggi Near Miss
             if "FILE_NEAR_MISS" in globals() and os.path.exists(FILE_NEAR_MISS):
                 try:
                     df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
                     for idx, r in df_nm.iterrows():
-                        opzioni.append(
-                            f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}"
-                        )
+                        label_opt = f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')} (Riga {idx})"
+                        opzioni.append(label_opt)
+                        mappa_opzioni[label_opt] = {"df": df_nm, "row_idx": idx, "tipo_default": "NM"}
                 except Exception:
                     pass
 
@@ -4024,9 +4025,9 @@ if nav == "Stima Costo Economico":
                 try:
                     df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
                     for idx, r in df_an.iterrows():
-                        opzioni.append(
-                            f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}"
-                        )
+                        label_opt = f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')} (Riga {idx})"
+                        opzioni.append(label_opt)
+                        mappa_opzioni[label_opt] = {"df": df_an, "row_idx": idx, "tipo_default": "AN"}
                 except Exception:
                     pass
 
@@ -4365,48 +4366,52 @@ if nav == "Stima Costo Economico":
             # 1. Data Corrente di generazione (yy-mm-dd)
             data_oggi_yy = datetime.now().strftime("%y-%m-%d")
 
-            # 2. Determinazione Origine (NM / M)
+            # 2. Determinazione Origine e recupero stringa Segnalatore
+            raw_segnalatore = ""
             testo_rif_upper = scelta_rif.upper()
-            if "MANUTENZIONE" in testo_rif_upper:
+            if "MANUTENZIONE" in testo_rif_upper or " M |" in testo_rif_upper:
                 origine = "M"
             else:
                 origine = "NM"
 
-            # 3. Recupero Segnalatore in base all'indice colonna (6a colonna se NM, 5a colonna se M)
-            raw_segnalatore = ""
-            col_target_idx = 5 if origine == "NM" else 4  # Indice 5 = Colonna 6, Indice 4 = Colonna 5
+            # Estraggo i dati direttamente dalla riga selezionata
+            if scelta_rif in mappa_opzioni:
+                info_sel = mappa_opzioni[scelta_rif]
+                df_target = info_sel["df"]
+                row_idx = info_sel["row_idx"]
+                row_data = df_target.iloc[row_idx]
 
-            if "FILE_NEAR_MISS" in globals() and os.path.exists(FILE_NEAR_MISS) and scelta_rif != "Nessuna (Nuova analisi)":
-                try:
-                    df_check = pd.read_csv(FILE_NEAR_MISS, sep=";")
-                    for idx_c, r_c in df_check.iterrows():
-                        str_check_nm = f"NM | {r_c.get('Data Segnalazione', 'N/D')} | {r_c.get('Tipo Evento', 'Evento')}"
-                        str_check_an = f"AN | {r_c.get('Data Analisi', 'N/D')} | Collegamento: {r_c.get('Segnalazione Collegata', 'Analisi')}"
-                        
-                        if scelta_rif in [str_check_nm, str_check_an]:
-                            if len(r_c) > col_target_idx:
-                                val_col = str(r_c.iloc[col_target_idx]).strip()
-                                if val_col and val_col.lower() != "nan":
-                                    raw_segnalatore = val_col
-                                    break
-                except Exception:
-                    pass
+                # Se l'origine contiene "MANUTENZIONE", lo confermiamo M
+                row_str_full = " ".join([str(v) for v in row_data.values]).upper()
+                if "MANUTENZIONE" in row_str_full:
+                    origine = "M"
 
-            # Formattazione: Prima lettera della prima parola + seconda parola intera
+                # Selezione Colonna target:
+                # NM -> 6ª colonna (indice 5)
+                # M  -> 5ª colonna (indice 4)
+                col_idx = 5 if origine == "NM" else 4
+
+                if len(row_data) > col_idx:
+                    val_col = str(row_data.iloc[col_idx]).strip()
+                    if val_col and val_col.lower() != "nan":
+                        raw_segnalatore = val_col
+
+            # 3. Formattazione Segnalatore: Prima lettera 1a parola + 2a parola intera
+            str_segnalatore_fmt = ""
             if raw_segnalatore:
-                parole = re.sub(r"[^\w\s]", "", raw_segnalatore).split()
+                # Split mantenendo solo parole alfa-numeriche
+                parole = re.sub(r"[^\w\s]", " ", raw_segnalatore).split()
                 if len(parole) >= 2:
                     iniziale = parole[0][0].upper()
                     seconda_parola = parole[1].capitalize()
                     str_segnalatore_fmt = f"{iniziale}-{seconda_parola}"
                 elif len(parole) == 1:
                     str_segnalatore_fmt = parole[0].capitalize()
-                else:
-                    str_segnalatore_fmt = "Anonimo"
-            else:
+
+            if not str_segnalatore_fmt:
                 str_segnalatore_fmt = "Anonimo"
 
-            # Sanificazione stringa formattata
+            # Sanificazione caratteri
             segnalatore_clean = re.sub(r"[^\w]", "-", str_segnalatore_fmt)
             segnalatore_clean = re.sub(r"-+", "-", segnalatore_clean).strip("-")
 
