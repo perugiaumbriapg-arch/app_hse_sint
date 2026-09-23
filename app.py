@@ -2468,43 +2468,66 @@ if nav == "Consultazione":
 # ==================================================================
 # --- RECUPERO SICURO DELLE VARIABILI DI GITHUB ---
 # ==================================================================
-# Cerca prima nei Secrets di Streamlit Cloud, poi nelle variabili di ambiente del sistema.
-GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", os.environ.get("GITHUB_TOKEN", ""))
+GITHUB_TOKEN = st.secrets.get(
+    "GITHUB_TOKEN", os.environ.get("GITHUB_TOKEN", "")
+)
 REPO_NAME = st.secrets.get("REPO_NAME", os.environ.get("REPO_NAME", ""))
+
+# Assicura la presenza della cartella locale per evitare errori I/O
+DIR_ANALISI = "Analisi_Fase2"
+os.makedirs(DIR_ANALISI, exist_ok=True)
 
 if nav == "Analisi - Fase 2":
     st.header("Analisi - Fase 2 delle segnalazioni near miss")
     # --- SEZIONE 2: ANALISI ISHIKAWA ---
     if "autenticato_fase2" not in st.session_state:
         st.session_state.autenticato_fase2 = False
-        
+
     if not st.session_state.autenticato_fase2:
-        pwd_fase2 = st.text_input("Inserisci la Password di Accesso", type="password", key="pwd_fase2_tab")
+        pwd_fase2 = st.text_input(
+            "Inserisci la Password di Accesso",
+            type="password",
+            key="pwd_fase2_tab",
+        )
         if st.button("Convalida Accesso", use_container_width=True):
             if pwd_fase2 == "hse2026":
                 st.session_state.autenticato_fase2 = True
                 st.rerun()
             else:
                 st.error("Credenziali errate.")
-                
+
     if st.session_state.autenticato_fase2:
 
         # Caricamento e unione dati per dropdown
         opzioni = ["Nessuna (Nuova analisi)"]
-            
+
         # Leggi Near Miss
         if os.path.exists(FILE_NEAR_MISS):
             df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
             for idx, r in df_nm.iterrows():
-                opzioni.append(f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}")
-            
+                tipo_orig = (
+                    "Manutenzione"
+                    if "MANUTENZIONE"
+                    in str(r.get("Tipo Evento", "")).upper()
+                    else "NM"
+                )
+                data_seg = str(r.get("Data Segnalazione", "N/D"))
+                nome_seg = str(
+                    r.get("Segnalante", r.get("Nome", "Anonimo"))
+                ).strip()
+                opzioni.append(f"{tipo_orig} | {data_seg} | {nome_seg}")
+
         # Leggi Analisi già fatte
         if os.path.exists(FILE_ANALISI_NM):
             df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
             for idx, r in df_an.iterrows():
-                opzioni.append(f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}")
-            
-        scelta_rif = st.selectbox("Seleziona evento/analisi collegata:", opzioni)
+                data_seg = str(r.get("Data Analisi", "N/D"))
+                nome_seg = str(r.get("Analista", "Anonimo")).strip()
+                opzioni.append(f"AN | {data_seg} | {nome_seg}")
+
+        scelta_rif = st.selectbox(
+            "Seleziona evento/analisi collegata:", opzioni
+        )
 
         # Campi Input (Ishikawa)
         c_ma, c_mb = st.columns(2)
@@ -2513,8 +2536,10 @@ if nav == "Analisi - Fase 2":
             materiale = st.text_area("Materiale", key="inp_mat")
         with c_mb:
             metodo = st.text_area("Metodo / Procedura", key="inp_met")
-            manodopera = st.text_area("Manodopera / Comportamento", key="inp_man")
-            
+            manodopera = st.text_area(
+                "Manodopera / Comportamento", key="inp_man"
+            )
+
         w1 = st.text_input("Perché 1:", key="w1")
         w2 = st.text_input("Perché 2:", key="w2")
         w3 = st.text_input("Perché 3:", key="w3")
@@ -2524,39 +2549,53 @@ if nav == "Analisi - Fase 2":
 
         if st.button("Genera Report e File"):
             temp_img = os.path.join(DIR_ANALISI, "temp_ishikawa.png")
-                
+
             # Matplotlib setup
             fig, ax = plt.subplots(figsize=(10, 6))
-            ax.axis('off')
-            ax.plot([1, 9], [0, 0], color='black', lw=3)
-                
+            ax.axis("off")
+            ax.plot([1, 9], [0, 0], color="black", lw=3)
+
             # Aggiunta branchie (Ishikawa)
-            def wrap(text): return "\n".join(textwrap.wrap(str(text), width=20))
+            def wrap(text):
+                return "\n".join(textwrap.wrap(str(text), width=20))
+
             branches = [
                 ((2, 0), (1.5, 1.5), f"Macchina:\n{wrap(macchina)}"),
                 ((4, 0), (3.5, -1.5), f"Metodo:\n{wrap(metodo)}"),
                 ((6, 0), (6.5, 1.5), f"Materiale:\n{wrap(materiale)}"),
-                ((8, 0), (8.5, -1.5), f"Manodopera:\n{wrap(manodopera)}")
+                ((8, 0), (8.5, -1.5), f"Manodopera:\n{wrap(manodopera)}"),
             ]
             for start, end, label in branches:
-                ax.plot([start[0], end[0]], [start[1], end[1]], 'k-', lw=2)
-                ax.text(end[0], end[1], label, fontsize=9, ha='center', va='center', bbox=dict(facecolor='white', alpha=0.8))
-                
-            plt.savefig(temp_img, bbox_inches='tight', dpi=300)
+                ax.plot([start[0], end[0]], [start[1], end[1]], "k-", lw=2)
+                ax.text(
+                    end[0],
+                    end[1],
+                    label,
+                    fontsize=9,
+                    ha="center",
+                    va="center",
+                    bbox=dict(facecolor="white", alpha=0.8),
+                )
+
+            plt.savefig(temp_img, bbox_inches="tight", dpi=300)
             plt.close()
             st.pyplot(fig)
-            
+
             # Lettura dell'immagine PNG creata in binario per il salvataggio in sessione
             with open(temp_img, "rb") as img_file:
                 png_bytes = img_file.read()
 
-            # Raccolta metadati richiesti (Data generazione e file associati)
+            # Raccolta metadati
             data_generazione = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             file_obbligatorio = FILE_ANALISI_NM
-            file_facoltativo = FILE_NEAR_MISS if os.path.exists(FILE_NEAR_MISS) else "Non utilizzato / Assente"
+            file_facoltativo = (
+                FILE_NEAR_MISS
+                if os.path.exists(FILE_NEAR_MISS)
+                else "Non utilizzato / Assente"
+            )
 
-            # Conversione dell'immagine in stringa Base64 per l'inclusione nel JSON
-            png_base64 = base64.b64encode(png_bytes).decode('utf-8')
+            # Conversione Base64
+            png_base64 = base64.b64encode(png_bytes).decode("utf-8")
 
             # Dati strutturati per Export
             dati_report = {
@@ -2565,22 +2604,22 @@ if nav == "Analisi - Fase 2":
                 "File Facoltativo Associato": file_facoltativo,
                 "Riferimento Selezionato": scelta_rif,
                 "4M": {
-                    "Macchina": macchina, 
-                    "Materiale": materiale, 
-                    "Metodo": metodo, 
-                    "Manodopera": manodopera
+                    "Macchina": macchina,
+                    "Materiale": materiale,
+                    "Metodo": metodo,
+                    "Manodopera": manodopera,
                 },
                 "5Whys": [w1, w2, w3, w4, w5],
-                "Conclusioni": conc
+                "Conclusioni": conc,
             }
 
             # 1. PDF
             pdf = FPDF()
             pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(0, 10, "Report Analisi Near Miss", ln=True, align='C')
-            pdf.ln(10) # Spazio
-        
+            pdf.set_font("Arial", "B", 16)
+            pdf.cell(0, 10, "Report Analisi Near Miss", ln=True, align="C")
+            pdf.ln(10)
+
             pdf.set_font("Arial", size=10)
             pdf.cell(0, 6, f"Data Generazione: {data_generazione}", ln=True)
             pdf.cell(0, 6, f"File Obbligatorio: {file_obbligatorio}", ln=True)
@@ -2589,109 +2628,179 @@ if nav == "Analisi - Fase 2":
             pdf.ln(5)
 
             # Scrittura Analisi 4M
-            pdf.set_font("Arial", 'B', 14)
+            pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "Analisi 4M:", ln=True)
             pdf.set_font("Arial", size=12)
             for key, val in dati_report["4M"].items():
                 pdf.cell(0, 10, f"- {key}: {val}", ln=True)
             pdf.ln(5)
 
-            # Scrittura 5Whys (Inclusione di tutti i 5 Perché)
-            pdf.set_font("Arial", 'B', 14)
+            # Scrittura 5Whys
+            pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "5Whys:", ln=True)
             pdf.set_font("Arial", size=12)
-            for i, why in enumerate(dati_report['5Whys'], 1):
+            for i, why in enumerate(dati_report["5Whys"], 1):
                 pdf.cell(0, 10, f"Perché {i}: {why}", ln=True)
             pdf.ln(5)
 
             # Scrittura Conclusioni
-            pdf.set_font("Arial", 'B', 14)
+            pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "Conclusioni:", ln=True)
             pdf.set_font("Arial", size=12)
-            pdf.multi_cell(0, 10, dati_report['Conclusioni'])
+            pdf.multi_cell(0, 10, dati_report["Conclusioni"])
             pdf.ln(5)
 
-            # Inserimento visivo del grafico PNG nel PDF (Diagramma di Ishikawa)
-            pdf.set_font("Arial", 'B', 10)
+            # Inserimento visivo del grafico PNG
+            pdf.set_font("Arial", "B", 10)
             pdf.cell(0, 10, "Diagramma di Ishikawa:", ln=True)
             pdf.image(temp_img, w=180)
 
             # Output del file in bytes
-            pdf_output = bytes(pdf.output(dest='S')) 
+            pdf_output = bytes(pdf.output(dest="S"))
             st.session_state.pdf_bytes = pdf_output
 
             # 2. XLSX
             import io
+
             buffer_xlsx = io.BytesIO()
-            pd.DataFrame([dati_report["4M"]]).to_excel(buffer_xlsx, index=False)
+            pd.DataFrame([dati_report["4M"]]).to_excel(
+                buffer_xlsx, index=False
+            )
             st.session_state.xlsx_bytes = buffer_xlsx.getvalue()
 
-            # 3. JSON (Include i metadati, i testi e l'immagine codificata in Base64)
-            st.session_state.json_bytes = json.dumps(dati_report, indent=4, ensure_ascii=False).encode('utf-8')
-                
-            # 4. PNG (File immagine separato)
+            # 3. JSON
+            st.session_state.json_bytes = json.dumps(
+                dati_report, indent=4, ensure_ascii=False
+            ).encode("utf-8")
+
+            # 4. PNG
             st.session_state.png_bytes = png_bytes
 
             # ==================================================================
-            # --- SALVATAGGIO AUTOMATICO SU GITHUB ONLINE ---
+            # --- SALVATAGGIO AUTOMATICO SU GITHUB ---
             # ==================================================================
             if GITHUB_TOKEN and REPO_NAME:
-                # Sanificazione stringa del riferimento evento per uso nei file
-                rif_sanitizzato = re.sub(r'[\\/*?:"<>|]', '_', scelta_rif).replace(' ', '_')
-                giorno_str = datetime.now().strftime("%Y-%m-%d")
+                # 1. Codice progressivo univoco breve (Ora/Minuti/Secondi)
+                codice_progressivo = datetime.now().strftime("%H%M%S")
 
-                # Nome base: "Giorno della generazione_riferimento dell'evento_Analisi Fase 2"
-                base_filename = f"{giorno_str}_{rif_sanitizzato}_Analisi Fase 2"
+                # 2. Parsing dell'origine, della data e del nome dal menu selezionato
+                # Formato atteso: "Origine | Data | Nome Cognome"
+                parti = [p.strip() for p in scelta_rif.split("|")]
 
-                # Dizionario dei file da caricare nella cartella "Analisi_Fase2"
+                if len(parti) >= 3:
+                    origine_seg = (
+                        "Manutenzione"
+                        if "MANUTENZIONE" in parti[0].upper()
+                        else "NM"
+                    )
+                    data_seg = re.sub(
+                        r"[^\w]", "_", parti[1]
+                    )  # Converte / o - in _
+
+                    # Formattazione Iniziale Nome + Cognome
+                    nomi_cognomi = parti[2].split()
+                    if len(nomi_cognomi) >= 2:
+                        iniziale_nome = nomi_cognomi[0][0].upper()
+                        cognome = "_".join(nomi_cognomi[1:])
+                        segnalante_fmt = f"{iniziale_nome}_{cognome}"
+                    elif len(nomi_cognomi) == 1:
+                        segnalante_fmt = nomi_cognomi[0]
+                    else:
+                        segnalante_fmt = "Anonimo"
+                else:
+                    origine_seg = "NM"
+                    data_seg = datetime.now().strftime("%d_%m_%Y")
+                    segnalante_fmt = "Generico"
+
+                # Sanificazione dei caratteri speciali
+                segnalante_fmt = re.sub(r"[^\w]", "_", segnalante_fmt)
+
+                # 3. Composizione Nome File: Codice_AN2_Origine_Data_InizialeCognome
+                base_temp = f"{codice_progressivo}_AN2_{origine_seg}_{data_seg}_{segnalante_fmt}"
+
+                # 4. Taglio a 50 caratteri massimo
+                base_filename = base_temp[:50].rstrip("_")
+
+                # Mappa dei file da salvare
                 files_to_upload = {
                     f"Analisi_Fase2/{base_filename}.pdf": pdf_output,
-                    f"Analisi_Fase2/{base_filename}_Ishikawa.png": png_bytes,
-                    f"Analisi_Fase2/{base_filename}.xlsx": st.session_state.xlsx_bytes,
-                    f"Analisi_Fase2/{base_filename}.json": st.session_state.json_bytes
+                    f"Analisi_Fase2/{base_filename}_Ish.png": png_bytes,
+                    f"Analisi_Fase2/{base_filename}.xlsx": (
+                        st.session_state.xlsx_bytes
+                    ),
+                    f"Analisi_Fase2/{base_filename}.json": (
+                        st.session_state.json_bytes
+                    ),
                 }
 
                 headers = {
                     "Authorization": f"token {GITHUB_TOKEN}",
-                    "Accept": "application/vnd.github.v3+json"
+                    "Accept": "application/vnd.github.v3+json",
                 }
 
                 caricamento_ok = True
                 for path_in_repo, content_bytes in files_to_upload.items():
                     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{path_in_repo}"
-                    
-                    # Controllo se il file esiste già per recuperare lo SHA (per sovrascrittura)
-                    res_get = requests.get(url, headers=headers)
-                    sha = res_get.json().get("sha") if res_get.status_code == 200 else None
 
-                    # Encoding del contenuto binario in Base64
-                    content_b64 = base64.b64encode(content_bytes).decode('utf-8')
+                    try:
+                        res_get = requests.get(url, headers=headers, timeout=10)
+                        sha = (
+                            res_get.json().get("sha")
+                            if res_get.status_code == 200
+                            else None
+                        )
+                    except Exception:
+                        sha = None
+
+                    content_b64 = base64.b64encode(content_bytes).decode(
+                        "utf-8"
+                    )
 
                     payload = {
                         "message": f"Auto-save report: {base_filename}",
-                        "content": content_b64
+                        "content": content_b64,
                     }
                     if sha:
                         payload["sha"] = sha
 
-                    # Push su GitHub
-                    res_put = requests.put(url, json=payload, headers=headers)
-                    if res_put.status_code not in [200, 201]:
+                    try:
+                        res_put = requests.put(
+                            url, json=payload, headers=headers, timeout=15
+                        )
+                        if res_put.status_code not in [200, 201]:
+                            caricamento_ok = False
+                            st.error(
+                                f"Errore nel salvataggio su GitHub per {path_in_repo}: {res_put.json().get('message')}"
+                            )
+                    except Exception as e_git:
                         caricamento_ok = False
-                        st.error(f"Errore nel salvataggio su GitHub per {path_in_repo}: {res_put.json().get('message')}")
+                        st.error(
+                            f"Errore di connessione a GitHub per {path_in_repo}: {e_git}"
+                        )
 
                 if caricamento_ok:
-                    st.success(f"Report salvato automaticamente in 'Analisi_Fase2/' su GitHub!")
+                    st.success(
+                        f"Report salvato automaticamente in 'Analisi_Fase2/' su GitHub con il nome: **{base_filename}**"
+                    )
             else:
-                st.warning("Variabili GITHUB_TOKEN o REPO_NAME non trovate. Impossibile salvare online.")
+                st.warning(
+                    "Variabili GITHUB_TOKEN o REPO_NAME non trovate nei Secrets. Impossibile salvare online."
+                )
 
             st.session_state.report_ready = True
+
         # Bottoni Download
         if st.session_state.get("report_ready"):
             col_d1, col_d2, col_d3 = st.columns(3)
-            col_d1.download_button("Scarica PDF", st.session_state.pdf_bytes, "Report.pdf")
-            col_d2.download_button("Scarica XLSX", st.session_state.xlsx_bytes, "Dati.xlsx")
-            col_d3.download_button("Scarica JSON", st.session_state.json_bytes, "Dati.json")
+            col_d1.download_button(
+                "Scarica PDF", st.session_state.pdf_bytes, "Report.pdf"
+            )
+            col_d2.download_button(
+                "Scarica XLSX", st.session_state.xlsx_bytes, "Dati.xlsx"
+            )
+            col_d3.download_button(
+                "Scarica JSON", st.session_state.json_bytes, "Dati.json"
+            )
 
 # ==================================================================
 # --- SEZIONE 7: KPI ---
