@@ -2468,81 +2468,15 @@ if nav == "Consultazione":
 # ==================================================================
 # --- RECUPERO SICURO DELLE VARIABILI DI GITHUB ---
 # ==================================================================
+# Cerca prima nei Secrets di Streamlit Cloud, poi nelle variabili di ambiente del sistema.
 GITHUB_TOKEN = st.secrets.get(
     "GITHUB_TOKEN", os.environ.get("GITHUB_TOKEN", "")
 )
 REPO_NAME = st.secrets.get("REPO_NAME", os.environ.get("REPO_NAME", ""))
 
+# Assicura la presenza della cartella locale per evitare errori I/O
 DIR_ANALISI = "Analisi_Fase2"
 os.makedirs(DIR_ANALISI, exist_ok=True)
-
-
-# Funzione di supporto per la generazione rigorosa del nome file corto (MAX 50 CARATTERI)
-def calcola_nome_file_corto(scelta_stringa):
-    # 1. Progressivo univoco orario corto (HHMMSS -> 6 char)
-    progressivo = datetime.now().strftime("%H%M%S")
-
-    # Impostazioni di default
-    origine = "NM"
-    data_str = datetime.now().strftime("%d_%m_%Y")
-    segnalante_str = "Anonimo"
-
-    # Estrazione informazioni dal testo del selectbox
-    parti = [p.strip() for p in scelta_stringa.split("|")]
-
-    # Determinazione Origine (NM o Manutenzione)
-    testo_completo = scelta_stringa.upper()
-    if "MANUTENZIONE" in testo_completo:
-        origine = "Manutenzione"
-    elif "NM" in testo_completo:
-        origine = "NM"
-
-    # Estrazione Data e Nome/Cognome se presenti nel formato
-    for parte in parti:
-        # Cerca pattern data (es. 21-09-2026 o 21/09/2026)
-        match_data = re.search(r"\b\d{2}[-/\.]\d{2}[-/\.]\d{4}\b", parte)
-        if match_data:
-            data_str = match_data.group(0).replace("-", "_").replace("/", "_")
-            continue
-
-        # Cerca il nome del segnalante (escludendo parole chiave del sistema e numeri)
-        parole = parte.split()
-        parole_valide = [
-            p
-            for p in parole
-            if p.upper()
-            not in [
-                "NM",
-                "AN",
-                "COLLEGAMENTO",
-                "NESSUNA",
-                "NUOVA",
-                "ANALISI",
-                "MANUTENZIONE",
-                "EVENTO",
-            ]
-            and not re.search(r"\d", p)
-        ]
-
-        if len(parole_valide) >= 2:
-            # Iniziale del Nome + Cognome per esteso
-            iniziale_nome = parole_valide[0][0].upper()
-            cognome = "_".join(parole_valide[1:])
-            segnalante_str = f"{iniziale_nome}_{cognome}"
-        elif len(parole_valide) == 1:
-            segnalante_str = parole_valide[0]
-
-    # Sanificazione caratteri speciali dal nome del segnalante
-    segnalante_str = re.sub(r"[^\w]", "_", segnalante_str)
-    segnalante_str = re.sub(r"_+", "_", segnalante_str).strip("_")
-
-    # Assemblaggio: HHMMSS_AN2_Origine_Data_InizialeCognome
-    nome_grezzo = f"{progressivo}_AN2_{origine}_{data_str}_{segnalante_str}"
-
-    # TAGLIO RIGIDO A MASSIMO 50 CARATTERI
-    nome_finale = nome_grezzo[:50].rstrip("_")
-    return nome_finale
-
 
 if nav == "Analisi - Fase 2":
     st.header("Analisi - Fase 2 delle segnalazioni near miss")
@@ -2565,27 +2499,24 @@ if nav == "Analisi - Fase 2":
 
     if st.session_state.autenticato_fase2:
 
-        # Caricamento e unione dati per dropdown
+        # Caricamento e unione dati per dropdown (STRUTTURA DATO ORIGINALE INALTERATA)
         opzioni = ["Nessuna (Nuova analisi)"]
 
         # Leggi Near Miss
         if os.path.exists(FILE_NEAR_MISS):
             df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
             for idx, r in df_nm.iterrows():
-                tipo_ev = str(r.get("Tipo Evento", "NM"))
-                data_ev = str(r.get("Data Segnalazione", "N/D"))
-                nome_ev = str(
-                    r.get("Segnalante", r.get("Nome", "Anonimo"))
-                ).strip()
-                opzioni.append(f"{tipo_ev} | {data_ev} | {nome_ev}")
+                opzioni.append(
+                    f"NM | {r.get('Data Segnalazione', 'N/D')} | {r.get('Tipo Evento', 'Evento')}"
+                )
 
         # Leggi Analisi già fatte
         if os.path.exists(FILE_ANALISI_NM):
             df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
             for idx, r in df_an.iterrows():
-                data_an = str(r.get("Data Analisi", "N/D"))
-                nome_an = str(r.get("Analista", "Anonimo")).strip()
-                opzioni.append(f"AN | {data_an} | {nome_an}")
+                opzioni.append(
+                    f"AN | {r.get('Data Analisi', 'N/D')} | Collegamento: {r.get('Segnalazione Collegata', 'Analisi')}"
+                )
 
         scelta_rif = st.selectbox(
             "Seleziona evento/analisi collegata:", opzioni
@@ -2617,6 +2548,7 @@ if nav == "Analisi - Fase 2":
             ax.axis("off")
             ax.plot([1, 9], [0, 0], color="black", lw=3)
 
+            # Aggiunta branchie (Ishikawa)
             def wrap(text):
                 return "\n".join(textwrap.wrap(str(text), width=20))
 
@@ -2642,9 +2574,11 @@ if nav == "Analisi - Fase 2":
             plt.close()
             st.pyplot(fig)
 
+            # Lettura dell'immagine PNG creata in binario per il salvataggio in sessione
             with open(temp_img, "rb") as img_file:
                 png_bytes = img_file.read()
 
+            # Raccolta metadati richiesti (Data generazione e file associati)
             data_generazione = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             file_obbligatorio = FILE_ANALISI_NM
             file_facoltativo = (
@@ -2653,8 +2587,10 @@ if nav == "Analisi - Fase 2":
                 else "Non utilizzato / Assente"
             )
 
+            # Conversione dell'immagine in stringa Base64 per l'inclusione nel JSON
             png_base64 = base64.b64encode(png_bytes).decode("utf-8")
 
+            # Dati strutturati per Export
             dati_report = {
                 "Data Generazione Report": data_generazione,
                 "File Obbligatorio Associato": file_obbligatorio,
@@ -2675,7 +2611,7 @@ if nav == "Analisi - Fase 2":
             pdf.add_page()
             pdf.set_font("Arial", "B", 16)
             pdf.cell(0, 10, "Report Analisi Near Miss", ln=True, align="C")
-            pdf.ln(10)
+            pdf.ln(10)  # Spazio
 
             pdf.set_font("Arial", size=10)
             pdf.cell(0, 6, f"Data Generazione: {data_generazione}", ln=True)
@@ -2684,6 +2620,7 @@ if nav == "Analisi - Fase 2":
             pdf.cell(0, 6, f"Riferimento: {scelta_rif}", ln=True)
             pdf.ln(5)
 
+            # Scrittura Analisi 4M
             pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "Analisi 4M:", ln=True)
             pdf.set_font("Arial", size=12)
@@ -2691,6 +2628,7 @@ if nav == "Analisi - Fase 2":
                 pdf.cell(0, 10, f"- {key}: {val}", ln=True)
             pdf.ln(5)
 
+            # Scrittura 5Whys (Inclusione di tutti i 5 Perché)
             pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "5Whys:", ln=True)
             pdf.set_font("Arial", size=12)
@@ -2698,16 +2636,19 @@ if nav == "Analisi - Fase 2":
                 pdf.cell(0, 10, f"Perché {i}: {why}", ln=True)
             pdf.ln(5)
 
+            # Scrittura Conclusioni
             pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "Conclusioni:", ln=True)
             pdf.set_font("Arial", size=12)
             pdf.multi_cell(0, 10, dati_report["Conclusioni"])
             pdf.ln(5)
 
+            # Inserimento visivo del grafico PNG nel PDF (Diagramma di Ishikawa)
             pdf.set_font("Arial", "B", 10)
             pdf.cell(0, 10, "Diagramma di Ishikawa:", ln=True)
             pdf.image(temp_img, w=180)
 
+            # Output del file in bytes
             pdf_output = bytes(pdf.output(dest="S"))
             st.session_state.pdf_bytes = pdf_output
 
@@ -2720,21 +2661,102 @@ if nav == "Analisi - Fase 2":
             )
             st.session_state.xlsx_bytes = buffer_xlsx.getvalue()
 
-            # 3. JSON
+            # 3. JSON (Include i metadati, i testi e l'immagine codificata in Base64)
             st.session_state.json_bytes = json.dumps(
                 dati_report, indent=4, ensure_ascii=False
             ).encode("utf-8")
 
-            # 4. PNG
+            # 4. PNG (File immagine separato)
             st.session_state.png_bytes = png_bytes
 
             # ==================================================================
-            # --- SALVATAGGIO AUTOMATICO SU GITHUB CON NOME CORTO GARANTITO ---
+            # --- SALVATAGGIO AUTOMATICO SU GITHUB (NOME CONSERVATIVO < 50 CARATTERI) ---
             # ==================================================================
             if GITHUB_TOKEN and REPO_NAME:
-                # Generazione del nome file con la nuova funzione (max 50 caratteri)
-                base_filename = calcola_nome_file_corto(scelta_rif)
+                # 1. Codice progressivo univoco breve (HHMMSS -> 6 caratteri)
+                progressivo = datetime.now().strftime("%H%M%S")
 
+                # 2. Determinazione dell'Origine (NM o Manutenzione)
+                testo_rif_upper = scelta_rif.upper()
+                if "MANUTENZIONE" in testo_rif_upper:
+                    origine = "Manutenzione"
+                else:
+                    origine = "NM"
+
+                # 3. Estrazione della Data della segnalazione (formato GG_MM_AAAA)
+                match_data = re.search(
+                    r"\b\d{2}[-/\.]\d{2}[-/\.]\d{4}\b", scelta_rif
+                )
+                if match_data:
+                    data_seg = match_data.group(0).replace("-", "_").replace("/", "_")
+                else:
+                    data_seg = datetime.now().strftime("%d_%m_%Y")
+
+                # 4. Estrazione del Segnalante dai dati caricati in memoria (o ricerca nel testo)
+                segnalante_fmt = "Anonimo"
+
+                # Cerca l'eventuale corrispondenza nel DataFrame del Near Miss per recuperare Nome e Cognome esatti
+                if os.path.exists(FILE_NEAR_MISS) and "NM |" in scelta_rif:
+                    try:
+                        df_check = pd.read_csv(FILE_NEAR_MISS, sep=";")
+                        for idx_c, r_c in df_check.iterrows():
+                            str_check = f"NM | {r_c.get('Data Segnalazione', 'N/D')} | {r_c.get('Tipo Evento', 'Evento')}"
+                            if str_check == scelta_rif:
+                                nome_completo = str(
+                                    r_c.get(
+                                        "Segnalante",
+                                        r_c.get(
+                                            "Nome",
+                                            r_c.get("Nome e Cognome", ""),
+                                        ),
+                                    )
+                                ).strip()
+                                parti_nome = nome_completo.split()
+                                if len(parti_nome) >= 2:
+                                    segnalante_fmt = f"{parti_nome[0][0].upper()}_{'_'.join(parti_nome[1:])}"
+                                elif len(parti_nome) == 1:
+                                    segnalante_fmt = parti_nome[0]
+                                break
+                    except Exception:
+                        pass
+
+                # Se non trovato nel DataFrame, estrae i termini dal testo selezionato sanificandoli
+                if segnalante_fmt == "Anonimo":
+                    parole = re.sub(r"[^\w\s]", " ", scelta_rif).split()
+                    parole_filtrate = [
+                        p
+                        for p in parole
+                        if p.upper()
+                        not in [
+                            "NM",
+                            "AN",
+                            "COLLEGAMENTO",
+                            "NESSUNA",
+                            "NUOVA",
+                            "ANALISI",
+                            "MANUTENZIONE",
+                            "EVENTO",
+                            "N",
+                            "D",
+                        ]
+                        and not re.search(r"\d", p)
+                    ]
+                    if len(parole_filtrate) >= 2:
+                        segnalante_fmt = f"{parole_filtrate[0][0].upper()}_{'_'.join(parole_filtrate[1:])}"
+                    elif len(parole_filtrate) == 1:
+                        segnalante_fmt = parole_filtrate[0]
+
+                # Sanificazione caratteri speciali
+                segnalante_fmt = re.sub(r"[^\w]", "_", segnalante_fmt)
+                segnalante_fmt = re.sub(r"_+", "_", segnalante_fmt).strip("_")
+
+                # 5. Assemblaggio nome: HHMMSS_AN2_Origine_Data_InizialeCognome
+                base_temp = f"{progressivo}_AN2_{origine}_{data_seg}_{segnalante_fmt}"
+
+                # 6. Taglio rigido di sicurezza a MASSIMO 50 CARATTERI
+                base_filename = base_temp[:50].rstrip("_")
+
+                # Dizionario dei file da caricare nella cartella "Analisi_Fase2"
                 files_to_upload = {
                     f"Analisi_Fase2/{base_filename}.pdf": pdf_output,
                     f"Analisi_Fase2/{base_filename}_Ish.png": png_bytes,
@@ -2793,7 +2815,7 @@ if nav == "Analisi - Fase 2":
 
                 if caricamento_ok:
                     st.success(
-                        f"Report salvato in 'Analisi_Fase2/' con il nome corto (lunghezza {len(base_filename)} car.): **{base_filename}**"
+                        f"Report salvato automaticamente in 'Analisi_Fase2/' con il nome: **{base_filename}**"
                     )
             else:
                 st.warning(
@@ -2814,7 +2836,6 @@ if nav == "Analisi - Fase 2":
             col_d3.download_button(
                 "Scarica JSON", st.session_state.json_bytes, "Dati.json"
             )
-
 # ==================================================================
 # --- SEZIONE 7: KPI ---
 # ==================================================================
