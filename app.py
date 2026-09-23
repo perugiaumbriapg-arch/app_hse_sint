@@ -4355,70 +4355,67 @@ if nav == "Stima Costo Economico":
             )
             df_export = pd.concat([df_export, riga_totale], ignore_index=True)
 
-            # =========================================================
-            # LOGICA DI GENERAZIONE NOME FILE EXPORT (max 50 car. .csv)
-            # =========================================================
+            # ----------------------------------------------------
+            # LOGICA DI GENERAZIONE NOME FILE DI SALVATAGGIO
+            # ----------------------------------------------------
             import re
 
-            rif_str = scelta_rif
+            testo_rif = scelta_rif
 
-            # 1. Rimozione parole specificate
-            parole_da_rimuovere = ["Collegamento", "Segnalazione", "Near_Miss", "Near Miss"]
-            for p in parole_da_rimuovere:
-                rif_str = re.sub(re.escape(p), "", rif_str, flags=re.IGNORECASE)
+            # 1. Rimuovi l'ora se presente (formato HH:MM o HH:MM:SS)
+            testo_rif = re.sub(r'\b\d{1,2}:\d{2}(:\d{2})?\b', '', testo_rif)
 
-            # 2. Conversione "NM_Manutenzione" / "NM Manutenzione" in "M"
-            rif_str = re.sub(r'\bNM[_\s]+Manutenzione\b', 'M', rif_str, flags=re.IGNORECASE)
+            # 2. Trasforma anni a 4 cifre (20XX) in 2 cifre (XX)
+            testo_rif = re.sub(r'\b20(\d{2})\b', r'\1', testo_rif)
 
-            # 3. Se presente AN, elimina orario (es. 12:34:56 o 12:34 o T12:34...)
-            if "AN" in rif_str:
-                rif_str = re.sub(r'\b\d{1,2}:\d{2}(:\d{2})?\b', '', rif_str)
+            # 3. Elimina le parole indesiderate
+            for parola in ["Collegamento:", "Collegamento", "Segnalazione", "Near_Miss", "Near Miss"]:
+                testo_rif = testo_rif.replace(parola, "")
 
-            # 4. Formattazione dell'anno a 2 cifre (es. 2026 -> 26)
-            rif_str = re.sub(r'\b20(\d{2})\b', r'\1', rif_str)
+            # 4. Sostituisci "NM_Manutenzione" / "NM Manutenzione" con "M"
+            testo_rif = re.sub(r'\bNM[_\s]+Manutenzione\b', 'M', testo_rif, flags=re.IGNORECASE)
 
-            # 5. Sanitizzazione dei caratteri speciali non ammessi nei file
-            clean_rif = re.sub(r'[\\/*?:"<>|]', ' ', rif_str)
+            # Pulizia caratteri speciali residui
+            clean_rif = re.sub(r'[\\/*?:"<>|]', "", testo_rif)
+            
+            # Sostituzione separatori (| / trattini) e spazi con underscore
+            clean_rif = clean_rif.replace("|", "_").replace("-", "_").replace(" ", "_")
+            clean_rif = re.sub(r'_+', '_', clean_rif).strip('_')
 
-            # Estrazione dei token (parole pulite)
-            tokens = [t for t in re.split(r'[\s\_]+', clean_rif) if t]
+            # 5. Elaborazione specifica dopo NM o M (Riduzione parole successive)
+            # Separa per identificare prefisso (NM o M o AN) e parole successive
+            parti = clean_rif.split('_')
+            nuove_parti = []
+            i = 0
+            while i < len(parti):
+                p = parti[i]
+                nuove_parti.append(p)
+                # Se troviamo la marca NM o M (e non AN)
+                if p.upper() in ["NM", "M"]:
+                    # Prendi al massimo le 2 parole successive se presenti
+                    parole_succ = parti[i+1 : i+3]
+                    if len(parole_succ) >= 1:
+                        # La prima parola diventa solo l'iniziale maiuscola
+                        nuove_parti.append(parole_succ[0][0].upper())
+                    if len(parole_succ) >= 2:
+                        # La seconda parola viene mantenuta per intero
+                        nuove_parti.append(parole_succ[1])
+                    # Salta tutte le altre parole intermedie fino alla fine della stringa
+                    break
+                i += 1
 
-            prefix = ""
-            words = []
+            stringa_elaborata = "_".join(nuove_parti)
 
-            if tokens:
-                first_tok = tokens[0].upper()
-                if first_tok in ["NM", "M"]:
-                    prefix = first_tok
-                    words = tokens[1:]
-                elif first_tok == "AN":
-                    prefix = "AN"
-                    words = tokens[1:]
-                else:
-                    words = tokens
-
-            # Se non si tratta di AN e abbiamo un prefisso NM o M:
-            # la prima parola dopo il prefisso diventa solo l'iniziale, la seconda parola per intero
-            if prefix in ["NM", "M"]:
-                formatted_parts = [prefix]
-                if len(words) >= 1:
-                    formatted_parts.append(words[0][0].upper())  # solo iniziale
-                if len(words) >= 2:
-                    formatted_parts.append(words[1])              # parola per intero
-                base_name = "_".join(formatted_parts) + "_Costo_Eco"
-            elif prefix == "AN":
-                formatted_parts = [prefix] + words
-                base_name = "_".join(formatted_parts) + "_Costo_Eco"
+            # 6. Assemblaggio finale del nome base con Costo_Eco
+            if stringa_elaborata:
+                base_name = f"{stringa_elaborata}_Costo_Eco"
             else:
-                if words:
-                    base_name = "_".join(words) + "_Costo_Eco"
-                else:
-                    base_name = "Costo_Eco"
+                base_name = "Costo_Eco"
 
-            # Pulizia doppi underscore ed eventuali underscore iniziali/finali
+            # Pulizia finale da doppi underscore residui
             base_name = re.sub(r'_+', '_', base_name).strip('_')
 
-            # Mantiene massimo 46 caratteri affinché con ".csv" non superi i 50 caratteri totali
+            # Mantiene fino a 46 caratteri affinché con ".csv" il totale rimanga <= 50 caratteri
             file_name_export = f"{base_name[:46]}.csv"
 
             # Percorso su GitHub: Stima_Economica/Report/<nome_file>.csv
