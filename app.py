@@ -2468,7 +2468,6 @@ if nav == "Consultazione":
 # ==================================================================
 # --- RECUPERO SICURO DELLE VARIABILI DI GITHUB ---
 # ==================================================================
-# Cerca prima nei Secrets di Streamlit Cloud, poi nelle variabili di ambiente del sistema.
 GITHUB_TOKEN = st.secrets.get(
     "GITHUB_TOKEN", os.environ.get("GITHUB_TOKEN", "")
 )
@@ -2499,7 +2498,7 @@ if nav == "Analisi - Fase 2":
 
     if st.session_state.autenticato_fase2:
 
-        # Caricamento e unione dati per dropdown (STRUTTURA DATO ORIGINALE INALTERATA)
+        # Caricamento e unione dati per dropdown (INALTERATO)
         opzioni = ["Nessuna (Nuova analisi)"]
 
         # Leggi Near Miss
@@ -2578,7 +2577,7 @@ if nav == "Analisi - Fase 2":
             with open(temp_img, "rb") as img_file:
                 png_bytes = img_file.read()
 
-            # Raccolta metadati richiesti (Data generazione e file associati)
+            # Raccolta metadati
             data_generazione = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             file_obbligatorio = FILE_ANALISI_NM
             file_facoltativo = (
@@ -2587,7 +2586,7 @@ if nav == "Analisi - Fase 2":
                 else "Non utilizzato / Assente"
             )
 
-            # Conversione dell'immagine in stringa Base64 per l'inclusione nel JSON
+            # Conversione Base64 per JSON
             png_base64 = base64.b64encode(png_bytes).decode("utf-8")
 
             # Dati strutturati per Export
@@ -2606,67 +2605,92 @@ if nav == "Analisi - Fase 2":
                 "Conclusioni": conc,
             }
 
-            # 1. PDF
+            # ==================================================================
+            # 1. GENERAZIONE PDF SICURA (CON WRAP AUTOMATICO TESTI)
+            # ==================================================================
             pdf = FPDF()
             pdf.add_page()
+            pdf.set_auto_page_break(auto=True, margin=15)
+
+            # Titolo
             pdf.set_font("Arial", "B", 16)
             pdf.cell(0, 10, "Report Analisi Near Miss", ln=True, align="C")
-            pdf.ln(10)  # Spazio
+            pdf.ln(5)
 
+            # Intestazione e Riferimenti
             pdf.set_font("Arial", size=10)
-            pdf.cell(0, 6, f"Data Generazione: {data_generazione}", ln=True)
-            pdf.cell(0, 6, f"File Obbligatorio: {file_obbligatorio}", ln=True)
-            pdf.cell(0, 6, f"File Facoltativo: {file_facoltativo}", ln=True)
-            pdf.cell(0, 6, f"Riferimento: {scelta_rif}", ln=True)
+            pdf.multi_cell(0, 6, f"Data Generazione: {data_generazione}")
+            pdf.multi_cell(0, 6, f"File Obbligatorio: {file_obbligatorio}")
+            pdf.multi_cell(0, 6, f"File Facoltativo: {file_facoltativo}")
+            pdf.multi_cell(0, 6, f"Riferimento: {scelta_rif}")
             pdf.ln(5)
 
-            # Scrittura Analisi 4M
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "Analisi 4M:", ln=True)
-            pdf.set_font("Arial", size=12)
+            # Analisi 4M
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 8, "Analisi 4M:", ln=True)
+            pdf.set_font("Arial", size=10)
             for key, val in dati_report["4M"].items():
-                pdf.cell(0, 10, f"- {key}: {val}", ln=True)
-            pdf.ln(5)
+                pdf.multi_cell(0, 6, f"- {key}: {val}")
+            pdf.ln(4)
 
-            # Scrittura 5Whys (Inclusione di tutti i 5 Perché)
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "5Whys:", ln=True)
-            pdf.set_font("Arial", size=12)
+            # 5Whys
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 8, "5Whys:", ln=True)
+            pdf.set_font("Arial", size=10)
             for i, why in enumerate(dati_report["5Whys"], 1):
-                pdf.cell(0, 10, f"Perché {i}: {why}", ln=True)
-            pdf.ln(5)
+                pdf.multi_cell(0, 6, f"Perché {i}: {why}")
+            pdf.ln(4)
 
-            # Scrittura Conclusioni
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "Conclusioni:", ln=True)
-            pdf.set_font("Arial", size=12)
-            pdf.multi_cell(0, 10, dati_report["Conclusioni"])
-            pdf.ln(5)
+            # Conclusioni
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 8, "Conclusioni:", ln=True)
+            pdf.set_font("Arial", size=10)
+            pdf.multi_cell(0, 6, dati_report["Conclusioni"])
+            pdf.ln(6)
 
-            # Inserimento visivo del grafico PNG nel PDF (Diagramma di Ishikawa)
+            # Diagramma Ishikawa
             pdf.set_font("Arial", "B", 10)
-            pdf.cell(0, 10, "Diagramma di Ishikawa:", ln=True)
+            pdf.cell(0, 8, "Diagramma di Ishikawa:", ln=True)
+            # Verifica spazio rimanente prima dell'immagine per evitare pagine vuote o tagli
+            if pdf.get_y() > 180:
+                pdf.add_page()
             pdf.image(temp_img, w=180)
 
-            # Output del file in bytes
             pdf_output = bytes(pdf.output(dest="S"))
             st.session_state.pdf_bytes = pdf_output
 
-            # 2. XLSX
+            # ==================================================================
+            # 2. GENERAZIONE EXCEL (XLSX) COMPLETO DI TUTTI I DATI
+            # ==================================================================
             import io
 
+            dati_excel_piatti = {
+                "Data Generazione Report": [data_generazione],
+                "Riferimento Selezionato": [scelta_rif],
+                "File Obbligatorio": [file_obbligatorio],
+                "File Facoltativo": [file_facoltativo],
+                "Macchina / Infrastruttura": [macchina],
+                "Materiale": [materiale],
+                "Metodo / Procedura": [metodo],
+                "Manodopera / Comportamento": [manodopera],
+                "Perché 1": [w1],
+                "Perché 2": [w2],
+                "Perché 3": [w3],
+                "Perché 4": [w4],
+                "Perché 5": [w5],
+                "Conclusioni": [conc],
+            }
+
             buffer_xlsx = io.BytesIO()
-            pd.DataFrame([dati_report["4M"]]).to_excel(
-                buffer_xlsx, index=False
-            )
+            pd.DataFrame(dati_excel_piatti).to_excel(buffer_xlsx, index=False)
             st.session_state.xlsx_bytes = buffer_xlsx.getvalue()
 
-            # 3. JSON (Include i metadati, i testi e l'immagine codificata in Base64)
+            # 3. JSON
             st.session_state.json_bytes = json.dumps(
                 dati_report, indent=4, ensure_ascii=False
             ).encode("utf-8")
 
-            # 4. PNG (File immagine separato)
+            # 4. PNG
             st.session_state.png_bytes = png_bytes
 
             # ==================================================================
@@ -2692,10 +2716,9 @@ if nav == "Analisi - Fase 2":
                 else:
                     data_seg = datetime.now().strftime("%d_%m_%Y")
 
-                # 4. Estrazione del Segnalante dai dati caricati in memoria (o ricerca nel testo)
+                # 4. Estrazione del Segnalante
                 segnalante_fmt = "Anonimo"
 
-                # Cerca l'eventuale corrispondenza nel DataFrame del Near Miss per recuperare Nome e Cognome esatti
                 if os.path.exists(FILE_NEAR_MISS) and "NM |" in scelta_rif:
                     try:
                         df_check = pd.read_csv(FILE_NEAR_MISS, sep=";")
@@ -2720,7 +2743,6 @@ if nav == "Analisi - Fase 2":
                     except Exception:
                         pass
 
-                # Se non trovato nel DataFrame, estrae i termini dal testo selezionato sanificandoli
                 if segnalante_fmt == "Anonimo":
                     parole = re.sub(r"[^\w\s]", " ", scelta_rif).split()
                     parole_filtrate = [
