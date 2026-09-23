@@ -4355,37 +4355,70 @@ if nav == "Stima Costo Economico":
             )
             df_export = pd.concat([df_export, riga_totale], ignore_index=True)
 
-            # Generazione del nome file dinamico limitato a massimo 50 caratteri (estensione .csv inclusa)
+            # =========================================================
+            # LOGICA DI GENERAZIONE NOME FILE EXPORT (max 50 car. .csv)
+            # =========================================================
             import re
 
-            clean_rif = scelta_rif
+            rif_str = scelta_rif
 
-            # Rimozione dell'ora se presente (formati tipo HH:MM:SS o HH:MM)
-            clean_rif = re.sub(r'\b\d{1,2}:\d{2}(:\d{2})?\b', '', clean_rif)
+            # 1. Rimozione parole specificate
+            parole_da_rimuovere = ["Collegamento", "Segnalazione", "Near_Miss", "Near Miss"]
+            for p in parole_da_rimuovere:
+                rif_str = re.sub(re.escape(p), "", rif_str, flags=re.IGNORECASE)
 
-            # Rimozione parole non desiderate ("Collegamento", "Segnalazione", "Near_Miss", "Near Miss")
-            # Mantiene "NM" intatto
-            for word in ["Collegamento", "Segnalazione", "Near_Miss", "Near Miss"]:
-                clean_rif = clean_rif.replace(word, "")
+            # 2. Conversione "NM_Manutenzione" / "NM Manutenzione" in "M"
+            rif_str = re.sub(r'\bNM[_\s]+Manutenzione\b', 'M', rif_str, flags=re.IGNORECASE)
 
-            # Pulizia caratteri speciali non validi per i nomi di file
-            clean_rif = re.sub(r'[\\/*?:"<>|]', "", clean_rif)
+            # 3. Se presente AN, elimina orario (es. 12:34:56 o 12:34 o T12:34...)
+            if "AN" in rif_str:
+                rif_str = re.sub(r'\b\d{1,2}:\d{2}(:\d{2})?\b', '', rif_str)
 
-            # Trasforma gli anni a 4 cifre (es. 2026) in anni a 2 cifre (es. 26)
-            clean_rif = re.sub(r'\b20(\d{2})\b', r'\1', clean_rif)
+            # 4. Formattazione dell'anno a 2 cifre (es. 2026 -> 26)
+            rif_str = re.sub(r'\b20(\d{2})\b', r'\1', rif_str)
 
-            # Sostituzione spazi con underscore
-            clean_rif = clean_rif.replace(" ", "_")
+            # 5. Sanitizzazione dei caratteri speciali non ammessi nei file
+            clean_rif = re.sub(r'[\\/*?:"<>|]', ' ', rif_str)
 
-            # Costruzione del nome base senza doppi/multipli underscore
-            if clean_rif:
-                base_name = f"{clean_rif}_Costo_Eco"
+            # Estrazione dei token (parole pulite)
+            tokens = [t for t in re.split(r'[\s\_]+', clean_rif) if t]
+
+            prefix = ""
+            words = []
+
+            if tokens:
+                first_tok = tokens[0].upper()
+                if first_tok in ["NM", "M"]:
+                    prefix = first_tok
+                    words = tokens[1:]
+                elif first_tok == "AN":
+                    prefix = "AN"
+                    words = tokens[1:]
+                else:
+                    words = tokens
+
+            # Se non si tratta di AN e abbiamo un prefisso NM o M:
+            # la prima parola dopo il prefisso diventa solo l'iniziale, la seconda parola per intero
+            if prefix in ["NM", "M"]:
+                formatted_parts = [prefix]
+                if len(words) >= 1:
+                    formatted_parts.append(words[0][0].upper())  # solo iniziale
+                if len(words) >= 2:
+                    formatted_parts.append(words[1])              # parola per intero
+                base_name = "_".join(formatted_parts) + "_Costo_Eco"
+            elif prefix == "AN":
+                formatted_parts = [prefix] + words
+                base_name = "_".join(formatted_parts) + "_Costo_Eco"
             else:
-                base_name = "Costo_Eco"
+                if words:
+                    base_name = "_".join(words) + "_Costo_Eco"
+                else:
+                    base_name = "Costo_Eco"
 
+            # Pulizia doppi underscore ed eventuali underscore iniziali/finali
             base_name = re.sub(r'_+', '_', base_name).strip('_')
 
-            # Mantiene fino a 46 caratteri del base_name affinché con ".csv" non superi i 50
+            # Mantiene massimo 46 caratteri affinché con ".csv" non superi i 50 caratteri totali
             file_name_export = f"{base_name[:46]}.csv"
 
             # Percorso su GitHub: Stima_Economica/Report/<nome_file>.csv
