@@ -3590,7 +3590,7 @@ if nav == "Piano Miglioramento":
     # ------------------------------------------
     def render_auth_form(section_prefix="sec8"):
         if not st.session_state["authenticated_sec8"]:
-            st.warning("🔒 Quest'area è riservata. Inserisci la password per accedere.")
+            st.warning("Inserisci la password per accedere all'area riservata.")
             pwd_input = st.text_input("Password di accesso", type="password", key=f"pwd_{section_prefix}")
             if st.button("Sblocca Sezioni Private", key=f"btn_auth_{section_prefix}"):
                 correct_pwd = st.secrets.get("PASSWORD_SEZIONE", "admin")
@@ -4358,15 +4358,26 @@ if nav == "Stima Costo Economico":
             # Generazione del nome file dinamico limitato a massimo 50 caratteri (estensione .csv inclusa)
             import re
 
-            clean_rif = re.sub(r'[\\/*?:"<>|]', "", scelta_rif)
-            
+            clean_rif = scelta_rif
+
+            # Rimozione dell'ora se presente (formati tipo HH:MM:SS o HH:MM)
+            clean_rif = re.sub(r'\b\d{1,2}:\d{2}(:\d{2})?\b', '', clean_rif)
+
+            # Rimozione parole non desiderate ("Collegamento", "Segnalazione", "Near_Miss", "Near Miss")
+            # Mantiene "NM" intatto
+            for word in ["Collegamento", "Segnalazione", "Near_Miss", "Near Miss"]:
+                clean_rif = clean_rif.replace(word, "")
+
+            # Pulizia caratteri speciali non validi per i nomi di file
+            clean_rif = re.sub(r'[\\/*?:"<>|]', "", clean_rif)
+
             # Trasforma gli anni a 4 cifre (es. 2026) in anni a 2 cifre (es. 26)
             clean_rif = re.sub(r'\b20(\d{2})\b', r'\1', clean_rif)
-            
+
             # Sostituzione spazi con underscore
             clean_rif = clean_rif.replace(" ", "_")
 
-            # Costruzione del nome base senza doppi underscore ed evitando underscore multipli consecutivi
+            # Costruzione del nome base senza doppi/multipli underscore
             if clean_rif:
                 base_name = f"{clean_rif}_Costo_Eco"
             else:
