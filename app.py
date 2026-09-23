@@ -4356,23 +4356,61 @@ if nav == "Stima Costo Economico":
             df_export = pd.concat([df_export, riga_totale], ignore_index=True)
 
             # ==================================================================
-            # LOGICA DI GENERAZIONE DEL NOME FILE (MAX 50 CARATTERI)
-            # Schema: AN_yy-mm-dd_NM/Manutenzione_dd_mm_yy_Nome-Cognome_Stima_Costo_Eco_NM.csv
+            # LOGICA SALVATAGGIO FILE (MAX 50 CARATTERI COMPLETI)
+            # Struttura: AN_yy-mm-dd_NM/M_dd-mm-yy_I-Cognome_Costo_Eco.csv
             # ==================================================================
             import re
             from datetime import datetime
 
-            # 1. Data Corrente (yy-mm-dd)
+            # 1. Data Corrente di generazione (yy-mm-dd)
             data_oggi_yy = datetime.now().strftime("%y-%m-%d")
 
-            # 2. Determinazione dell'Origine (NM o Manutenzione)
+            # 2. Determinazione Origine (NM / M)
             testo_rif_upper = scelta_rif.upper()
             if "MANUTENZIONE" in testo_rif_upper:
-                origine = "Manutenzione"
+                origine = "M"
             else:
                 origine = "NM"
 
-            # 3. Estrazione Data della Segnalazione (formato dd_mm_yy)
+            # 3. Recupero Segnalatore dalla riga d'origine del CSV
+            raw_segnalatore = ""
+            if "FILE_NEAR_MISS" in globals() and os.path.exists(FILE_NEAR_MISS) and scelta_rif != "Nessuna (Nuova analisi)":
+                try:
+                    df_check = pd.read_csv(FILE_NEAR_MISS, sep=";")
+                    for idx_c, r_c in df_check.iterrows():
+                        str_check_nm = f"NM | {r_c.get('Data Segnalazione', 'N/D')} | {r_c.get('Tipo Evento', 'Evento')}"
+                        str_check_an = f"AN | {r_c.get('Data Analisi', 'N/D')} | Collegamento: {r_c.get('Segnalazione Collegata', 'Analisi')}"
+                        
+                        if scelta_rif in [str_check_nm, str_check_an]:
+                            for col in ["Segnalatore", "Segnalante", "Nome e Cognome", "Nome"]:
+                                if col in r_c and pd.notna(r_c[col]):
+                                    val_col = str(r_c[col]).strip()
+                                    if val_col and val_col.lower() != "nan":
+                                        raw_segnalatore = val_col
+                                        break
+                            break
+                except Exception:
+                    pass
+
+            # Formattazione: Iniziale prima parola + seconda parola intera (sia per NM che per M)
+            if raw_segnalatore:
+                parole = re.sub(r"[^\w\s]", "", raw_segnalatore).split()
+                if len(parole) >= 2:
+                    iniziale = parole[0][0].upper()
+                    seconda_parola = parole[1].capitalize()
+                    str_segnalatore_fmt = f"{iniziale}-{seconda_parola}"
+                elif len(parole) == 1:
+                    str_segnalatore_fmt = parole[0].capitalize()
+                else:
+                    str_segnalatore_fmt = "Anonimo"
+            else:
+                str_segnalatore_fmt = "Anonimo"
+
+            # Sanificazione stringa formattata
+            segnalatore_clean = re.sub(r"[^\w]", "-", str_segnalatore_fmt)
+            segnalatore_clean = re.sub(r"-+", "-", segnalatore_clean).strip("-")
+
+            # 4. Estrazione Data del file collegato (dd-mm-yy)
             match_data = re.search(
                 r"\b(\d{2})[-/\.](\d{2})[-/\.](\d{2,4})\b", scelta_rif
             )
@@ -4380,85 +4418,30 @@ if nav == "Stima Costo Economico":
                 gg = match_data.group(1)
                 mm = match_data.group(2)
                 anno_full = match_data.group(3)
-                yy_seg = anno_full[-2:] if len(anno_full) == 4 else anno_full
-                data_seg_fmt = f"{gg}_{mm}_{yy_seg}"
+                yy_collegato = anno_full[-2:] if len(anno_full) == 4 else anno_full
+                data_collegato_fmt = f"{gg}-{mm}-{yy_collegato}"
             else:
-                data_seg_fmt = datetime.now().strftime("%d_%m_%y")
+                data_collegato_fmt = datetime.now().strftime("%d-%m-%y")
 
-            # 4. Estrazione Nome e Cognome del Segnalatore
-            nome_cognome_segnalatore = "Anonimo"
+            # 5. Composizione dinamica del nome file con controllo rigido dei 50 caratteri
+            prefisso = f"AN_{data_oggi_yy}_{origine}_{data_collegato_fmt}_"
+            suffisso = "_Costo_Eco.csv"
 
-            if "FILE_NEAR_MISS" in globals() and os.path.exists(FILE_NEAR_MISS) and "NM |" in scelta_rif:
-                try:
-                    df_check = pd.read_csv(FILE_NEAR_MISS, sep=";")
-                    for idx_c, r_c in df_check.iterrows():
-                        str_check = f"NM | {r_c.get('Data Segnalazione', 'N/D')} | {r_c.get('Tipo Evento', 'Evento')}"
-                        if str_check == scelta_rif:
-                            nome_comp = str(
-                                r_c.get(
-                                    "Segnalante",
-                                    r_c.get(
-                                        "Nome", r_c.get("Nome e Cognome", "")
-                                    ),
-                                )
-                            ).strip()
-                            if nome_comp and nome_comp.lower() != "nan":
-                                nome_cognome_segnalatore = nome_comp
-                            break
-                except Exception:
-                    pass
+            # Spazio fisso utilizzato dai prefissi e suffissi
+            spazio_fisso = len(prefisso) + len(suffisso)
+            spazio_rimasto_nome = 50 - spazio_fisso
 
-            if nome_cognome_segnalatore == "Anonimo":
-                parole = re.sub(r"[^\w\s]", " ", scelta_rif).split()
-                parole_filtrate = [
-                    p
-                    for p in parole
-                    if p.upper()
-                    not in [
-                        "NM",
-                        "AN",
-                        "COLLEGAMENTO",
-                        "NESSUNA",
-                        "NUOVA",
-                        "ANALISI",
-                        "MANUTENZIONE",
-                        "EVENTO",
-                        "N",
-                        "D",
-                    ]
-                    and not re.search(r"\d", p)
-                ]
-                if parole_filtrate:
-                    nome_cognome_segnalatore = " ".join(parole_filtrate)
-
-            # Sanificazione Nome e Cognome (sostituisce spazi e caratteri speciali con trattino)
-            segnalatore_clean = re.sub(r"[^\w]", "-", nome_cognome_segnalatore)
-            segnalatore_clean = re.sub(r"-+", "-", segnalatore_clean).strip("-")
-
-            # 5. Assemblaggio prefisso e suffisso
-            prefisso = f"AN_{data_oggi_yy}_{origine}_{data_seg_fmt}_"
-            suffisso = "_Stima_Costo_Eco_NM"
-            estensione = ".csv"
-
-            # 6. Calcolo dinamico dello spazio rimasto per Nome-Cognome (Limite rigido max 50 caratteri)
-            spazio_usato_fisso = len(prefisso) + len(suffisso) + len(estensione)
-            spazio_disponibile_nome = 50 - spazio_usato_fisso
-
-            if spazio_disponibile_nome > 0:
-                segnalatore_cut = segnalatore_clean[:spazio_disponibile_nome].strip("-")
-                if segnalatore_cut:
-                    base_filename = f"{prefisso}{segnalatore_cut}{suffisso}"
-                else:
-                    base_filename = f"{prefisso.rstrip('_')}{suffisso}"
+            if spazio_rimasto_nome > 0:
+                segnalatore_cut = segnalatore_clean[:spazio_rimasto_nome].strip("-")
+                file_name_export = f"{prefisso}{segnalatore_cut}{suffisso}"
             else:
-                base_filename = f"{prefisso}{segnalatore_clean}{suffisso}"[:50].rstrip("_")
+                base_str = f"{prefisso}{segnalatore_clean}_Costo_Eco"
+                file_name_export = f"{base_str[:46]}.csv"
 
-            file_name_export = f"{base_filename}{estensione}"
-
-            # Percorso su GitHub: Stima_Economica/Report/<nome_file>.csv
+            # Percorso di destinazione su GitHub
             github_repo_path = f"Stima_Economica/Report/{file_name_export}"
 
-            # Converti in stringa CSV codificata in utf-8
+            # Conversione in byte per il CSV
             csv_content_str = df_export.to_csv(index=False, sep=";")
             csv_bytes = csv_content_str.encode("utf-8")
 
