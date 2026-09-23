@@ -2606,55 +2606,66 @@ if nav == "Analisi - Fase 2":
             }
 
             # ==================================================================
-            # 1. GENERAZIONE PDF SICURA (CON WRAP AUTOMATICO TESTI)
+            # 1. GENERAZIONE PDF SICURA E ANTI-CRASH
             # ==================================================================
+            # Funzione di pulizia testo per FPDF (evita eccezioni su caratteri non-latin1)
+            def safe_txt(texto):
+                if texto is None:
+                    return ""
+                txt_str = str(texto)
+                # Conversione sicura per font standard Arial di FPDF
+                return txt_str.encode("latin-1", "replace").decode("latin-1")
+
             pdf = FPDF()
             pdf.add_page()
+            pdf.set_margins(15, 15, 15)
             pdf.set_auto_page_break(auto=True, margin=15)
+
+            # Utilizzo larghezza pagina effettiva calcolata (evita bug di spaziatura orizzontale)
+            epw = pdf.epw 
 
             # Titolo
             pdf.set_font("Arial", "B", 16)
-            pdf.cell(0, 10, "Report Analisi Near Miss", ln=True, align="C")
+            pdf.cell(epw, 10, safe_txt("Report Analisi Near Miss"), ln=True, align="C")
             pdf.ln(5)
 
             # Intestazione e Riferimenti
             pdf.set_font("Arial", size=10)
-            pdf.multi_cell(0, 6, f"Data Generazione: {data_generazione}")
-            pdf.multi_cell(0, 6, f"File Obbligatorio: {file_obbligatorio}")
-            pdf.multi_cell(0, 6, f"File Facoltativo: {file_facoltativo}")
-            pdf.multi_cell(0, 6, f"Riferimento: {scelta_rif}")
+            pdf.multi_cell(epw, 6, safe_txt(f"Data Generazione: {data_generazione}"))
+            pdf.multi_cell(epw, 6, safe_txt(f"File Obbligatorio: {file_obbligatorio}"))
+            pdf.multi_cell(epw, 6, safe_txt(f"File Facoltativo: {file_facoltativo}"))
+            pdf.multi_cell(epw, 6, safe_txt(f"Riferimento: {scelta_rif}"))
             pdf.ln(5)
 
             # Analisi 4M
             pdf.set_font("Arial", "B", 12)
-            pdf.cell(0, 8, "Analisi 4M:", ln=True)
+            pdf.cell(epw, 8, safe_txt("Analisi 4M:"), ln=True)
             pdf.set_font("Arial", size=10)
             for key, val in dati_report["4M"].items():
-                pdf.multi_cell(0, 6, f"- {key}: {val}")
+                pdf.multi_cell(epw, 6, safe_txt(f"- {key}: {val}"))
             pdf.ln(4)
 
             # 5Whys
             pdf.set_font("Arial", "B", 12)
-            pdf.cell(0, 8, "5Whys:", ln=True)
+            pdf.cell(epw, 8, safe_txt("5Whys:"), ln=True)
             pdf.set_font("Arial", size=10)
             for i, why in enumerate(dati_report["5Whys"], 1):
-                pdf.multi_cell(0, 6, f"Perché {i}: {why}")
+                pdf.multi_cell(epw, 6, safe_txt(f"Perché {i}: {why}"))
             pdf.ln(4)
 
             # Conclusioni
             pdf.set_font("Arial", "B", 12)
-            pdf.cell(0, 8, "Conclusioni:", ln=True)
+            pdf.cell(epw, 8, safe_txt("Conclusioni:"), ln=True)
             pdf.set_font("Arial", size=10)
-            pdf.multi_cell(0, 6, dati_report["Conclusioni"])
+            pdf.multi_cell(epw, 6, safe_txt(dati_report["Conclusioni"]))
             pdf.ln(6)
 
             # Diagramma Ishikawa
             pdf.set_font("Arial", "B", 10)
-            pdf.cell(0, 8, "Diagramma di Ishikawa:", ln=True)
-            # Verifica spazio rimanente prima dell'immagine per evitare pagine vuote o tagli
+            pdf.cell(epw, 8, safe_txt("Diagramma di Ishikawa:"), ln=True)
             if pdf.get_y() > 180:
                 pdf.add_page()
-            pdf.image(temp_img, w=180)
+            pdf.image(temp_img, w=epw)
 
             pdf_output = bytes(pdf.output(dest="S"))
             st.session_state.pdf_bytes = pdf_output
