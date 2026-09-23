@@ -2473,9 +2473,76 @@ GITHUB_TOKEN = st.secrets.get(
 )
 REPO_NAME = st.secrets.get("REPO_NAME", os.environ.get("REPO_NAME", ""))
 
-# Assicura la presenza della cartella locale per evitare errori I/O
 DIR_ANALISI = "Analisi_Fase2"
 os.makedirs(DIR_ANALISI, exist_ok=True)
+
+
+# Funzione di supporto per la generazione rigorosa del nome file corto (MAX 50 CARATTERI)
+def calcola_nome_file_corto(scelta_stringa):
+    # 1. Progressivo univoco orario corto (HHMMSS -> 6 char)
+    progressivo = datetime.now().strftime("%H%M%S")
+
+    # Impostazioni di default
+    origine = "NM"
+    data_str = datetime.now().strftime("%d_%m_%Y")
+    segnalante_str = "Anonimo"
+
+    # Estrazione informazioni dal testo del selectbox
+    parti = [p.strip() for p in scelta_stringa.split("|")]
+
+    # Determinazione Origine (NM o Manutenzione)
+    testo_completo = scelta_stringa.upper()
+    if "MANUTENZIONE" in testo_completo:
+        origine = "Manutenzione"
+    elif "NM" in testo_completo:
+        origine = "NM"
+
+    # Estrazione Data e Nome/Cognome se presenti nel formato
+    for parte in parti:
+        # Cerca pattern data (es. 21-09-2026 o 21/09/2026)
+        match_data = re.search(r"\b\d{2}[-/\.]\d{2}[-/\.]\d{4}\b", parte)
+        if match_data:
+            data_str = match_data.group(0).replace("-", "_").replace("/", "_")
+            continue
+
+        # Cerca il nome del segnalante (escludendo parole chiave del sistema e numeri)
+        parole = parte.split()
+        parole_valide = [
+            p
+            for p in parole
+            if p.upper()
+            not in [
+                "NM",
+                "AN",
+                "COLLEGAMENTO",
+                "NESSUNA",
+                "NUOVA",
+                "ANALISI",
+                "MANUTENZIONE",
+                "EVENTO",
+            ]
+            and not re.search(r"\d", p)
+        ]
+
+        if len(parole_valide) >= 2:
+            # Iniziale del Nome + Cognome per esteso
+            iniziale_nome = parole_valide[0][0].upper()
+            cognome = "_".join(parole_valide[1:])
+            segnalante_str = f"{iniziale_nome}_{cognome}"
+        elif len(parole_valide) == 1:
+            segnalante_str = parole_valide[0]
+
+    # Sanificazione caratteri speciali dal nome del segnalante
+    segnalante_str = re.sub(r"[^\w]", "_", segnalante_str)
+    segnalante_str = re.sub(r"_+", "_", segnalante_str).strip("_")
+
+    # Assemblaggio: HHMMSS_AN2_Origine_Data_InizialeCognome
+    nome_grezzo = f"{progressivo}_AN2_{origine}_{data_str}_{segnalante_str}"
+
+    # TAGLIO RIGIDO A MASSIMO 50 CARATTERI
+    nome_finale = nome_grezzo[:50].rstrip("_")
+    return nome_finale
+
 
 if nav == "Analisi - Fase 2":
     st.header("Analisi - Fase 2 delle segnalazioni near miss")
@@ -2505,25 +2572,20 @@ if nav == "Analisi - Fase 2":
         if os.path.exists(FILE_NEAR_MISS):
             df_nm = pd.read_csv(FILE_NEAR_MISS, sep=";")
             for idx, r in df_nm.iterrows():
-                tipo_orig = (
-                    "Manutenzione"
-                    if "MANUTENZIONE"
-                    in str(r.get("Tipo Evento", "")).upper()
-                    else "NM"
-                )
-                data_seg = str(r.get("Data Segnalazione", "N/D"))
-                nome_seg = str(
+                tipo_ev = str(r.get("Tipo Evento", "NM"))
+                data_ev = str(r.get("Data Segnalazione", "N/D"))
+                nome_ev = str(
                     r.get("Segnalante", r.get("Nome", "Anonimo"))
                 ).strip()
-                opzioni.append(f"{tipo_orig} | {data_seg} | {nome_seg}")
+                opzioni.append(f"{tipo_ev} | {data_ev} | {nome_ev}")
 
         # Leggi Analisi già fatte
         if os.path.exists(FILE_ANALISI_NM):
             df_an = pd.read_csv(FILE_ANALISI_NM, sep=";")
             for idx, r in df_an.iterrows():
-                data_seg = str(r.get("Data Analisi", "N/D"))
-                nome_seg = str(r.get("Analista", "Anonimo")).strip()
-                opzioni.append(f"AN | {data_seg} | {nome_seg}")
+                data_an = str(r.get("Data Analisi", "N/D"))
+                nome_an = str(r.get("Analista", "Anonimo")).strip()
+                opzioni.append(f"AN | {data_an} | {nome_an}")
 
         scelta_rif = st.selectbox(
             "Seleziona evento/analisi collegata:", opzioni
@@ -2555,7 +2617,6 @@ if nav == "Analisi - Fase 2":
             ax.axis("off")
             ax.plot([1, 9], [0, 0], color="black", lw=3)
 
-            # Aggiunta branchie (Ishikawa)
             def wrap(text):
                 return "\n".join(textwrap.wrap(str(text), width=20))
 
@@ -2581,11 +2642,9 @@ if nav == "Analisi - Fase 2":
             plt.close()
             st.pyplot(fig)
 
-            # Lettura dell'immagine PNG creata in binario per il salvataggio in sessione
             with open(temp_img, "rb") as img_file:
                 png_bytes = img_file.read()
 
-            # Raccolta metadati
             data_generazione = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             file_obbligatorio = FILE_ANALISI_NM
             file_facoltativo = (
@@ -2594,10 +2653,8 @@ if nav == "Analisi - Fase 2":
                 else "Non utilizzato / Assente"
             )
 
-            # Conversione Base64
             png_base64 = base64.b64encode(png_bytes).decode("utf-8")
 
-            # Dati strutturati per Export
             dati_report = {
                 "Data Generazione Report": data_generazione,
                 "File Obbligatorio Associato": file_obbligatorio,
@@ -2627,7 +2684,6 @@ if nav == "Analisi - Fase 2":
             pdf.cell(0, 6, f"Riferimento: {scelta_rif}", ln=True)
             pdf.ln(5)
 
-            # Scrittura Analisi 4M
             pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "Analisi 4M:", ln=True)
             pdf.set_font("Arial", size=12)
@@ -2635,7 +2691,6 @@ if nav == "Analisi - Fase 2":
                 pdf.cell(0, 10, f"- {key}: {val}", ln=True)
             pdf.ln(5)
 
-            # Scrittura 5Whys
             pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "5Whys:", ln=True)
             pdf.set_font("Arial", size=12)
@@ -2643,19 +2698,16 @@ if nav == "Analisi - Fase 2":
                 pdf.cell(0, 10, f"Perché {i}: {why}", ln=True)
             pdf.ln(5)
 
-            # Scrittura Conclusioni
             pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "Conclusioni:", ln=True)
             pdf.set_font("Arial", size=12)
             pdf.multi_cell(0, 10, dati_report["Conclusioni"])
             pdf.ln(5)
 
-            # Inserimento visivo del grafico PNG
             pdf.set_font("Arial", "B", 10)
             pdf.cell(0, 10, "Diagramma di Ishikawa:", ln=True)
             pdf.image(temp_img, w=180)
 
-            # Output del file in bytes
             pdf_output = bytes(pdf.output(dest="S"))
             st.session_state.pdf_bytes = pdf_output
 
@@ -2677,51 +2729,12 @@ if nav == "Analisi - Fase 2":
             st.session_state.png_bytes = png_bytes
 
             # ==================================================================
-            # --- SALVATAGGIO AUTOMATICO SU GITHUB ---
+            # --- SALVATAGGIO AUTOMATICO SU GITHUB CON NOME CORTO GARANTITO ---
             # ==================================================================
             if GITHUB_TOKEN and REPO_NAME:
-                # 1. Codice progressivo univoco breve (Ora/Minuti/Secondi)
-                codice_progressivo = datetime.now().strftime("%H%M%S")
+                # Generazione del nome file con la nuova funzione (max 50 caratteri)
+                base_filename = calcola_nome_file_corto(scelta_rif)
 
-                # 2. Parsing dell'origine, della data e del nome dal menu selezionato
-                # Formato atteso: "Origine | Data | Nome Cognome"
-                parti = [p.strip() for p in scelta_rif.split("|")]
-
-                if len(parti) >= 3:
-                    origine_seg = (
-                        "Manutenzione"
-                        if "MANUTENZIONE" in parti[0].upper()
-                        else "NM"
-                    )
-                    data_seg = re.sub(
-                        r"[^\w]", "_", parti[1]
-                    )  # Converte / o - in _
-
-                    # Formattazione Iniziale Nome + Cognome
-                    nomi_cognomi = parti[2].split()
-                    if len(nomi_cognomi) >= 2:
-                        iniziale_nome = nomi_cognomi[0][0].upper()
-                        cognome = "_".join(nomi_cognomi[1:])
-                        segnalante_fmt = f"{iniziale_nome}_{cognome}"
-                    elif len(nomi_cognomi) == 1:
-                        segnalante_fmt = nomi_cognomi[0]
-                    else:
-                        segnalante_fmt = "Anonimo"
-                else:
-                    origine_seg = "NM"
-                    data_seg = datetime.now().strftime("%d_%m_%Y")
-                    segnalante_fmt = "Generico"
-
-                # Sanificazione dei caratteri speciali
-                segnalante_fmt = re.sub(r"[^\w]", "_", segnalante_fmt)
-
-                # 3. Composizione Nome File: Codice_AN2_Origine_Data_InizialeCognome
-                base_temp = f"{codice_progressivo}_AN2_{origine_seg}_{data_seg}_{segnalante_fmt}"
-
-                # 4. Taglio a 50 caratteri massimo
-                base_filename = base_temp[:50].rstrip("_")
-
-                # Mappa dei file da salvare
                 files_to_upload = {
                     f"Analisi_Fase2/{base_filename}.pdf": pdf_output,
                     f"Analisi_Fase2/{base_filename}_Ish.png": png_bytes,
@@ -2780,7 +2793,7 @@ if nav == "Analisi - Fase 2":
 
                 if caricamento_ok:
                     st.success(
-                        f"Report salvato automaticamente in 'Analisi_Fase2/' su GitHub con il nome: **{base_filename}**"
+                        f"Report salvato in 'Analisi_Fase2/' con il nome corto (lunghezza {len(base_filename)} car.): **{base_filename}**"
                     )
             else:
                 st.warning(
