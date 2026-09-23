@@ -4372,8 +4372,10 @@ if nav == "Stima Costo Economico":
             else:
                 origine = "NM"
 
-            # 3. Recupero Segnalatore dalla riga d'origine del CSV
+            # 3. Recupero Segnalatore in base all'indice colonna (6a colonna se NM, 5a colonna se M)
             raw_segnalatore = ""
+            col_target_idx = 5 if origine == "NM" else 4  # Indice 5 = Colonna 6, Indice 4 = Colonna 5
+
             if "FILE_NEAR_MISS" in globals() and os.path.exists(FILE_NEAR_MISS) and scelta_rif != "Nessuna (Nuova analisi)":
                 try:
                     df_check = pd.read_csv(FILE_NEAR_MISS, sep=";")
@@ -4382,17 +4384,15 @@ if nav == "Stima Costo Economico":
                         str_check_an = f"AN | {r_c.get('Data Analisi', 'N/D')} | Collegamento: {r_c.get('Segnalazione Collegata', 'Analisi')}"
                         
                         if scelta_rif in [str_check_nm, str_check_an]:
-                            for col in ["Segnalatore", "Segnalante", "Nome e Cognome", "Nome"]:
-                                if col in r_c and pd.notna(r_c[col]):
-                                    val_col = str(r_c[col]).strip()
-                                    if val_col and val_col.lower() != "nan":
-                                        raw_segnalatore = val_col
-                                        break
-                            break
+                            if len(r_c) > col_target_idx:
+                                val_col = str(r_c.iloc[col_target_idx]).strip()
+                                if val_col and val_col.lower() != "nan":
+                                    raw_segnalatore = val_col
+                                    break
                 except Exception:
                     pass
 
-            # Formattazione: Iniziale prima parola + seconda parola intera (sia per NM che per M)
+            # Formattazione: Prima lettera della prima parola + seconda parola intera
             if raw_segnalatore:
                 parole = re.sub(r"[^\w\s]", "", raw_segnalatore).split()
                 if len(parole) >= 2:
